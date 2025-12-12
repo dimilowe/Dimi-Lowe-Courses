@@ -40,8 +40,7 @@ export type EngineType =
   | "static"
   | "standalone"
   | "outfit"
-  | "price-engine"
-  | "universal-cart-engine";
+  | "price-engine";
 
 export type InputType = "image" | "text" | "url" | "file" | "number" | "selection" | "none" | "multi";
 export type OutputType = "image" | "text" | "file" | "download" | "analysis" | "display" | "interactive";
@@ -930,23 +929,6 @@ export const toolsRegistry: Tool[] = [
     outputType: "text",
     relatedTools: ["horoscope-of-the-day", "maker-quotes-generator"],
     relatedArticles: ["affirmation-about-self-love"]
-  },
-  {
-    id: "universal-shopping-cart",
-    name: "Universal Shopping Cart",
-    slug: "universal-shopping-cart",
-    description: "Save products from any website. Add notes, tags, and share your wishlist.",
-    category: "utilities",
-    tags: ["utilities", "new"],
-    icon: "ShoppingCart",
-    iconBg: "bg-pink-500",
-    priority: 85,
-    isNew: true,
-    engineType: "universal-cart-engine",
-    inputType: "url",
-    outputType: "interactive",
-    relatedTools: ["track-price"],
-    relatedArticles: []
   }
 ];
 

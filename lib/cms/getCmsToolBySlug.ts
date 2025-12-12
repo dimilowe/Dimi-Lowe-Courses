@@ -19,11 +19,6 @@ export interface ToolMonetization {
   offer_key?: string;
 }
 
-export interface FaqItem {
-  question: string;
-  answer: string;
-}
-
 export interface CmsToolData {
   slug: string;
   type: 'tool';
@@ -36,10 +31,6 @@ export interface CmsToolData {
   interlink_parent?: string;
   interlink_siblings?: string[];
   interlink_tools?: string[];
-  deepContent?: string;
-  contentGuide?: string[];
-  proTips?: string[];
-  faq?: FaqItem[];
 }
 
 export interface CmsToolRecord {
@@ -70,10 +61,6 @@ export interface ToolForRenderer {
   interlinkParent?: string;
   interlinkSiblings?: string[];
   interlinkTools?: string[];
-  deepContent?: string;
-  contentGuide?: string[];
-  proTips?: string[];
-  faq?: FaqItem[];
 }
 
 export const ENGINE_TO_CATEGORY: Record<string, { label: string; key: string }> = {
@@ -136,10 +123,6 @@ export async function getCmsToolBySlug(
     interlinkParent: data.interlink_parent,
     interlinkSiblings: data.interlink_siblings,
     interlinkTools: data.interlink_tools,
-    deepContent: data.deepContent,
-    contentGuide: data.contentGuide,
-    proTips: data.proTips,
-    faq: data.faq,
   };
 }
 
