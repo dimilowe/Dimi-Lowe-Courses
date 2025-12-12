@@ -1,0 +1,217 @@
+✅ REPLIT PROMPT — Create & Register the thumbnail-analysis Engine (NO DRIFT)
+You are modifying VCM Suite. Apply ONLY the exact changes below with ZERO deviation, ZERO refactoring, and NO touching unrelated files. Do not rename anything. Do not reorganize logic. Follow instructions literally.
+
+====================================================
+STEP 1 — CREATE ENGINE COMPONENT
+====================================================
+
+Create a new file at:
+components/engines/ThumbnailAnalysisEngine.tsx
+
+Exact contents (copy *exactly*): 
+
+----------------------------------------------------
+import React, { useState } from "react";
+
+export default function ThumbnailAnalysisEngine({ engineConfig }: any) {
+  const [thumbnail, setThumbnail] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null;
+    if (file) {
+      setThumbnail(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  }
+
+  async function analyze() {
+    if (!thumbnail) return;
+
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    const formData = new FormData();
+    formData.append("thumbnail", thumbnail);
+
+    try {
+      const res = await fetch("/api/thumbnail-analysis", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || "Failed to analyze thumbnail.");
+      } else {
+        setResult(json.analysis);
+      }
+    } catch (err: any) {
+      setError("Unexpected error. Try again.");
+    }
+
+    setLoading(false);
+  }
+
+  return (
+    <div className="flex flex-col gap-6 w-full max-w-3xl mx-auto">
+      <div className="border border-gray-200 rounded-lg p-6 bg-white shadow-sm">
+        <h2 className="text-xl font-semibold mb-4">Upload Thumbnail</h2>
+
+        <input
+          type="file"
+          accept="image/png, image/jpeg, image/jpg, image/webp"
+          onChange={handleFile}
+        />
+
+        {previewUrl && (
+          <img
+            src={previewUrl}
+            className="mt-4 rounded-lg border shadow-sm max-h-64 object-contain"
+          />
+        )}
+
+        <button
+          onClick={analyze}
+          disabled={!thumbnail || loading}
+          className="mt-4 px-4 py-2 bg-orange-600 text-white rounded-lg disabled:opacity-50"
+        >
+          {loading ? "Analyzing..." : "Analyze Thumbnail"}
+        </button>
+
+        {error && <p className="text-red-600 mt-4">{error}</p>}
+      </div>
+
+      {result && (
+        <div className="border border-gray-200 rounded-lg p-6 bg-white shadow-sm">
+          <h2 className="text-xl font-semibold mb-4">Analysis Results</h2>
+
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            {Object.entries(result.scores).map(([k, v]) => (
+              <div key={k}>
+                <p className="font-medium capitalize">{k}</p>
+                <div className="w-full bg-gray-100 rounded-full h-2 mt-1">
+                  <div
+                    className="bg-green-500 h-2 rounded-full"
+                    style={{ width: `${v}%` }}
+                  ></div>
+                </div>
+                <p className="text-sm mt-1">{v}/100</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mb-4">
+            <h3 className="font-semibold mb-1">Overall Verdict</h3>
+            <p>{result.overallVerdict}</p>
+          </div>
+
+          <div className="mb-4">
+            <h3 className="font-semibold mb-1">What’s Working</h3>
+            <ul className="list-disc ml-5">
+              {result.whatsWorking.map((item: string, i: number) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mb-4">
+            <h3 className="font-semibold mb-1">What To Improve</h3>
+            <ul className="list-disc ml-5">
+              {result.whatToImprove.map((item: string, i: number) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold mb-1">Suggestions</h3>
+            <ul className="list-disc ml-5">
+              {result.suggestions.map((item: string, i: number) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+----------------------------------------------------
+
+====================================================
+STEP 2 — REGISTER ENGINE IN ENGINE_REGISTRY
+====================================================
+
+Open:
+lib/engineRegistry.ts
+
+Add this EXACT entry inside ENGINE_COMPONENTS:
+
+----------------------------------------------------
+import dynamic from "next/dynamic";
+
+THUMBNAIL ANALYSIS ENGINE:
+ENGINE_COMPONENTS["thumbnail-analysis"] = dynamic(
+  () => import("@/components/engines/ThumbnailAnalysisEngine"),
+  { ssr: false }
+);
+----------------------------------------------------
+
+DO NOT rename the key.
+DO NOT change dynamic loader format.
+
+====================================================
+STEP 3 — UPDATE ai-thumbnail-coach CMS OBJECT
+====================================================
+
+Update CMS for ai-thumbnail-coach:
+
+engine_config:
+{
+  "engine": "thumbnail-analysis",
+  "preset": "youtube"
+}
+
+====================================================
+STEP 4 — ENABLE ENGINE FOR OTHER CMS TOOLS
+====================================================
+
+For each analyzer tool:
+youtube-thumbnail-analyzer
+tiktok-thumbnail-analyzer
+instagram-thumbnail-analyzer
+linkedin-thumbnail-analyzer
+pinterest-thumbnail-analyzer
+
+Set:
+
+engine: thumbnail-analysis  
+engine_config.engine: thumbnail-analysis  
+engine_config.preset: (use appropriate platform string)
+
+====================================================
+STEP 5 — ENABLE GATING
+====================================================
+
+Open data/toolsRegistry.ts and add/update:
+
+hasAi: true,
+heavyMode: "single",
+
+====================================================
+
+Make NO other changes. No refactoring. No renaming. No logic edits beyond what is explicitly written.
+✅ After This Prompt, You Will Have:
+✔ A real engine: thumbnail-analysis
+✔ A fully CMS-compatible AI Thumbnail Analyzer
+✔ All pages working again
+✔ Ability to add unlimited analyzer tools via JSON drops
+✔ Cloud gating support (Basic vs Pro vs Ungated)
+✔ Spain Guy's beloved tool restored
+✔ Unified architecture with zero drift
