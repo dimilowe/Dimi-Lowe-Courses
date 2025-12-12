@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, FormEvent } from 'react';
-import { Plus, Trash2, ExternalLink, Edit2, X, Check, Share2, Lock, ShoppingCart, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, ExternalLink, Edit2, X, Check, Share2, Lock, ShoppingCart, AlertTriangle, ChevronDown, ChevronUp, Lightbulb, BookOpen, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ToolForRenderer } from '@/lib/cms/getCmsToolBySlug';
@@ -563,6 +563,60 @@ export default function UniversalCartEngine({ tool, canUsePro, canUseBasic }: Un
         ))}
       </div>
 
+      {tool.deepContent && (
+        <section className="mt-10 bg-white rounded-xl border p-6">
+          <h2 className="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-pink-500" />
+            About This Tool
+          </h2>
+          <div className="prose prose-sm max-w-none text-zinc-600">
+            {tool.deepContent.split('\n\n').map((paragraph, i) => (
+              <p key={i} className="mb-3">{paragraph}</p>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {tool.contentGuide && tool.contentGuide.length > 0 && (
+        <section className="mt-8 bg-white rounded-xl border p-6">
+          <h2 className="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
+            <Lightbulb className="w-5 h-5 text-amber-500" />
+            How to Use
+          </h2>
+          <ol className="space-y-3">
+            {tool.contentGuide.map((step, i) => (
+              <li key={i} className="flex gap-3 text-sm text-zinc-600">
+                <span className="w-6 h-6 flex-shrink-0 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center font-semibold text-xs">
+                  {i + 1}
+                </span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {tool.proTips && tool.proTips.length > 0 && (
+        <section className="mt-8 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-6">
+          <h2 className="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
+            <Lightbulb className="w-5 h-5 text-amber-600" />
+            Pro Tips
+          </h2>
+          <ul className="space-y-2">
+            {tool.proTips.map((tip, i) => (
+              <li key={i} className="flex gap-2 text-sm text-zinc-700">
+                <span className="text-amber-500 mt-0.5">•</span>
+                <span>{tip}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {tool.faq && tool.faq.length > 0 && (
+        <FAQSection faqs={tool.faq} />
+      )}
+
       <ShoppingCloudUpgradeModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -570,5 +624,55 @@ export default function UniversalCartEngine({ tool, canUsePro, canUseBasic }: Un
         sourceCTAId="save-more-items"
       />
     </div>
+  );
+}
+
+function FAQSection({ faqs }: { faqs: { question: string; answer: string }[] }) {
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
+
+  return (
+    <section className="mt-8 bg-white rounded-xl border p-6">
+      <h2 className="text-xl font-bold text-zinc-900 mb-4 flex items-center gap-2">
+        <HelpCircle className="w-5 h-5 text-blue-500" />
+        Frequently Asked Questions
+      </h2>
+      <div className="space-y-2">
+        {faqs.map((faq, index) => (
+          <div key={index} className="border-b border-zinc-100 last:border-0">
+            <button
+              onClick={() => setOpenIndex(openIndex === index ? null : index)}
+              className="w-full flex items-center justify-between py-3 text-left"
+            >
+              <h3 className="font-medium text-zinc-900 pr-4">{faq.question}</h3>
+              {openIndex === index ? (
+                <ChevronUp className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+              )}
+            </button>
+            {openIndex === index && (
+              <p className="text-sm text-zinc-600 pb-4 leading-relaxed">{faq.answer}</p>
+            )}
+          </div>
+        ))}
+      </div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'FAQPage',
+            mainEntity: faqs.map((faq) => ({
+              '@type': 'Question',
+              name: faq.question,
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: faq.answer,
+              },
+            })),
+          }),
+        }}
+      />
+    </section>
   );
 }
