@@ -52,17 +52,17 @@ const STORE_GRADIENTS: Record<string, [string, string]> = {
   "shopping.google.com": ["4285f4", "34a853"],
 };
 
-function getStoreGradient(domain: string): [string, string] {
+function getStoreColor(domain: string): string {
   const lowerDomain = domain.toLowerCase();
   if (STORE_GRADIENTS[lowerDomain]) {
-    return STORE_GRADIENTS[lowerDomain];
+    return STORE_GRADIENTS[lowerDomain][0];
   }
-  for (const [storeDomain, gradient] of Object.entries(STORE_GRADIENTS)) {
+  for (const [storeDomain, colors] of Object.entries(STORE_GRADIENTS)) {
     if (lowerDomain.includes(storeDomain.split(".")[0])) {
-      return gradient;
+      return colors[0];
     }
   }
-  return ["10b981", "059669"];
+  return "10b981";
 }
 
 function getStoreName(domain: string): string {
@@ -489,7 +489,7 @@ export default function UniversalShoppingCartClient() {
                       <div 
                         className="absolute inset-0 flex-col items-center justify-center text-white hidden"
                         style={{
-                          background: `linear-gradient(135deg, #${getStoreGradient(item.domain)[0]} 0%, #${getStoreGradient(item.domain)[1]} 100%)`
+                          backgroundColor: `#${getStoreColor(item.domain)}`
                         }}
                       >
                         <ShoppingBag className="w-10 h-10 mb-2 opacity-90" />
@@ -500,7 +500,7 @@ export default function UniversalShoppingCartClient() {
                     <div 
                       className="w-full h-full flex flex-col items-center justify-center text-white rounded-t-xl"
                       style={{
-                        background: `linear-gradient(135deg, #${getStoreGradient(item.domain)[0]} 0%, #${getStoreGradient(item.domain)[1]} 100%)`
+                        backgroundColor: `#${getStoreColor(item.domain)}`
                       }}
                     >
                       <ShoppingBag className="w-10 h-10 mb-2 opacity-90" />
