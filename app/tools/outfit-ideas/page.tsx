@@ -16,13 +16,10 @@ import {
   ArrowRight,
   ImageIcon,
   Tag,
-  AlertCircle,
-  Bookmark,
-  Check
+  AlertCircle
 } from 'lucide-react';
 import ExploreMoreTools from '@/components/ExploreMoreTools';
 import PostResultUpsell from '@/components/PostResultUpsell';
-import { useUIStore } from '@/lib/state/uiStore';
 
 interface DetectedItem {
   label: string;
@@ -57,67 +54,8 @@ export default function OutfitIdeasPage() {
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
-  const [savedItems, setSavedItems] = useState<Set<string>>(new Set());
-  const [savingItems, setSavingItems] = useState<Set<string>>(new Set());
-  const [saveToast, setSaveToast] = useState<{ show: boolean; message: string; isError: boolean }>({ show: false, message: '', isError: false });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const { openUpgradeModal } = useUIStore();
-
-  const showToast = (message: string, isError = false) => {
-    setSaveToast({ show: true, message, isError });
-    setTimeout(() => setSaveToast({ show: false, message: '', isError: false }), 3000);
-  };
-
-  const handleSaveToShoppingCloud = async (product: ProductResult) => {
-    const productKey = product.productUrl;
-    if (savedItems.has(productKey) || savingItems.has(productKey)) return;
-
-    setSavingItems(prev => new Set(prev).add(productKey));
-
-    try {
-      const priceNum = product.price ? parseFloat(product.price.replace(/[^0-9.]/g, '')) : undefined;
-      
-      const res = await fetch('/api/shopping/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'direct',
-          title: product.title,
-          imageUrl: product.imageUrl,
-          canonicalUrl: product.productUrl,
-          store: product.source,
-          priceCurrent: isNaN(priceNum as number) ? undefined : priceNum,
-          currency: 'USD',
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (data.loginRequired) {
-          showToast('Please log in to save items', true);
-          return;
-        }
-        if (data.upgradeRequired) {
-          openUpgradeModal('shoppingItems', data.requiredTier);
-          return;
-        }
-        throw new Error(data.error || 'Failed to save');
-      }
-
-      setSavedItems(prev => new Set(prev).add(productKey));
-      showToast('Saved to Shopping Cloud!');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to save item', true);
-    } finally {
-      setSavingItems(prev => {
-        const next = new Set(prev);
-        next.delete(productKey);
-        return next;
-      });
-    }
-  };
 
   const handleFileSelect = (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -363,17 +301,17 @@ export default function OutfitIdeasPage() {
                   {item.products.map((product, pIndex) => {
                     const gradientColors = product.retailerGradient?.split(',') || ['f97316', 'ea580c'];
                     const hasRealImage = product.imageUrl && !product.externalSearchLink && !product.retailerGradient;
-                    const productKey = product.productUrl;
-                    const isSaved = savedItems.has(productKey);
-                    const isSaving = savingItems.has(productKey);
                     
                     return (
-                      <div
+                      <a
                         key={pIndex}
-                        className="group bg-gray-50 rounded-xl p-3 hover:bg-gray-100 transition-all hover:scale-[1.02] relative"
+                        href={`/r?u=${encodeURIComponent(product.productUrl)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group bg-gray-50 rounded-xl p-3 hover:bg-gray-100 transition-all hover:scale-[1.02]"
                       >
                         {hasRealImage ? (
-                          <div className="aspect-square bg-white rounded-lg mb-2 overflow-hidden relative">
+                          <div className="aspect-square bg-white rounded-lg mb-2 overflow-hidden">
                             <img
                               src={product.imageUrl}
                               alt={product.title}
@@ -382,24 +320,6 @@ export default function OutfitIdeasPage() {
                                 (e.target as HTMLImageElement).style.display = 'none';
                               }}
                             />
-                            <button
-                              onClick={() => handleSaveToShoppingCloud(product)}
-                              disabled={isSaved || isSaving}
-                              className={`absolute top-2 right-2 p-1.5 rounded-lg transition-all ${
-                                isSaved 
-                                  ? 'bg-green-500 text-white' 
-                                  : 'bg-white/90 text-gray-600 hover:bg-orange-500 hover:text-white shadow-sm'
-                              }`}
-                              title={isSaved ? 'Saved to Shopping Cloud' : 'Save to Shopping Cloud'}
-                            >
-                              {isSaving ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : isSaved ? (
-                                <Check className="w-4 h-4" />
-                              ) : (
-                                <Bookmark className="w-4 h-4" />
-                              )}
-                            </button>
                           </div>
                         ) : (
                           <div 
@@ -410,24 +330,6 @@ export default function OutfitIdeasPage() {
                           >
                             <ShoppingBag className="w-8 h-8 mb-1 opacity-90" />
                             <span className="text-xs font-semibold opacity-90">{product.source}</span>
-                            <button
-                              onClick={() => handleSaveToShoppingCloud(product)}
-                              disabled={isSaved || isSaving}
-                              className={`absolute top-2 right-2 p-1.5 rounded-lg transition-all ${
-                                isSaved 
-                                  ? 'bg-green-500 text-white' 
-                                  : 'bg-white/90 text-gray-600 hover:bg-orange-500 hover:text-white shadow-sm'
-                              }`}
-                              title={isSaved ? 'Saved to Shopping Cloud' : 'Save to Shopping Cloud'}
-                            >
-                              {isSaving ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : isSaved ? (
-                                <Check className="w-4 h-4" />
-                              ) : (
-                                <Bookmark className="w-4 h-4" />
-                              )}
-                            </button>
                           </div>
                         )}
                         <p className="text-sm font-medium text-gray-900 line-clamp-2 mb-1 group-hover:text-orange-600 transition-colors">
@@ -436,18 +338,11 @@ export default function OutfitIdeasPage() {
                         {product.price && (
                           <p className="text-sm font-bold text-orange-600">{product.price}</p>
                         )}
-                        <div className="flex items-center justify-between mt-2">
-                          <a
-                            href={`/r?u=${encodeURIComponent(product.productUrl)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-xs text-gray-400 hover:text-orange-500 transition-colors"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            Shop Now
-                          </a>
+                        <div className="flex items-center gap-1 text-xs text-gray-400 mt-2 group-hover:text-orange-500 transition-colors">
+                          <ExternalLink className="w-3 h-3" />
+                          Shop Now
                         </div>
-                      </div>
+                      </a>
                     );
                   })}
                 </div>
@@ -526,27 +421,6 @@ export default function OutfitIdeasPage() {
 
         <ExploreMoreTools currentTool="/tools/outfit-ideas" />
       </div>
-
-      {saveToast.show && (
-        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-3 rounded-xl shadow-lg z-50 flex items-center gap-3 animate-in slide-in-from-bottom duration-200 ${
-          saveToast.isError ? 'bg-red-600' : 'bg-green-600'
-        } text-white`}>
-          {saveToast.isError ? (
-            <AlertCircle className="w-5 h-5" />
-          ) : (
-            <Check className="w-5 h-5" />
-          )}
-          <span className="font-medium">{saveToast.message}</span>
-          {!saveToast.isError && (
-            <Link
-              href="/clouds/shopping"
-              className="ml-2 px-3 py-1 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
-            >
-              View Cart
-            </Link>
-          )}
-        </div>
-      )}
     </div>
   );
 }

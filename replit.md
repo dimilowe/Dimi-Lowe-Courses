@@ -516,15 +516,6 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
-- 2025-12-12: **Shopping Cloud MVP** - Full shopping cart and wishlist system with tier-based limits
-  - Database schema: shopping_items, shopping_collections, shopping_items_collections (many-to-many), shopping_price_history
-  - API routes: /api/shopping/add (URL scrape + direct modes), /api/shopping/list (collection filtering), /api/shopping/collections, /api/shopping/update, /api/shopping/delete, /api/shopping/price-history
-  - Shopping Cloud dashboard at /clouds/shopping with collections sidebar, item grid, multi-select summary panel
-  - Components: ShoppingItemCard, CollectionsSidebar, AddItemInput, SelectionSummaryPanel, ItemDetailDrawer, CreateCollectionModal
-  - Tier limits in CLOUD_ENTITLEMENTS: shoppingItems (10/50/100/unlimited) and shoppingCollections (3/10/25/unlimited)
-  - Outfit Generator integration: "Save to Shopping Cloud" button on product cards with toast notifications
-  - Affiliate URL helper (lib/shopping/affiliateUrl.ts) ready for future provider integration
-  - URL scraper (lib/shopping/scraper.ts) with og:* meta tags and JSON-LD pattern extraction
 - 2025-12-11: **Internal Linking Architecture** - Complete SEO internal linking to prevent orphaned pillar pages
   - Created ToolBreadcrumb component (components/tools/ToolBreadcrumb.tsx):
     - Shows "Tools > [Pillar] > [Tool Name]" when tool has a pillar assigned

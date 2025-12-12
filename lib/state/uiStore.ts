@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { UserTier } from '@/lib/pricing/types';
 
-type UpgradeFeature = 'export' | 'exports' | 'heavyTools' | 'heavyTool' | 'ai' | 'workflows' | 'memory' | 'shoppingItems' | 'shoppingCollections' | null;
+type UpgradeFeature = 'export' | 'exports' | 'heavyTools' | 'heavyTool' | 'ai' | 'workflows' | 'memory' | null;
 type Tier = 'starter' | 'basic' | 'pro' | null;
 
 interface UIState {
