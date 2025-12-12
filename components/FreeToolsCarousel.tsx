@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Search, X, Wrench, FileImage, FileText, MessageCircleQuestion, Sparkles, Crosshair, Palette, Type, Mic, Youtube, Box, Flame, FileArchive, Vote, Rocket, ShoppingBag, HeartHandshake, FilePen, RotateCcw, Smile, Moon, Merge, LayoutGrid, Instagram, Twitter, Linkedin, Video, Zap, StickyNote, Network, FileBarChart, Film, Ruler, Workflow, ListCollapse } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X, Wrench, FileImage, FileText, MessageCircleQuestion, Sparkles, Target, Palette, Type, Music, Youtube, Package, Flame, FileArchive, BarChart2, Rocket, ShoppingBag, Heart, FilePen, RotateCcw, Smile, Moon, GitMerge, LayoutGrid, Instagram, Twitter, Linkedin, Video, Zap, StickyNote, Globe, BarChart, Clapperboard, Maximize, GitBranch, List } from "lucide-react";
 
 interface FeaturedTool {
   slug: string;
@@ -35,36 +35,36 @@ const defaultTools = [
 
 const toolIcons: Record<string, { icon: React.ComponentType<{ className?: string }>; bg: string }> = {
   "zip-file-creator": { icon: FileArchive, bg: "bg-sky-500" },
-  "prediction-center": { icon: Vote, bg: "bg-fuchsia-500" },
+  "prediction-center": { icon: BarChart2, bg: "bg-fuchsia-500" },
   "calorie-deficit-calculator": { icon: Flame, bg: "bg-green-500" },
   "ai-thumbnail-coach": { icon: Sparkles, bg: "bg-indigo-500" },
   "gif-compressor": { icon: Zap, bg: "bg-yellow-500" },
-  "gif-maker": { icon: Film, bg: "bg-pink-600" },
+  "gif-maker": { icon: Clapperboard, bg: "bg-pink-600" },
   "heic-to-jpg": { icon: RotateCcw, bg: "bg-rose-500" },
   "image-compressor": { icon: FileImage, bg: "bg-sky-500" },
   "online-notepad": { icon: StickyNote, bg: "bg-amber-500" },
   "word-counter": { icon: Type, bg: "bg-gray-500" },
   "logo-generator": { icon: Palette, bg: "bg-pink-500" },
   "keyword-finder": { icon: Search, bg: "bg-blue-500" },
-  "reach-grabber-tool": { icon: Crosshair, bg: "bg-red-400" },
+  "reach-grabber-tool": { icon: Target, bg: "bg-red-400" },
   "ai-humanizer-free": { icon: Palette, bg: "bg-indigo-500" },
-  "producer-tag-generator": { icon: Mic, bg: "bg-purple-600" },
-  "ad-copy-analyzer": { icon: FileBarChart, bg: "bg-sky-600" },
-  "summarizer": { icon: ListCollapse, bg: "bg-slate-500" },
+  "producer-tag-generator": { icon: Music, bg: "bg-purple-600" },
+  "ad-copy-analyzer": { icon: BarChart, bg: "bg-sky-600" },
+  "summarizer": { icon: List, bg: "bg-slate-500" },
   "emoji-combos": { icon: Smile, bg: "bg-yellow-400" },
   "horoscope-of-the-day": { icon: Moon, bg: "bg-indigo-400" },
   "youtube-title-split-test": { icon: RotateCcw, bg: "bg-red-500" },
   "youtube-thumbnail-resizer": { icon: Youtube, bg: "bg-red-500" },
   "youtube-thumbnail-analyzer": { icon: Youtube, bg: "bg-red-400" },
-  "calorie-counter-bmi": { icon: HeartHandshake, bg: "bg-rose-500" },
-  "internal-link-seo-audit": { icon: Network, bg: "bg-lime-500" },
-  "facebook-thumbnail-analyzer": { icon: Crosshair, bg: "bg-blue-500" },
-  "resource-box": { icon: Box, bg: "bg-orange-600" },
-  "social-media-image-sizes": { icon: Ruler, bg: "bg-violet-500" },
+  "calorie-counter-bmi": { icon: Heart, bg: "bg-rose-500" },
+  "internal-link-seo-audit": { icon: Globe, bg: "bg-lime-500" },
+  "facebook-thumbnail-analyzer": { icon: Target, bg: "bg-blue-500" },
+  "resource-box": { icon: Package, bg: "bg-orange-600" },
+  "social-media-image-sizes": { icon: Maximize, bg: "bg-violet-500" },
   "photo-gallery-maker": { icon: LayoutGrid, bg: "bg-blue-400" },
-  "name-combiner": { icon: Merge, bg: "bg-teal-400" },
-  "affirmation-about-self-love": { icon: HeartHandshake, bg: "bg-rose-400" },
-  "visualization": { icon: Workflow, bg: "bg-cyan-600" },
+  "name-combiner": { icon: GitMerge, bg: "bg-teal-400" },
+  "affirmation-about-self-love": { icon: Heart, bg: "bg-rose-400" },
+  "visualization": { icon: GitBranch, bg: "bg-cyan-600" },
   "maker-quotes-generator": { icon: Sparkles, bg: "bg-amber-400" },
   "instagram-bio-analyzer": { icon: Instagram, bg: "bg-pink-500" },
   "instagram-cta-analyzer": { icon: Instagram, bg: "bg-fuchsia-400" },
@@ -94,13 +94,13 @@ const engineIcons: Record<string, { icon: React.ComponentType<{ className?: stri
   "file-utility": { icon: FileArchive, bg: "bg-sky-500" },
   "calorie-calculator": { icon: Flame, bg: "bg-green-500" },
   "outfit-engine": { icon: ShoppingBag, bg: "bg-pink-500" },
-  "community": { icon: Vote, bg: "bg-fuchsia-500" },
+  "community": { icon: BarChart2, bg: "bg-fuchsia-500" },
   "word-counter": { icon: Type, bg: "bg-gray-500" },
   "logo-generator": { icon: Palette, bg: "bg-pink-500" },
-  "producer-tag": { icon: Mic, bg: "bg-purple-600" },
+  "producer-tag": { icon: Music, bg: "bg-purple-600" },
   "youtube-tool": { icon: Youtube, bg: "bg-red-500" },
-  "resource-box": { icon: Box, bg: "bg-orange-600" },
-  "reach-grabber": { icon: Crosshair, bg: "bg-red-400" },
+  "resource-box": { icon: Package, bg: "bg-orange-600" },
+  "reach-grabber": { icon: Target, bg: "bg-red-400" },
   "default": { icon: Wrench, bg: "bg-orange-500" },
 };
 

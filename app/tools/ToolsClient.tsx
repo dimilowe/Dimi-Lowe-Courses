@@ -10,32 +10,31 @@ import {
   GitBranch, 
   Smile, 
   Moon, 
-  HeartHandshake,
+  Heart,
   ArrowRight,
   Youtube,
-  Box,
-  Crosshair,
-  Mic,
-  FileBarChart,
-  Network,
-  ListCollapse,
+  Package,
+  Target,
+  Music,
+  BarChart,
+  Globe,
+  List,
   ShoppingBag,
   Flame,
   FilePen,
   StickyNote,
   X,
-  Vote,
+  BarChart2,
   LayoutGrid,
   RotateCcw,
-  Merge,
+  GitMerge,
   Instagram,
   Twitter,
   Linkedin,
   Video,
   Zap,
-  Film,
-  Ruler,
-  Workflow,
+  Clapperboard,
+  Maximize,
   Sparkles
 } from "lucide-react";
 
@@ -43,7 +42,7 @@ const tools = [
   { 
     name: "Prediction Center", 
     description: "Submit predictions about future events and vote YES or NO. See what the crowd thinks.",
-    icon: Vote, 
+    icon: BarChart2, 
     href: "/tools/prediction-center",
     category: "Community",
     iconBg: "bg-fuchsia-500"
@@ -83,7 +82,7 @@ const tools = [
   { 
     name: "Resource Box", 
     description: "Create shareable link collections for your bio.",
-    icon: Box, 
+    icon: Package, 
     href: "/tools/resource-box",
     category: "Social",
     iconBg: "bg-orange-600"
@@ -99,7 +98,7 @@ const tools = [
   { 
     name: "GIF Maker", 
     description: "Convert video or images to GIF directly in your browser.",
-    icon: Film, 
+    icon: Clapperboard, 
     href: "/tools/gif-maker",
     category: "Image",
     iconBg: "bg-pink-600"
@@ -123,7 +122,7 @@ const tools = [
   { 
     name: "Social Media Image Sizes", 
     description: "Complete guide to image dimensions for all social platforms with free resizer tools.",
-    icon: Ruler, 
+    icon: Maximize, 
     href: "/tools/social-media-image-sizes",
     category: "Image",
     iconBg: "bg-violet-500"
@@ -211,7 +210,7 @@ const tools = [
   { 
     name: "Reach Grabber Tool", 
     description: "AI-powered SEO optimizer for your blog posts and articles.",
-    icon: Crosshair, 
+    icon: Target, 
     href: "/tools/reach-grabber-tool",
     category: "SEO",
     iconBg: "bg-red-400"
@@ -227,7 +226,7 @@ const tools = [
   { 
     name: "Producer Tag Generator", 
     description: "Create custom AI voice tags for your beats and instrumentals.",
-    icon: Mic, 
+    icon: Music, 
     href: "/tools/producer-tag-generator",
     category: "Audio",
     iconBg: "bg-purple-600"
@@ -235,7 +234,7 @@ const tools = [
   { 
     name: "Ad Copy Analyzer", 
     description: "Analyze any ad copy and get scores, insights, and improved versions.",
-    icon: FileBarChart, 
+    icon: BarChart, 
     href: "/tools/ad-copy-analyzer",
     category: "Marketing",
     iconBg: "bg-sky-600"
@@ -243,7 +242,7 @@ const tools = [
   { 
     name: "Internal Link Audit", 
     description: "Find orphan pages and weak internal links to improve your SEO.",
-    icon: Network, 
+    icon: Globe, 
     href: "/tools/internal-link-seo-audit",
     category: "SEO",
     iconBg: "bg-lime-500"
@@ -251,7 +250,7 @@ const tools = [
   { 
     name: "AI Summarizer", 
     description: "Summarize any text and extract key takeaways instantly.",
-    icon: ListCollapse, 
+    icon: List, 
     href: "/tools/summarizer",
     category: "Writing",
     iconBg: "bg-slate-500"
@@ -259,7 +258,7 @@ const tools = [
   { 
     name: "Visualization Tool", 
     description: "Turn text into flowcharts, diagrams, and visual maps.",
-    icon: Workflow, 
+    icon: GitBranch, 
     href: "/tools/visualization",
     category: "Design",
     iconBg: "bg-cyan-600"
@@ -283,7 +282,7 @@ const tools = [
   { 
     name: "Self-Love Affirmations", 
     description: "Daily AI-generated affirmations for self-love and confidence.",
-    icon: HeartHandshake, 
+    icon: Heart, 
     href: "/tools/affirmation-about-self-love",
     category: "Lifestyle",
     iconBg: "bg-rose-400"
@@ -307,7 +306,7 @@ const tools = [
   { 
     name: "Name Combiner", 
     description: "Combine 2-3 names into creative mashups for couples or groups.",
-    icon: Merge, 
+    icon: GitMerge, 
     href: "/tools/name-combiner",
     category: "Social",
     iconBg: "bg-teal-400"
