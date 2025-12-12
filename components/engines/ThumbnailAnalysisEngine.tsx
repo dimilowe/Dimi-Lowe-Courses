@@ -1,7 +1,9 @@
 "use client";
 
 import { EngineComponentProps } from "@/lib/engineRegistry";
+import { useUIStore } from "@/lib/state/uiStore";
 import ThumbnailCoachClient from "@/app/tools/ai-thumbnail-coach/ThumbnailCoachClient";
+import { Lock, Sparkles } from "lucide-react";
 
 const VARIANT_CONFIG = {
   youtube: {
@@ -115,12 +117,23 @@ const faqs = [
   },
 ];
 
-export default function ThumbnailAnalysisEngine({ tool }: EngineComponentProps) {
+export default function ThumbnailAnalysisEngine({ tool, canUsePro, entitlementsLoading }: EngineComponentProps) {
   const variant = (tool?.preset as VariantKey | undefined) ?? "youtube";
   const cfg = VARIANT_CONFIG[variant] ?? VARIANT_CONFIG.youtube;
+  const { openUpgradeModal, openAuthModal } = useUIStore();
 
   const title = tool?.name || cfg.title;
   const description = tool?.description || cfg.heroCopy;
+
+  const isLocked = !canUsePro && !entitlementsLoading;
+
+  const handleUpgradeClick = () => {
+    if (canUsePro === undefined) {
+      openAuthModal();
+    } else {
+      openUpgradeModal("heavyTools", "pro");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -150,7 +163,38 @@ export default function ThumbnailAnalysisEngine({ tool }: EngineComponentProps) 
           </p>
         </div>
 
-        <ThumbnailCoachClient />
+        {isLocked ? (
+          <div className="max-w-xl mx-auto">
+            <div className="bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200 rounded-2xl p-8 text-center">
+              <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Lock className="w-8 h-8 text-orange-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                AI Analysis is Pro-Only
+              </h3>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                Upgrade to Pro to unlock AI-powered thumbnail analysis with detailed scoring, 
+                actionable feedback, and chat-based coaching.
+              </p>
+              <button
+                onClick={handleUpgradeClick}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-amber-600 transition-all shadow-lg shadow-orange-500/25"
+              >
+                <Sparkles className="w-5 h-5" />
+                Upgrade to Pro
+              </button>
+              <p className="text-sm text-gray-500 mt-4">
+                Preview the interface below to see what you get
+              </p>
+            </div>
+
+            <div className="mt-8 opacity-50 pointer-events-none select-none">
+              <ThumbnailCoachClient />
+            </div>
+          </div>
+        ) : (
+          <ThumbnailCoachClient />
+        )}
 
         <section className="mt-20 max-w-4xl mx-auto">
           <h2 className="text-3xl font-bold text-gray-900 mb-6">
