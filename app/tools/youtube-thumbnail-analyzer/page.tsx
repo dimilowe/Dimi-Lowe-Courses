@@ -3,25 +3,25 @@ import ThumbnailAnalyzerClient from "./ThumbnailAnalyzerClient";
 import ExploreMoreTools from "@/components/ExploreMoreTools";
 
 export const metadata: Metadata = {
-  title: "Free YouTube Thumbnail Analyzer | AI Thumbnail Checker & Optimizer",
-  description: "Free AI YouTube thumbnail analyzer. Get instant thumbnail feedback, CTR optimization scores, mobile readability testing, and AI coaching. No login required. Better than VidIQ or TubeBuddy thumbnail tools.",
+  title: "YouTube Thumbnail Analyzer | Free AI Thumbnail Analysis Tool",
+  description: "Use our free YouTube Thumbnail Analyzer to score your thumbnails instantly. Get AI-powered CTR predictions, readability tests, and actionable feedback. The best YouTube thumbnail analyzer online—no login required.",
   keywords: [
     "youtube thumbnail analyzer",
+    "youtube thumbnail analyzer free",
+    "youtube thumbnail analyzer online",
+    "best youtube thumbnail analyzer",
+    "ai youtube thumbnail analyzer",
+    "thumbnail analyzer youtube",
     "thumbnail analyzer",
-    "thumbnail checker",
-    "thumbnail tester",
-    "youtube thumbnail feedback",
-    "thumbnail optimization",
-    "improve thumbnail CTR",
-    "thumbnail critique tool",
-    "free thumbnail analysis",
-    "youtube thumbnail preview",
+    "youtube thumbnail tester",
+    "youtube thumbnail checker",
+    "youtube thumbnail score",
     "vidiq alternative",
     "tubebuddy alternative",
   ],
   openGraph: {
-    title: "Free AI YouTube Thumbnail Analyzer",
-    description: "Upload your thumbnail and get instant AI analysis with scores, feedback, and coaching. Free forever, no login required.",
+    title: "YouTube Thumbnail Analyzer | Free AI Analysis Tool",
+    description: "Analyze your YouTube thumbnails with our free AI tool. Get scores, CTR predictions, and improvement suggestions. Best YouTube thumbnail analyzer online.",
     type: "website",
   },
 };
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  "name": "VCM YouTube Thumbnail Analyzer",
+  "name": "YouTube Thumbnail Analyzer",
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "Web",
   "offers": {
@@ -37,7 +37,7 @@ const jsonLd = {
     "price": "0",
     "priceCurrency": "USD"
   },
-  "description": "Free AI-powered YouTube thumbnail analyzer that scores clarity, intrigue, emotion, contrast, readability, and composition. Includes chat-based coaching.",
+  "description": "YouTube Thumbnail Analyzer - Free AI-powered tool that analyzes your YouTube thumbnails for clarity, intrigue, emotion, contrast, readability, and composition. Get instant scores and improvement suggestions.",
   "aggregateRating": {
     "@type": "AggregateRating",
     "ratingValue": "4.8",
@@ -196,14 +196,13 @@ export default function YouTubeThumbnailAnalyzerPage() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              Free AI-Powered Thumbnail Analyzer
+              Free YouTube Thumbnail Analyzer
             </div>
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
               YouTube Thumbnail Analyzer
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Upload your thumbnail and get instant AI analysis with actionable feedback. 
-              Then chat with your AI coach for deeper optimization help.
+              The best free YouTube thumbnail analyzer online. Upload your thumbnail and get instant AI scores for CTR, readability, and visual impact.
             </p>
           </div>
 
@@ -213,25 +212,25 @@ export default function YouTubeThumbnailAnalyzerPage() {
           {/* SECTION 1: Keyword-Rich Intro */}
           <section className="mt-20 max-w-4xl mx-auto">
             <h2 className="text-3xl font-bold text-gray-900 mb-6">
-              The Free YouTube Thumbnail Analyzer That Actually Helps
+              The Best Free YouTube Thumbnail Analyzer Online
             </h2>
             <div className="prose prose-lg text-gray-700 space-y-4">
               <p>
-                Stop guessing whether your YouTube thumbnail will perform. Our free <strong>AI thumbnail analyzer</strong> gives you instant, 
+                Stop guessing whether your YouTube thumbnail will perform. Our <strong>YouTube thumbnail analyzer</strong> gives you instant, 
                 actionable feedback on every aspect of your thumbnail—from <strong>clarity and composition</strong> to <strong>text readability</strong> and 
-                emotional impact. Whether you&apos;re a gaming creator, vlogger, educator, or business channel, this <strong>thumbnail checker</strong> helps 
+                emotional impact. Whether you&apos;re a gaming creator, vlogger, educator, or business channel, this <strong>YouTube thumbnail analyzer</strong> helps 
                 you optimize for maximum click-through rate (CTR).
               </p>
               <p>
-                Unlike basic <strong>thumbnail template generators</strong> that give you cookie-cutter designs, our AI-powered <strong>thumbnail 
-                evaluator</strong> analyzes YOUR specific thumbnail and tells you exactly what&apos;s working and what needs improvement. You get 
-                scores for six critical metrics, plus a chat-based <strong>thumbnail coach</strong> who can answer your specific questions about 
+                Unlike basic thumbnail template generators that give you cookie-cutter designs, our AI-powered <strong>YouTube thumbnail 
+                analyzer</strong> evaluates YOUR specific thumbnail and tells you exactly what&apos;s working and what needs improvement. You get 
+                scores for six critical metrics, plus a chat-based coach who can answer your specific questions about 
                 fonts, colors, layouts, and more.
               </p>
               <p>
                 YouTube&apos;s algorithm rewards videos with high CTR—and your thumbnail is the #1 factor in getting those clicks. A compelling 
                 thumbnail that&apos;s <strong>readable on mobile</strong>, emotionally engaging, and visually clear can double your views. Use our 
-                <strong> free thumbnail analysis</strong> tool to test your designs before publishing, get <strong>thumbnail feedback</strong> instantly, 
+                <strong> YouTube thumbnail analyzer</strong> to test your designs before publishing, get instant feedback, 
                 and iterate toward thumbnails that actually convert. No login required, no limits, completely free.
               </p>
             </div>
@@ -240,10 +239,10 @@ export default function YouTubeThumbnailAnalyzerPage() {
           {/* SECTION 2: Example Analysis Previews */}
           <section className="mt-20">
             <h2 className="text-3xl font-bold text-gray-900 mb-4 text-center">
-              See How the Thumbnail Analyzer Works
+              See How the YouTube Thumbnail Analyzer Works
             </h2>
             <p className="text-gray-600 text-center mb-10 max-w-2xl mx-auto">
-              Here&apos;s what kind of feedback you can expect from our AI thumbnail checker. Each analysis includes scores, grades, and specific suggestions.
+              Here&apos;s what kind of feedback you can expect from our YouTube thumbnail analyzer. Each analysis includes scores, grades, and specific suggestions.
             </p>
             <div className="grid md:grid-cols-3 gap-6">
               {exampleAnalyses.map((example, i) => (
@@ -292,10 +291,10 @@ export default function YouTubeThumbnailAnalyzerPage() {
             </div>
           </section>
 
-          {/* SECTION 3: How the AI Thumbnail Analyzer Works */}
+          {/* SECTION 3: How the YouTube Thumbnail Analyzer Works */}
           <section className="mt-20 max-w-4xl mx-auto">
             <h2 className="text-3xl font-bold text-gray-900 mb-8">
-              How the AI YouTube Thumbnail Analyzer Works
+              How Our YouTube Thumbnail Analyzer Works
             </h2>
             
             <div className="space-y-8">
@@ -350,10 +349,10 @@ export default function YouTubeThumbnailAnalyzerPage() {
           {/* SECTION 4: Features Grid */}
           <section className="mt-20">
             <h2 className="text-3xl font-bold text-gray-900 mb-4 text-center">
-              What Our AI Thumbnail Analyzer Measures
+              What the YouTube Thumbnail Analyzer Measures
             </h2>
             <p className="text-gray-600 text-center mb-10 max-w-2xl mx-auto">
-              Comprehensive analysis covering every factor that affects your YouTube thumbnail performance.
+              Our YouTube thumbnail analyzer covers every factor that affects your thumbnail performance and CTR.
             </p>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               {features.map((feature, i) => (
@@ -373,7 +372,7 @@ export default function YouTubeThumbnailAnalyzerPage() {
           {/* SECTION 5: FAQ */}
           <section className="mt-20 max-w-4xl mx-auto">
             <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">
-              Frequently Asked Questions
+              YouTube Thumbnail Analyzer FAQ
             </h2>
             <div className="space-y-4">
               {faqs.map((faq, i) => (
