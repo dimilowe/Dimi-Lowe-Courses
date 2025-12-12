@@ -44,21 +44,41 @@ export default function UniversalShoppingCartClient() {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isSharedView, setIsSharedView] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
+    const params = new URLSearchParams(window.location.search);
+    const cartParam = params.get("cart");
+    
+    if (cartParam) {
       try {
-        setItems(JSON.parse(saved));
+        const decoded = JSON.parse(decodeURIComponent(atob(cartParam)));
+        if (Array.isArray(decoded)) {
+          setItems(decoded);
+          setIsSharedView(true);
+        }
       } catch (e) {
-        console.error("Failed to load cart", e);
+        console.error("Failed to load shared cart", e);
+      }
+    } else {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          setItems(JSON.parse(saved));
+        } catch (e) {
+          console.error("Failed to load cart", e);
+        }
       }
     }
+    setIsInitialized(true);
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }, [items]);
+    if (isInitialized && !isSharedView) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    }
+  }, [items, isInitialized, isSharedView]);
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -196,20 +216,6 @@ export default function UniversalShoppingCartClient() {
     }
   };
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const cartParam = params.get("cart");
-    if (cartParam && items.length === 0) {
-      try {
-        const decoded = JSON.parse(decodeURIComponent(atob(cartParam)));
-        if (Array.isArray(decoded)) {
-          setItems(decoded);
-        }
-      } catch (e) {
-        console.error("Failed to load shared cart", e);
-      }
-    }
-  }, []);
 
   const totalValue = useMemo(() => {
     return items.reduce((sum, item) => {
