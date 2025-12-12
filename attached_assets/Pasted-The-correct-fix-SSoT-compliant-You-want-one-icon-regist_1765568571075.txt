@@ -1,0 +1,82 @@
+The correct fix (SSoT-compliant)
+You want one icon registry + validation, and engine themes as the fallback.
+1) Canonical icon keys live as strings
+Tools/CMS objects store iconKey: 'sparkles' | 'image' | ... (NOT arbitrary strings).
+2) UI has exactly one mapping: ICON_REGISTRY
+That registry maps iconKey -> React component.
+No tool-slug mapping. No duplicate mappings in components.
+3) Fallback comes from the engine theme
+If a tool has no iconKey, it uses ENGINE_THEMES[engine].iconKey (and theme tokens for bg, etc).
+4) Validate + auto-fix invalid icon keys
+If iconKey is missing/invalid, normalize to the engine fallback (and optionally log once).
+Concrete implementation (what to build)
+icon-registry.ts
+// lib/ui/icon-registry.ts
+import {
+  Sparkles, Image, Video, FileText, ShoppingCart, Wand2, Search, Zap, Lock,
+} from "lucide-react";
+
+export const ICON_REGISTRY = {
+  sparkles: Sparkles,
+  image: Image,
+  video: Video,
+  fileText: FileText,
+  shoppingCart: ShoppingCart,
+  wand: Wand2,
+  search: Search,
+  zap: Zap,
+  lock: Lock,
+} as const;
+
+export type IconKey = keyof typeof ICON_REGISTRY;
+
+export function isIconKey(x: unknown): x is IconKey {
+  return typeof x === "string" && x in ICON_REGISTRY;
+}
+
+export function getIconComponent(iconKey: unknown) {
+  return isIconKey(iconKey) ? ICON_REGISTRY[iconKey] : ICON_REGISTRY.sparkles;
+}
+Theme fallback (engine drives defaults)
+// lib/ui/get-tool-ui.ts
+import { ENGINE_THEMES } from "@/lib/engines/ENGINE_THEMES";
+import { ICON_REGISTRY, isIconKey, type IconKey } from "@/lib/ui/icon-registry";
+
+type ToolLike = {
+  engine?: string | null;
+  iconKey?: unknown; // from CMS/DB
+};
+
+export function getToolIconKey(tool: ToolLike): IconKey {
+  const engine = tool.engine ?? "default";
+  const theme = ENGINE_THEMES[engine] ?? ENGINE_THEMES.default;
+
+  const fallback = theme.iconKey as IconKey; // ensure themes only use valid keys
+  return isIconKey(tool.iconKey) ? (tool.iconKey as IconKey) : fallback;
+}
+
+export function getToolIconComponent(tool: ToolLike) {
+  const key = getToolIconKey(tool);
+  return ICON_REGISTRY[key];
+}
+Enforce theme correctness (prevents drift)
+Make ENGINE_THEMES require iconKey: IconKey so it can’t be invalid:
+// ENGINE_THEMES.ts
+import type { IconKey } from "@/lib/ui/icon-registry";
+
+type EngineTheme = {
+  iconKey: IconKey;
+  // other tokens...
+};
+
+export const ENGINE_THEMES: Record<string, EngineTheme> = {
+  default: { iconKey: "sparkles" },
+  thumbnailAnalysis: { iconKey: "image" },
+  // ...
+};
+What this gives you
+One icon mapping in the entire codebase.
+No slug registry. No per-tool styling hacks.
+Engines automatically share icon defaults.
+Tools can override icon safely via iconKey (when truly needed).
+Invalid icons stop breaking UI — they gracefully fall back.

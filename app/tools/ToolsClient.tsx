@@ -2,314 +2,281 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { 
-  FileImage, 
-  Type, 
-  Palette, 
-  Search, 
-  GitBranch, 
-  Smile, 
-  Moon, 
-  Heart,
-  ArrowRight,
-  Youtube,
-  Package,
-  Target,
-  Music,
-  BarChart,
-  Globe,
-  List,
-  ShoppingBag,
-  Flame,
-  FilePen,
-  StickyNote,
-  X,
-  BarChart2,
-  LayoutGrid,
-  RotateCcw,
-  GitMerge,
-  Instagram,
-  Twitter,
-  Linkedin,
-  Video,
-  Zap,
-  Clapperboard,
-  Maximize,
-  Sparkles
-} from "lucide-react";
+import { Search, X, ArrowRight } from "lucide-react";
+import { getToolUI } from "@/lib/ui/get-tool-ui";
 
 const tools = [
   { 
     name: "Prediction Center", 
     description: "Submit predictions about future events and vote YES or NO. See what the crowd thinks.",
-    icon: BarChart2, 
+    slug: "prediction-center",
     href: "/tools/prediction-center",
     category: "Community",
-    iconBg: "bg-fuchsia-500"
+    engine: "community"
   },
   { 
     name: "Calorie Deficit Calculator", 
     description: "Snap your food + Health app screenshot to see today's calorie surplus or deficit.",
-    icon: Flame, 
+    slug: "calorie-deficit-calculator",
     href: "/tools/calorie-deficit-calculator",
     category: "AI",
-    iconBg: "bg-green-500"
+    engine: "ai-analysis"
   },
   { 
     name: "Outfit Ideas Generator", 
     description: "Upload outfit photos and find similar items to shop with AI.",
-    icon: ShoppingBag, 
+    slug: "outfit-ideas",
     href: "/tools/outfit-ideas",
     category: "AI",
-    iconBg: "bg-pink-500"
+    engine: "outfit"
   },
   { 
     name: "AI Thumbnail Coach", 
     description: "Analyze and optimize your YouTube thumbnails with AI.",
-    icon: Youtube, 
+    slug: "ai-thumbnail-coach",
     href: "/tools/ai-thumbnail-coach",
     category: "AI",
-    iconBg: "bg-red-500"
+    engine: "ai-analysis"
   },
   { 
     name: "Logo Generator", 
     description: "Create AI-powered logos for your brand in seconds.",
-    icon: Palette, 
+    slug: "logo-generator",
     href: "/tools/logo-generator",
     category: "AI",
-    iconBg: "bg-pink-500"
+    engine: "ai-generate"
   },
   { 
     name: "Resource Box", 
     description: "Create shareable link collections for your bio.",
-    icon: Package, 
+    slug: "resource-box",
     href: "/tools/resource-box",
     category: "Social",
-    iconBg: "bg-orange-600"
+    engine: "standalone"
   },
   { 
     name: "GIF Compressor", 
     description: "Compress GIF files to reduce size while maintaining quality.",
-    icon: Zap, 
+    slug: "gif-compressor",
     href: "/tools/gif-compressor",
     category: "Image",
-    iconBg: "bg-yellow-500"
+    engine: "image-compress"
   },
   { 
     name: "GIF Maker", 
     description: "Convert video or images to GIF directly in your browser.",
-    icon: Clapperboard, 
+    slug: "gif-maker",
     href: "/tools/gif-maker",
     category: "Image",
-    iconBg: "bg-pink-600"
+    engine: "image-convert"
   },
   { 
     name: "HEIC to JPG Converter", 
     description: "Convert iPhone HEIC photos to JPG format online. Free, private, no upload.",
-    icon: FileImage, 
+    slug: "heic-to-jpg",
     href: "/tools/heic-to-jpg",
     category: "Image",
-    iconBg: "bg-rose-500"
+    engine: "image-convert"
   },
   { 
     name: "Image Compressor", 
     description: "Compress JPG, PNG, and WebP images with smart optimization.",
-    icon: FileImage, 
+    slug: "image-compressor",
     href: "/tools/image-compressor",
     category: "Image",
-    iconBg: "bg-sky-500"
+    engine: "image-compress"
   },
   { 
     name: "Social Media Image Sizes", 
     description: "Complete guide to image dimensions for all social platforms with free resizer tools.",
-    icon: Maximize, 
+    slug: "social-media-image-sizes",
     href: "/tools/social-media-image-sizes",
     category: "Image",
-    iconBg: "bg-violet-500"
+    engine: "static"
   },
   { 
     name: "YouTube Thumbnail Resizer", 
     description: "Resize any image to the perfect YouTube thumbnail size (1280×720).",
-    icon: Youtube, 
+    slug: "youtube-thumbnail-resizer",
     href: "/tools/youtube-thumbnail-resizer",
     category: "Social",
-    iconBg: "bg-red-500"
+    engine: "platform-resizer"
   },
   { 
     name: "Instagram Post Resizer", 
     description: "Resize images to the perfect Instagram post size (1080×1080).",
-    icon: Instagram, 
+    slug: "instagram-post-resizer",
     href: "/tools/instagram-post-resizer",
     category: "Social",
-    iconBg: "bg-pink-500"
+    engine: "platform-resizer"
   },
   { 
     name: "Instagram Story Resizer", 
     description: "Resize images to the perfect Instagram Story size (1080×1920).",
-    icon: Instagram, 
+    slug: "instagram-story-resizer",
     href: "/tools/instagram-story-resizer",
     category: "Social",
-    iconBg: "bg-gradient-to-r from-purple-500 to-pink-500"
+    engine: "platform-resizer"
   },
   { 
     name: "TikTok Cover Resizer", 
     description: "Resize images to the perfect TikTok video cover size (1080×1920).",
-    icon: Video, 
+    slug: "tiktok-video-resizer",
     href: "/tools/tiktok-video-resizer",
     category: "Social",
-    iconBg: "bg-black"
+    engine: "platform-resizer"
   },
   { 
     name: "Twitter/X Header Resizer", 
     description: "Resize images to the perfect Twitter/X header size (1500×500).",
-    icon: Twitter, 
+    slug: "twitter-header-resizer",
     href: "/tools/twitter-header-resizer",
     category: "Social",
-    iconBg: "bg-sky-400"
+    engine: "platform-resizer"
   },
   { 
     name: "LinkedIn Banner Resizer", 
     description: "Resize images to the perfect LinkedIn banner size (1584×396).",
-    icon: Linkedin, 
+    slug: "linkedin-banner-resizer",
     href: "/tools/linkedin-banner-resizer",
     category: "Social",
-    iconBg: "bg-blue-600"
+    engine: "platform-resizer"
   },
   { 
     name: "PDF Editor", 
     description: "Upload, rearrange, rotate, delete pages, and download your edited PDF.",
-    icon: FilePen, 
+    slug: "pdf-editor",
     href: "/tools/pdf-editor",
     category: "Utilities",
-    iconBg: "bg-red-500"
+    engine: "file-edit"
   },
   { 
     name: "Online Notepad", 
     description: "Write notes online with auto-save and AI-powered writing tools.",
-    icon: StickyNote, 
+    slug: "online-notepad",
     href: "/tools/online-notepad",
     category: "Writing",
-    iconBg: "bg-amber-500"
+    engine: "standalone"
   },
   { 
     name: "Word Counter", 
     description: "Count words, characters, sentences, and reading time.",
-    icon: Type, 
+    slug: "word-counter",
     href: "/tools/word-counter",
     category: "Writing",
-    iconBg: "bg-gray-500"
+    engine: "text-analysis"
   },
   { 
     name: "Keyword Finder", 
     description: "Find low-competition SEO keywords for your content.",
-    icon: Search, 
+    slug: "keyword-finder",
     href: "/tools/keyword-finder",
     category: "SEO",
-    iconBg: "bg-blue-500"
+    engine: "ai-analysis"
   },
   { 
     name: "Reach Grabber Tool", 
     description: "AI-powered SEO optimizer for your blog posts and articles.",
-    icon: Target, 
+    slug: "reach-grabber-tool",
     href: "/tools/reach-grabber-tool",
     category: "SEO",
-    iconBg: "bg-red-400"
+    engine: "ai-analysis"
   },
   { 
     name: "AI Humanizer Free", 
     description: "Detect AI-written content and humanize it to sound natural.",
-    icon: Palette, 
+    slug: "ai-humanizer-free",
     href: "/tools/ai-humanizer-free",
     category: "AI",
-    iconBg: "bg-indigo-500"
+    engine: "ai-analysis"
   },
   { 
     name: "Producer Tag Generator", 
     description: "Create custom AI voice tags for your beats and instrumentals.",
-    icon: Music, 
+    slug: "producer-tag-generator",
     href: "/tools/producer-tag-generator",
     category: "Audio",
-    iconBg: "bg-purple-600"
+    engine: "ai-generate"
   },
   { 
     name: "Ad Copy Analyzer", 
     description: "Analyze any ad copy and get scores, insights, and improved versions.",
-    icon: BarChart, 
+    slug: "ad-copy-analyzer",
     href: "/tools/ad-copy-analyzer",
     category: "Marketing",
-    iconBg: "bg-sky-600"
+    engine: "ai-analysis"
   },
   { 
     name: "Internal Link Audit", 
     description: "Find orphan pages and weak internal links to improve your SEO.",
-    icon: Globe, 
+    slug: "internal-link-seo-audit",
     href: "/tools/internal-link-seo-audit",
     category: "SEO",
-    iconBg: "bg-lime-500"
+    engine: "ai-analysis"
   },
   { 
     name: "AI Summarizer", 
     description: "Summarize any text and extract key takeaways instantly.",
-    icon: List, 
+    slug: "summarizer",
     href: "/tools/summarizer",
     category: "Writing",
-    iconBg: "bg-slate-500"
+    engine: "ai-analysis"
   },
   { 
     name: "Visualization Tool", 
     description: "Turn text into flowcharts, diagrams, and visual maps.",
-    icon: GitBranch, 
+    slug: "visualization",
     href: "/tools/visualization",
     category: "Design",
-    iconBg: "bg-cyan-600"
+    engine: "ai-generate"
   },
   { 
     name: "Emoji Combos", 
     description: "Copy aesthetic emoji combinations for your social bios.",
-    icon: Smile, 
+    slug: "emoji-combos",
     href: "/tools/emoji-combos",
     category: "Social",
-    iconBg: "bg-yellow-400"
+    engine: "community"
   },
   { 
     name: "Horoscope of the Day", 
     description: "Get your personalized AI-powered daily horoscope reading.",
-    icon: Moon, 
+    slug: "horoscope-of-the-day",
     href: "/tools/horoscope-of-the-day",
     category: "Lifestyle",
-    iconBg: "bg-indigo-400"
+    engine: "ai-generate"
   },
   { 
     name: "Self-Love Affirmations", 
     description: "Daily AI-generated affirmations for self-love and confidence.",
-    icon: Heart, 
+    slug: "affirmation-about-self-love",
     href: "/tools/affirmation-about-self-love",
     category: "Lifestyle",
-    iconBg: "bg-rose-400"
+    engine: "ai-generate"
   },
   { 
     name: "Photo Gallery Maker", 
     description: "Create multi-photo gallery layouts with grid, masonry, or horizontal strip options.",
-    icon: LayoutGrid, 
+    slug: "photo-gallery-maker",
     href: "/tools/photo-gallery-maker",
     category: "Image",
-    iconBg: "bg-blue-400"
+    engine: "standalone"
   },
   { 
     name: "YouTube Title Split-Test", 
     description: "A/B test your YouTube video titles with auto-rotation and CTR tracking.",
-    icon: RotateCcw, 
+    slug: "youtube-title-split-test",
     href: "/tools/youtube-title-split-test",
     category: "Social",
-    iconBg: "bg-red-500"
+    engine: "standalone"
   },
   { 
     name: "Name Combiner", 
     description: "Combine 2-3 names into creative mashups for couples or groups.",
-    icon: GitMerge, 
+    slug: "name-combiner",
     href: "/tools/name-combiner",
     category: "Social",
-    iconBg: "bg-teal-400"
+    engine: "text-transform"
   },
 ];
 
@@ -377,30 +344,33 @@ export default function ToolsClient() {
                 {category}
               </h2>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {categoryTools.map((tool) => (
-                  <Link 
-                    key={tool.name} 
-                    href={tool.href}
-                    className="bg-white rounded-2xl p-6 border border-gray-200 hover:border-orange-400 hover:shadow-lg transition-all group"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className={`w-12 h-12 ${tool.iconBg} rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110`}>
-                        <tool.icon className="w-6 h-6 text-white" />
+                {categoryTools.map((tool) => {
+                  const { icon: Icon, bg } = getToolUI({ slug: tool.slug, engine: tool.engine });
+                  return (
+                    <Link 
+                      key={tool.name} 
+                      href={tool.href}
+                      className="bg-white rounded-2xl p-6 border border-gray-200 hover:border-orange-400 hover:shadow-lg transition-all group"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className={`w-12 h-12 ${bg} rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110`}>
+                          <Icon className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-gray-900 group-hover:text-orange-500 transition-colors mb-1">
+                            {tool.name}
+                          </h3>
+                          <p className="text-sm text-gray-600 line-clamp-2">{tool.description}</p>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <h3 className="font-bold text-gray-900 group-hover:text-orange-500 transition-colors mb-1">
-                          {tool.name}
-                        </h3>
-                        <p className="text-sm text-gray-600 line-clamp-2">{tool.description}</p>
+                      <div className="mt-4 flex justify-end">
+                        <span className="text-orange-500 text-sm font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          Use Tool <ArrowRight className="w-4 h-4" />
+                        </span>
                       </div>
-                    </div>
-                    <div className="mt-4 flex justify-end">
-                      <span className="text-orange-500 text-sm font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        Use Tool <ArrowRight className="w-4 h-4" />
-                      </span>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           );

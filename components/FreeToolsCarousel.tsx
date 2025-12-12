@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Search, X, Wrench, FileImage, FileText, MessageCircleQuestion, Sparkles, Target, Palette, Type, Music, Youtube, Package, Flame, FileArchive, BarChart2, Rocket, ShoppingBag, Heart, FilePen, RotateCcw, Smile, Moon, GitMerge, LayoutGrid, Instagram, Twitter, Linkedin, Video, Zap, StickyNote, Globe, BarChart, Clapperboard, Maximize, GitBranch, List } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { getToolUI } from "@/lib/ui/get-tool-ui";
 
 interface FeaturedTool {
   slug: string;
@@ -32,81 +33,6 @@ const defaultTools = [
   { slug: "horoscope-of-the-day", title: "Daily Horoscope", engine: "ai-generate" },
   { slug: "youtube-title-split-test", title: "YouTube Title Split-Test", engine: "youtube-tool" },
 ];
-
-const toolIcons: Record<string, { icon: React.ComponentType<{ className?: string }>; bg: string }> = {
-  "zip-file-creator": { icon: FileArchive, bg: "bg-sky-500" },
-  "prediction-center": { icon: BarChart2, bg: "bg-fuchsia-500" },
-  "calorie-deficit-calculator": { icon: Flame, bg: "bg-green-500" },
-  "ai-thumbnail-coach": { icon: Sparkles, bg: "bg-indigo-500" },
-  "gif-compressor": { icon: Zap, bg: "bg-yellow-500" },
-  "gif-maker": { icon: Clapperboard, bg: "bg-pink-600" },
-  "heic-to-jpg": { icon: RotateCcw, bg: "bg-rose-500" },
-  "image-compressor": { icon: FileImage, bg: "bg-sky-500" },
-  "online-notepad": { icon: StickyNote, bg: "bg-amber-500" },
-  "word-counter": { icon: Type, bg: "bg-gray-500" },
-  "logo-generator": { icon: Palette, bg: "bg-pink-500" },
-  "keyword-finder": { icon: Search, bg: "bg-blue-500" },
-  "reach-grabber-tool": { icon: Target, bg: "bg-red-400" },
-  "ai-humanizer-free": { icon: Palette, bg: "bg-indigo-500" },
-  "producer-tag-generator": { icon: Music, bg: "bg-purple-600" },
-  "ad-copy-analyzer": { icon: BarChart, bg: "bg-sky-600" },
-  "summarizer": { icon: List, bg: "bg-slate-500" },
-  "emoji-combos": { icon: Smile, bg: "bg-yellow-400" },
-  "horoscope-of-the-day": { icon: Moon, bg: "bg-indigo-400" },
-  "youtube-title-split-test": { icon: RotateCcw, bg: "bg-red-500" },
-  "youtube-thumbnail-resizer": { icon: Youtube, bg: "bg-red-500" },
-  "youtube-thumbnail-analyzer": { icon: Youtube, bg: "bg-red-400" },
-  "calorie-counter-bmi": { icon: Heart, bg: "bg-rose-500" },
-  "internal-link-seo-audit": { icon: Globe, bg: "bg-lime-500" },
-  "facebook-thumbnail-analyzer": { icon: Target, bg: "bg-blue-500" },
-  "resource-box": { icon: Package, bg: "bg-orange-600" },
-  "social-media-image-sizes": { icon: Maximize, bg: "bg-violet-500" },
-  "photo-gallery-maker": { icon: LayoutGrid, bg: "bg-blue-400" },
-  "name-combiner": { icon: GitMerge, bg: "bg-teal-400" },
-  "affirmation-about-self-love": { icon: Heart, bg: "bg-rose-400" },
-  "visualization": { icon: GitBranch, bg: "bg-cyan-600" },
-  "maker-quotes-generator": { icon: Sparkles, bg: "bg-amber-400" },
-  "instagram-bio-analyzer": { icon: Instagram, bg: "bg-pink-500" },
-  "instagram-cta-analyzer": { icon: Instagram, bg: "bg-fuchsia-400" },
-  "instagram-caption-analyzer": { icon: Instagram, bg: "bg-fuchsia-500" },
-  "instagram-hashtags-analyzer": { icon: Instagram, bg: "bg-purple-500" },
-  "instagram-hook-analyzer": { icon: Instagram, bg: "bg-rose-500" },
-  "instagram-thumbnail-analyzer": { icon: Instagram, bg: "bg-orange-500" },
-  "linkedin-bio-analyzer": { icon: Linkedin, bg: "bg-blue-600" },
-  "linkedin-cta-analyzer": { icon: Linkedin, bg: "bg-indigo-500" },
-  "linkedin-caption-analyzer": { icon: Linkedin, bg: "bg-sky-500" },
-  "linkedin-hashtags-analyzer": { icon: Linkedin, bg: "bg-cyan-500" },
-  "linkedin-hook-analyzer": { icon: Linkedin, bg: "bg-teal-500" },
-  "tiktok-cta-analyzer": { icon: Video, bg: "bg-gray-800" },
-  "tiktok-caption-analyzer": { icon: Video, bg: "bg-violet-500" },
-  "tiktok-hashtags-analyzer": { icon: Video, bg: "bg-pink-500" },
-  "tiktok-hook-analyzer": { icon: Video, bg: "bg-cyan-500" },
-  "tiktok-thumbnail-analyzer": { icon: Video, bg: "bg-red-500" },
-  "twitter-bio-analyzer": { icon: Twitter, bg: "bg-sky-400" },
-  "twitter-cta-analyzer": { icon: Twitter, bg: "bg-blue-500" },
-  "twitter-caption-analyzer": { icon: Twitter, bg: "bg-indigo-500" },
-};
-
-const engineIcons: Record<string, { icon: React.ComponentType<{ className?: string }>; bg: string }> = {
-  "platform-resizer": { icon: FileImage, bg: "bg-purple-500" },
-  "ai-analysis": { icon: Sparkles, bg: "bg-indigo-500" },
-  "ai-generate": { icon: Moon, bg: "bg-violet-500" },
-  "file-utility": { icon: FileArchive, bg: "bg-sky-500" },
-  "calorie-calculator": { icon: Flame, bg: "bg-green-500" },
-  "outfit-engine": { icon: ShoppingBag, bg: "bg-pink-500" },
-  "community": { icon: BarChart2, bg: "bg-fuchsia-500" },
-  "word-counter": { icon: Type, bg: "bg-gray-500" },
-  "logo-generator": { icon: Palette, bg: "bg-pink-500" },
-  "producer-tag": { icon: Music, bg: "bg-purple-600" },
-  "youtube-tool": { icon: Youtube, bg: "bg-red-500" },
-  "resource-box": { icon: Package, bg: "bg-orange-600" },
-  "reach-grabber": { icon: Target, bg: "bg-red-400" },
-  "default": { icon: Wrench, bg: "bg-orange-500" },
-};
-
-function getIconForTool(slug: string, engine: string) {
-  return toolIcons[slug] || engineIcons[engine] || engineIcons["default"];
-}
 
 const ITEMS_PER_PAGE = 24;
 
@@ -204,7 +130,7 @@ export default function FreeToolsCarousel() {
           className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-4 transition-opacity duration-300"
         >
           {currentTools.map((tool) => {
-            const { icon: Icon, bg } = getIconForTool(tool.slug, tool.engine);
+            const { icon: Icon, bg } = getToolUI({ slug: tool.slug, engine: tool.engine });
             return (
               <Link 
                 key={tool.slug} 
