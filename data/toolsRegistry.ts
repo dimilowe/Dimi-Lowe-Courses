@@ -177,6 +177,23 @@ export const toolsRegistry: Tool[] = [
     relatedArticles: ["youtube-thumbnail-size"]
   },
   {
+    id: "youtube-thumbnail-analyzer",
+    name: "YouTube Thumbnail Analyzer",
+    slug: "youtube-thumbnail-analyzer",
+    description: "Upload a YouTube thumbnail and get instant AI analysis, clarity scores, and improvement ideas.",
+    category: "creator",
+    tags: ["creator", "ai", "trending"],
+    icon: "Youtube",
+    iconBg: "bg-red-500",
+    priority: 94,
+    isTrending: true,
+    engineType: "ai-analysis",
+    inputType: "image",
+    outputType: "analysis",
+    relatedTools: ["youtube-thumbnail-resizer", "ai-thumbnail-coach", "logo-generator"],
+    relatedArticles: ["youtube-thumbnail-size"]
+  },
+  {
     id: "instagram-post-resizer",
     name: "Instagram Post Resizer",
     slug: "instagram-post-resizer",
