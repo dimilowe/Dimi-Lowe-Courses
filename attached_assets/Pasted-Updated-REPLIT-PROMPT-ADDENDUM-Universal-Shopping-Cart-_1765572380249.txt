@@ -1,0 +1,76 @@
+Updated REPLIT PROMPT ADDENDUM — Universal Shopping Cart Gating (Clean, No Hardcoding)
+Add this section to the prompt above. Implement exactly as written.
+Shopping Cloud Starter Gating — “10 Free Saved Items” (Write-Time Only)
+Goal
+Anonymous / non-subscribed users can save up to 10 items. After that, they must upgrade to Shopping Cloud Starter to save more.
+Hard Constraints
+Do not hardcode “10” in the engine, UI, or API routes.
+Do not hardcode tier names in the engine (no if tier === 'starter' in engine logic).
+Do not block read access. Users can always view, edit, delete, and open merchant links.
+Enforce gating only on the “add item” write action (POST /api/universal-cart/items).
+Step G1 — Add a Central Limit Source (SSoT)
+Implement a single source of truth for tool usage limits. Use whatever existing pattern the repo has for pricing/entitlements/limits. If a “limits/entitlements” module already exists, extend it. If not, create one in an obvious shared location (e.g. lib/entitlements/ or lib/limits/) and keep it generic.
+Required API
+Create a helper that returns the saved-item limit for the current user:
+Function contract (example, adapt paths to repo conventions):
+getToolUsageLimits({ toolSlug, userTier, cloudEntitlements }) -> { maxSavedItems?: number | null }
+null/undefined means unlimited
+returns a number when limited
+returns the correct limit for toolSlug = 'universal-shopping-cart'
+Source of truth for the limit
+The limit value must live in a central config object, not inline.
+Example config shape (you may adapt names/structure):
+USAGE_LIMITS['universal-shopping-cart'].maxSavedItems.free = 10
+USAGE_LIMITS['universal-shopping-cart'].maxSavedItems.shoppingCloudStarter = null
+The important part: the number exists only in one config location and is retrieved through the helper.
+Acceptance:
+There is exactly one place in the codebase where the value “10” exists.
+The engine does not contain the constant.
+Step G2 — Determine Entitlement Cleanly (No Custom Tier Logic)
+The gating decision must come from the same entitlement/tier info the rest of the suite uses (AppProvider/Zustand hydration or server session tier fetching).
+Rules:
+If user has Shopping Cloud Starter (or higher), maxSavedItems is unlimited (null).
+Otherwise maxSavedItems is the free limit returned by config (10 from SSoT).
+Do not add new tier systems. Use the existing one. If the repo represents cloud entitlements separately from global tiers, use that. The helper should accept whatever “user access state” the repo already computes.
+Acceptance:
+No if toolSlug === ... scattered checks; only in the central limits helper.
+No engine-level tier checks.
+Step G3 — Enforce Limit on POST Add Item Endpoint (Write-Time Only)
+In POST /api/universal-cart/items:
+Resolve the active cart session
+Count current number of saved items for that cart/user (server-side)
+Fetch limits via getToolUsageLimits(...)
+If limited and count >= maxSavedItems:
+return HTTP 402 or 403 with a structured payload:
+{ code: 'UPGRADE_REQUIRED', reason: 'SAVED_ITEM_LIMIT', limit: <number>, current: <number>, upgradeTarget: 'shopping-cloud-starter' }
+Otherwise proceed to save the item.
+Important:
+Editing existing items must always work.
+Deleting must always work.
+Acceptance:
+Non-subscribed users can save up to the limit and then are blocked from saving more.
+Subscribed users can save unlimited items.
+No other endpoints are blocked.
+Step G4 — UI Upgrade Experience (No New Systems)
+In the tool UI:
+Show a small usage indicator: Saved items: X / limit (or X / Unlimited)
+At 7–9 items (derived from maxSavedItems), show a soft warning banner:
+“You’re close to the free limit. Upgrade to keep saving.”
+On add-item failure with UPGRADE_REQUIRED, open the existing upgrade modal / CTA flow used elsewhere in the suite.
+Do not create a new purchase flow. Use existing cloud upgrade UX.
+Acceptance:
+UX is consistent with suite upgrade patterns.
+No custom checkout logic is introduced.
+Step G5 — Required Tests / Verification Steps
+Provide exact manual test steps:
+Logged out: save items until you hit the limit; the next save is blocked with upgrade prompt.
+Still logged out: you can still view/delete/open all items.
+Logged in without Shopping Cloud Starter: same behavior.
+Logged in with Starter: unlimited saves (limit displays “Unlimited”).
+Drift Prevention Checklist (Gating)
+Before finishing, verify:
+The value “10” exists in one config location only.
+The add-item endpoint is the only place enforcing the limit.
+No engine code checks tiers directly.
+No cloud-specific UI or gating logic added.
+Upgrade flow uses existing suite modal/CTA.
