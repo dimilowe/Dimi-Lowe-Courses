@@ -97,6 +97,7 @@ const TOOL_ICON_MAP: Record<string, { iconKey: IconKey; bg: string }> = {
   "zip-file-creator": { iconKey: "fileArchive", bg: "bg-sky-500" },
   "weather-prediction": { iconKey: "cloudSun", bg: "bg-sky-400" },
   "maker-quotes-generator": { iconKey: "sparkles", bg: "bg-amber-400" },
+  "universal-shopping-cart": { iconKey: "shoppingCart", bg: "bg-emerald-500" },
 };
 
 type ToolLike = {

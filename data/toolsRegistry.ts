@@ -929,6 +929,23 @@ export const toolsRegistry: Tool[] = [
     outputType: "text",
     relatedTools: ["horoscope-of-the-day", "maker-quotes-generator"],
     relatedArticles: ["affirmation-about-self-love"]
+  },
+  {
+    id: "universal-shopping-cart",
+    name: "Universal Shopping Cart",
+    slug: "universal-shopping-cart",
+    description: "Save products from any website into one cart with notes, tags, and price-at-save-time",
+    category: "utilities",
+    tags: ["utilities", "new"],
+    icon: "ShoppingCart",
+    iconBg: "bg-emerald-500",
+    priority: 85,
+    isNew: true,
+    engineType: "standalone",
+    inputType: "url",
+    outputType: "interactive",
+    relatedTools: ["resource-box", "outfit-ideas"],
+    relatedArticles: []
   }
 ];
 
