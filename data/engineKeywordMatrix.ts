@@ -372,7 +372,6 @@ export const ENGINE_KEYWORD_MATRICES: Record<EngineType, EngineKeywordMatrix | n
   "zip": null,
   "outfit": null,
   "price-engine": null,
-  "thumbnail-analysis": null,
 };
 
 export function getAllToolSkinsForEngine(engineId: EngineType): ToolSkin[] {

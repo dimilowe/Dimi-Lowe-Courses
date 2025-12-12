@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { useUIStore } from "@/lib/state/uiStore";
 import AnalysisDashboard from "./AnalysisDashboard";
 import ChatPanel from "./ChatPanel";
 
@@ -61,20 +60,6 @@ export default function ThumbnailCoachClient() {
       const data = await response.json();
 
       if (!response.ok) {
-        if (response.status === 401 && data.error === "AUTH_REQUIRED") {
-          const { openAuthModal } = useUIStore.getState();
-          openAuthModal();
-          setError("Please sign in to use AI thumbnail analysis.");
-          return;
-        }
-
-        if (response.status === 403 && data.error === "UPGRADE_REQUIRED") {
-          const { openUpgradeModal } = useUIStore.getState();
-          openUpgradeModal(data.feature || "heavyTools", data.requiredTier || "pro");
-          setError("AI thumbnail analysis requires a Pro subscription.");
-          return;
-        }
-
         throw new Error(data.error || "Analysis failed");
       }
 

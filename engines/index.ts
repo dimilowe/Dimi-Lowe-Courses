@@ -174,18 +174,6 @@ export const ENGINE_REGISTRY: Record<EngineType, EngineConfig> = {
     presetsFile: "engines/price-engine/config.ts",
     capabilities: ["track", "monitor", "compare", "alert"],
     heavyMode: "single",
-  },
-  "thumbnail-analysis": {
-    id: "thumbnail-analysis",
-    name: "Thumbnail Analysis Engine",
-    description: "AI-powered thumbnail analysis for YouTube, TikTok, Instagram, and more",
-    inputTypes: ["image"],
-    outputTypes: ["analysis", "display"],
-    sharedComponent: "components/engines/ThumbnailAnalysisEngine.tsx",
-    apiRoutes: ["/api/tools/thumbnail-coach/analyze"],
-    capabilities: ["analyze", "score", "recommend"],
-    heavyMode: "none",
-    hasAi: true,
   }
 };
 
