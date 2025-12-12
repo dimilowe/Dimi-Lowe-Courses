@@ -182,7 +182,7 @@ export const ENGINE_REGISTRY: Record<EngineType, EngineConfig> = {
     inputTypes: ["image"],
     outputTypes: ["analysis", "display"],
     sharedComponent: "components/engines/ThumbnailAnalysisEngine.tsx",
-    apiRoutes: ["/api/thumbnail-analysis"],
+    apiRoutes: ["/api/tools/thumbnail-coach/analyze"],
     capabilities: ["analyze", "score", "recommend"],
     heavyMode: "single",
     hasAi: true,

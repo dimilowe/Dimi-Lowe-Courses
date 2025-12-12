@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { getCurrentUserWithTier } from "@/lib/pricing/getCurrentUserWithTier";
+import { checkHeavyToolAccess, heavyToolAccessToResponse } from "@/lib/pricing/heavyTools";
+import { ENGINE_REGISTRY } from "@/engines";
 
 export const maxDuration = 60;
 
@@ -19,6 +22,14 @@ function ensureStringArray(value: unknown): string[] {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUserWithTier();
+
+    const engineConfig = ENGINE_REGISTRY["thumbnail-analysis"];
+    const heavyAccess = checkHeavyToolAccess(user, engineConfig.heavyMode);
+    if (!heavyAccess.allowed) {
+      return heavyToolAccessToResponse(heavyAccess);
+    }
+
     const formData = await request.formData();
     const file = formData.get("thumbnail") as File | null;
 
