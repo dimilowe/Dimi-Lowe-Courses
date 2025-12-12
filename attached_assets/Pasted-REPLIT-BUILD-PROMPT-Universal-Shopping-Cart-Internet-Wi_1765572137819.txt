@@ -1,0 +1,229 @@
+REPLIT BUILD PROMPT — Universal Shopping Cart (Internet-Wide Saved Cart) — Engine + Single CMS Tool
+You are working inside the VCM Suite codebase. Build a single bespoke heavy tool branded as Universal Shopping Cart. Internally it functions as a Saved Cart / Shopping Board.
+Prime Directives (Hard Rules)
+All real functionality must live only in Engines + Tools. Clouds may never contain functionality.
+Tools must be defined and rendered through CMS Objects + the VCM Renderer. Nothing may bypass the Tool → CMS → Renderer pipeline.
+Any new logic must be implemented as a reusable Engine. No hardcoded special-case checks for this single tool.
+All gating is universal via getToolLockState() and tool metadata (heavyMode, hasAi). No custom gating logic.
+Whenever a new tool CMS object is created, there must also be a matching row in the tools table with the correct engine. Required for correct behavior.
+Tool Definition (Locked)
+Public name: Universal Shopping Cart
+Tool slug: universal-shopping-cart
+Engine id: universal-cart-engine
+Skins/presets: NONE (single tool only)
+heavyMode: single (stateful + DB; not multi-step compute heavy)
+hasAi: false
+Product Goal (What we are building)
+A universal place on VCM where users can save product links from anywhere on the internet, view normalized item info, organize with tags/notes, and click out to the merchant to buy.
+Core Behaviors (MVP)
+Save a URL (product link)
+Fetch OpenGraph metadata server-side
+title, image, site/domain, description (best-effort)
+Store price-at-save-time (manual input required; optional best-effort parse)
+Add notes + tags
+Open merchant link (redirect to original URL)
+Shareable lists (basic MVP: share a cart/list via public token URL)
+Non-Goals (Do NOT build)
+NO Stripe
+NO checkout
+NO fulfillment
+NO webhooks
+NO pretending we can purchase cross-merchant
+NO scraping pipelines or live price tracking in MVP
+NO cloud-specific UI
+NO “if slug === …” special casing
+Step 1 — Register Engine (SSoT)
+Add a new engine entry in the repo’s engine registry.
+Engine requirements:
+id: 'universal-cart-engine'
+heavyMode: 'single'
+hasAi: false
+Theme/styling must use existing theme tokens (NO inline gradients)
+Use the shared engine/tool page layout patterns
+Acceptance:
+Engine is registered in the SSoT registry
+No styling drift introduced
+Step 2 — Database Schema (Drizzle + Migrations)
+Create Drizzle schema + migrations in the repo’s standard way.
+Tables
+1) saved_carts
+Represents a “cart/list” (like Wishlist, Gym Fits, etc.)
+id uuid pk
+user_id nullable (logged-in owner)
+anon_session_id nullable (anonymous owner)
+title text default My Universal Cart
+is_public boolean default false
+public_token text unique nullable (for sharing when public)
+created_at, updated_at
+last_activity_at
+Indexes:
+index user_id
+index anon_session_id
+unique index public_token
+2) saved_items
+The saved product entries.
+id uuid pk
+cart_id fk → saved_carts.id (cascade delete)
+url text (required)
+domain text (derived from url)
+title text nullable
+description text nullable
+image_url text nullable
+price_cents int nullable (price at save time)
+currency text default usd
+note text nullable
+tags jsonb nullable (array of strings) OR a join table (choose simplest consistent with repo)
+og_raw jsonb nullable (store raw OG response for debugging)
+created_at, updated_at
+Indexes:
+index cart_id
+index (domain)
+optional: index on created_at
+3) (Optional but recommended) saved_item_tags
+Only if the repo prefers normalized tags.
+If you can store tags as jsonb array, do that for MVP.
+Acceptance:
+Migrations run cleanly
+Schema matches repo conventions
+No production-only mutations outside the normal migration workflow
+Step 3 — Cart Identity (Anon + Logged-In Merge)
+Implement a server-owned cart resolver.
+Rules:
+If logged in → resolve/create one active default cart for user_id
+If anonymous → resolve/create one active default cart for anon_session_id stored in httpOnly cookie
+If user logs in and has anon cart → merge items into user cart, then delete or mark anon cart as merged
+Acceptance:
+Anonymous user can save item, refresh, still see it
+After login, previously saved anon items appear in the logged-in cart
+Step 4 — OpenGraph Fetcher (Server-Side)
+Implement a secure metadata fetcher used when saving URLs.
+Requirements:
+Fetch only http/https URLs
+Block localhost / private IP ranges / internal hostnames (SSRF protection)
+Limit response size and timeout
+Parse OpenGraph:
+og:title, og:image, og:description, og:site_name
+Fallback to <title> if OG title missing (optional)
+Store og_raw for debugging (optional)
+Acceptance:
+Common product pages return title + image
+If fetch fails, tool still saves URL with minimal fields and allows manual editing
+Step 5 — API Routes (Minimal, Clean, Rate-Limited)
+Create endpoints in the repo’s standard /api/* structure. Apply request limiting middleware if available.
+Endpoints
+1) GET /api/universal-cart
+Returns:
+current cart (id, title, is_public, public_token)
+items
+basic counts (itemCount)
+2) POST /api/universal-cart/items
+Body:
+url (required)
+price_cents (optional)
+currency (optional, default usd)
+note (optional)
+tags (optional array)
+Server behavior:
+validate URL + SSRF protection
+fetch OG metadata server-side
+normalize domain
+insert saved_item
+return saved_item
+3) PATCH /api/universal-cart/items/:id
+Editable fields:
+title, image_url, description (optional manual override)
+price_cents, currency
+note
+tags
+4) DELETE /api/universal-cart/items/:id
+5) Sharing
+Implement basic sharing:
+POST /api/universal-cart/public
+sets is_public=true
+generates public_token if missing
+POST /api/universal-cart/private
+sets is_public=false (token can remain or be nulled; choose simplest)
+GET /api/universal-cart/public/:token
+returns cart + items read-only
+Acceptance:
+Adding/editing/deleting works
+Public link shows read-only view
+No auth required for public token view, but token must be unguessable
+Step 6 — Tool UI (Renderer-Compliant)
+This tool must render through the normal Tool pipeline (CMS object → renderer → engine UI).
+UI requirements (within tool page):
+Add Item panel
+URL input
+optional price input
+optional tags input
+Save button → calls POST endpoint
+Items List
+image, title (editable), domain, price, tags
+note editing
+Delete button
+Primary CTA: Open on [domain] (opens url in new tab)
+Filters / Search (MVP simple)
+Search by title/domain/note
+Filter by tag (simple dropdown)
+Share controls
+Toggle public/private
+Display share link when public
+Public view page is read-only
+Standard engine blocks below functional UI
+deepContent
+contentGuide
+proTips
+recommendedTools
+faq
+monetization block (Nudge + QR Social)
+Styling constraints:
+Use shared layout components
+No inline gradients
+Theme tokens only
+No introducing new styling systems
+Acceptance:
+End-to-end usable from the tool page
+UI matches suite conventions
+Step 7 — CMS Object + tools table row (Required)
+Create exactly one CMS object:
+type: tool
+slug: universal-shopping-cart
+engine: universal-cart-engine
+include required SEO payload fields and interlink metadata required by the renderer (parent/siblings/tools), even if minimal
+Also ensure a matching row exists in tools table:
+slug universal-shopping-cart
+engine universal-cart-engine
+name/title populated
+any required fields set so listing/featured/cloud association works normally
+Acceptance:
+Tool appears anywhere tools are listed
+No missing engine metadata issues
+Universal gating remains consistent
+Step 8 — Drift Prevention Checklist (Must self-enforce)
+Before finishing, verify:
+NO Stripe code added
+NO checkout or payment endpoints exist
+NO fulfillment/webhook code exists
+NO hardcoded slug checks
+NO cloud-specific UI
+Uses renderer pipeline
+Engine registered in SSoT
+CMS object exists AND tools row exists
+SSRF protections exist in OG fetcher
+End-to-end test passes
+If any are violated, fix before stopping.
+Seed / Test Flow (Required)
+Provide exact manual test steps:
+Open tool page universal-shopping-cart
+As anonymous user: paste a product URL, save
+Refresh: item persists
+Edit note/tags/price
+Click Open on merchant link
+Toggle public and open public link in incognito: read-only view works
+Log in: anon cart merges into user cart and persists
+Output Required (When done)
+Report:
+Files changed (grouped by purpose)
+DB migrations added
+Test steps verified
+Minimal TODOs (only if absolutely necessary)
