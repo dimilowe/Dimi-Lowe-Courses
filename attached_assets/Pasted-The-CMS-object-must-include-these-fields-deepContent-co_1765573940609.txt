@@ -1,0 +1,53 @@
+The CMS object must include these fields:
+deepContent
+contentGuide
+proTips
+faq
+Once those exist, the renderer will show them automatically.
+What I recommend you do (step-by-step)
+Step 1: Open the CMS object for universal-shopping-cart
+Wherever you manage CMS objects (admin UI or DB editor), locate:
+slug: universal-shopping-cart
+type: tool
+Step 2: Add these blocks (example structure)
+You don’t need perfect copy yet — just real, human explanations.
+deepContent
+This is SEO + narrative explanation.
+Example:
+The Universal Shopping Cart lets you save products from any website in one place. Instead of bookmarking items across dozens of stores, you can paste a product link and instantly capture its name, image, description, and price. This makes it easier to compare options, track ideas, and plan purchases without losing links.
+Explain:
+what problem it solves
+who it’s for
+why it’s better than bookmarks
+contentGuide
+This is how the tool works, step by step.
+Example bullets:
+Copy a product link from any website
+Click “Add Product” and paste the URL
+Review the fetched details and add a price, notes, or tags
+Save the item to your Universal Shopping Cart
+Open the original store anytime to complete your purchase
+This section dramatically improves trust + clarity.
+proTips
+This is power-user value.
+Examples:
+Use tags like “Black Friday” or “Compare” to group items
+Save price-at-time so you can spot deals later
+Share your cart with friends to get opinions before buying
+Keep one cart per goal (outfits, home, gifts)
+faq
+Answer obvious objections:
+“Can I buy directly from this cart?” → No, it links you to the original store
+“Does it work on any website?” → Yes, any public product page
+“Is my cart private?” → Yes, unless you share it
+“What happens when I hit the free limit?” → Upgrade to Shopping Cloud Starter for unlimited saves
+Why this matters (strategically)
+Without these blocks:
+Google sees a thin page
+Users don’t fully understand the value
+The page feels “unfinished” even if the tool works
+With these blocks:
+You get SEO depth
+You get user education
+You get conversion clarity
+And you stay within your architecture rules
