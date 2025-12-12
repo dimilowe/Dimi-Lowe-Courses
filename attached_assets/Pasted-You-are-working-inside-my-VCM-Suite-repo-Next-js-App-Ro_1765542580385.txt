@@ -1,0 +1,336 @@
+You are working inside my **VCM Suite** repo (Next.js App Router + TypeScript + Drizzle + Supabase + our custom Engine/Cloud system).
+
+Your task:  
+**Implement the Shopping Cloud MVP = Universal Shopping Cart + Collections + Price Snapshots + Integration with the existing Outfit Generator tool, with proper cloud/tier gating.**
+
+Read this whole prompt before making changes, then explore the repo to align with existing patterns.
+
+---
+
+## 1. CONTEXT (VERY IMPORTANT)
+
+Before you implement anything:
+
+1. Find how **Cloud dashboards** are implemented.
+   - Look for patterns like `/clouds/[cloud]`, “Creation Cloud”, “Video Cloud”, or similar.
+   - Reuse the same layout, card components, and upgrade modal patterns for **Shopping Cloud**.
+
+2. Find how we handle:
+   - **User tier / entitlements** (e.g. Zustand `useUIStore().userTier`, or cloud entitlement checks, pricing SSoT).
+   - **Tool gating** (e.g. `getToolLockState`, engine registry metadata, upgrade modal).
+   - **Drizzle schema** (e.g. `db/schema.ts` or similar).
+   - **Cloud registry / cloud metadata** (where each cloud is defined, e.g. label, slug, description, required tier).
+
+3. Locate the **Outfit Generator tool**:
+   - It’s an engine-based tool where users upload a photo and get similar items from online stores (with images, titles, prices, and outbound links).
+   - Identify the component that renders the **result product cards** – we will add “Save to Shopping Cloud” from there.
+
+Do not invent a new architecture. You must plug into the existing patterns.
+
+---
+
+## 2. DATA MODEL – NEW TABLES (DRIZZLE)
+
+Create the following Drizzle tables, using our existing conventions (naming, timestamp helpers, relations, etc.). Put them in the same schema file where other app tables live.
+
+### `shopping_collections`
+
+Represents user-defined collections (e.g. “Fall Outfits”, “Gifts”, “Wishlist”).
+
+Fields:
+
+- `id` – primary key (UUID or serial, match current style)
+- `user_id` – references users table (use the same foreign key pattern as other user-owned entities)
+- `name` – string (e.g. “Fall Capsule Wardrobe”)
+- `description` – optional text
+- `created_at`
+- `updated_at`
+
+### `shopping_items`
+
+Represents a single saved product.
+
+Fields:
+
+- `id` – primary key
+- `user_id` – references users table
+- `collection_id` – nullable FK to `shopping_collections.id`  
+  (for MVP: one collection per item; we can add many-to-many later)
+- `title` – string
+- `image_url` – string
+- `canonical_url` – string (original product URL)
+- `affiliate_url` – string, nullable (if we map through an affiliate system)
+- `store` – string (e.g. “Zara”, “ASOS”) – can be derived from domain
+- `price_current` – numeric/decimal (match our existing money representation)
+- `price_last` – numeric/decimal, nullable (last known price)
+- `currency` – string (e.g. “USD”) – default if needed
+- `tags` – array of strings (use the same array type pattern we already use)
+- `created_at`
+- `updated_at`
+
+### `shopping_price_snapshots`
+
+Lightweight price history, one row per snapshot.
+
+Fields:
+
+- `id` – primary key
+- `item_id` – FK -> `shopping_items.id`
+- `price` – numeric/decimal
+- `currency` – string
+- `snapshot_at` – timestamp
+
+Add proper indexes (e.g. `user_id` on items, `item_id` on snapshots) following the style of existing tables.
+
+Generate and run migrations according to the repo’s usual Drizzle workflow.
+
+---
+
+## 3. BACKEND – SHOPPING APIS
+
+Implement a small REST API surface under `/api/shopping/*` that:
+
+All routes must:
+- Authenticate the user using the same helper we use elsewhere (e.g. `getCurrentUser`, Supabase auth, etc.).
+- Enforce per-tier limits (see section 4) before writing data.
+
+### 3.1 `POST /api/shopping/add`
+
+Use for **both**:
+- “Paste URL → scrape product”
+- “Save from Outfit Generator result card (with known data)”
+
+Body (union style, handle both):
+
+- Either:
+  - `mode: "url"`
+  - `url: string` – product URL to scrape
+
+- Or:
+  - `mode: "direct"`
+  - `title: string`
+  - `image_url: string`
+  - `canonical_url: string`
+  - `affiliate_url?: string`
+  - `store?: string`
+  - `price_current?: number`
+  - `currency?: string`
+  - `collection_id?: string`
+  - `tags?: string[]`
+
+Behavior:
+
+- Verify user is logged in.
+- Check **tier limits** (see section 4).
+- If `mode: "url"`:
+  - Fetch the page server-side.
+  - Implement a **minimal scraper**:
+    - Title: `og:title`, `<title>`, etc.
+    - Image: `og:image` or main product image meta.
+    - Price: attempt to extract from common selectors or meta tags. Be resilient, but MVP is fine: best-effort; if no price found, allow nullable with explicit flag in response.
+    - Store: derive from the domain (e.g. `new URL(url).hostname` → cleaned).
+  - Leave `affiliate_url` null for now (but keep the column in place).
+
+- If `mode: "direct"`, trust the payload, but still require `canonical_url` minimally.
+
+- Insert a new row into `shopping_items`.
+- Insert a new `shopping_price_snapshots` entry if a price is present.
+- Return the created item (with id, derived store, etc.).
+
+### 3.2 `GET /api/shopping/list`
+
+Query params:
+- Optional `collection_id`
+- Optional search/filter (e.g. `q` for title, `tag`)
+
+Behavior:
+- Return all items for the current user, filtered by collection if provided.
+- Include a basic computed structure for the frontend:
+  - per-store subtotal
+  - global item count
+
+### 3.3 `POST /api/shopping/collections/create`
+
+Body:
+- `name: string`
+- `description?: string`
+
+Behavior:
+- Enforce collection limits based on tier.
+- Create a new collection linked to current user.
+- Return the new collection.
+
+### 3.4 `POST /api/shopping/update`
+
+Body:
+- `id: string`
+- Optional fields to update: `title`, `tags`, `collection_id`, etc.
+- If price changes manually, also create a `shopping_price_snapshots` row.
+
+### 3.5 `POST /api/shopping/delete`
+
+Body:
+- `id: string`
+
+Behavior:
+- Delete the item for this user (and optionally cascade snapshots).
+
+### 3.6 `GET /api/shopping/price-history?item_id=...`
+
+Return:
+- Chronological list of snapshots for that `item_id`.
+- Include `price`, `currency`, `snapshot_at`.
+
+Implement all APIs using the existing patterns for API routes (error handling, auth, responses).
+
+---
+
+## 4. TIER / CLOUD GATING LOGIC
+
+We already have cloud monetization and tier logic. For Shopping Cloud, enforce **feature limits** at the app level in a way that:
+
+- Uses the existing user tier / entitlement logic where possible.
+- **Does NOT hardcode random magic strings all over the place.** Keep constants centralized.
+
+Define per-tier limits (use a clear SSoT constant for Shopping Cloud, e.g. in a config file):
+
+- FREE:
+  - Max `shopping_items`: 20
+  - Max `shopping_collections`: 1
+- BASIC (Shopping Cloud basic tier):
+  - Unlimited items & collections
+- PRO:
+  - Same as BASIC, but we may later add premium features (exports, advanced alerts, etc.).
+
+Implementation details:
+
+- Wherever we insert a new item or collection, check the current counts for that user.
+- If they are at/over limit:
+  - Do **not** insert.
+  - Return a structured error that the frontend can interpret as “show upgrade modal”, including which tier is required.
+
+Use the same **upgrade modal** pattern that tools use when the user clicks a locked tool. Don’t re-invent modals.
+
+---
+
+## 5. SHOPPING CLOUD UI – DASHBOARD PAGE
+
+Implement the main Shopping Cloud dashboard view under the same routing pattern as other clouds (e.g. a `/clouds/shopping` page or the equivalent in this repo).
+
+Requirements:
+
+1. **Layout**
+   - Use the existing Cloud dashboard layout component (whatever Creation/Video Cloud uses).
+   - Keep styling consistent with current design system (tokens, gradients, cards).
+
+2. **Collections Sidebar**
+   - Left sidebar with:
+     - “All Items”
+     - List of user collections.
+     - “+ New Collection” button.
+   - When clicking a collection:
+     - Filter the item grid.
+   - Disable “+ New Collection” + show upgrade CTA when the user is on FREE and at the collection limit.
+
+3. **Item Grid/List**
+   - Central area: grid or list of shopping items with:
+     - Image
+     - Title
+     - Store
+     - Current price
+     - Tag chips
+   - Each card:
+     - Click → open a detail drawer or quick view with:
+       - Full title, URL, price, store, tags
+       - “Open Product” (links to `affiliate_url` if present else `canonical_url`) in a new tab.
+       - Price history mini-view: show recent snapshots in a simple chart or table (time vs price). Use existing chart/components if we have them; otherwise simplest possible UI.
+
+4. **Multi-Select & Summary Panel**
+   - Allow selecting multiple items (checkbox per card or “select mode”).
+   - When any items are selected:
+     - Show a bottom or side panel summarizing:
+       - Total price of selected items.
+       - Breakdown by store (e.g. Zara: $240, ASOS: $90).
+     - Provide a button “Open all in new tabs” or “Go to stores” – open all product URLs (or at least show store groups with open buttons).
+
+5. **Add Item (Paste URL)**
+   - On the dashboard, add an “Add Item” control:
+     - Input for product URL.
+     - Optional dropdown to choose a collection.
+   - On submit:
+     - Call `POST /api/shopping/add` with `mode: "url"`.
+     - If tier limit is hit, trigger the upgrade modal.
+     - Show loading and basic error handling.
+
+6. **Tier Feedback**
+   - When user crosses FREE limits:
+     - Cloud UI must clearly show:
+       - “You’ve reached your free plan limit of 20 saved items / 1 collection. Upgrade Shopping Cloud to continue saving.”
+     - Use existing pricing/plan components for messaging and upgrade CTA.
+
+---
+
+## 6. OUTFIT GENERATOR INTEGRATION
+
+The Outfit Generator tool already exists. Enhance it as follows:
+
+1. Locate the component that renders the **product suggestion cards** (after a user uploads a photo and gets shopping results).
+
+2. For each product card:
+   - Add a “Save to Shopping Cloud” button or icon.
+   - On click:
+     - If user is not logged in, follow existing auth pattern (e.g. open login modal or redirect).
+     - If logged in:
+       - Call `POST /api/shopping/add` with `mode: "direct"` and payload from the product result:
+         - `title`
+         - `image_url`
+         - `canonical_url` (outbound link)
+         - `affiliate_url` if we already have one in the result structure, else null.
+         - `store` (from result or derived domain)
+         - `price_current`
+         - `currency` (if present)
+       - Optionally let user pick a collection (e.g. via a small dropdown or a simple “Default collection” behavior).
+
+3. Show a toast/notification when saved:
+   - E.g. “Saved to Shopping Cloud” with a link to “View in Shopping Cloud”.
+   - Respect existing toast system.
+
+Make sure this integration respects the same tier limits (the API will enforce them).
+
+---
+
+## 7. AFFILIATE URL HOOKS (MVP PREP)
+
+Even if we don’t fully integrate an affiliate provider in this task, you must:
+
+- Keep `affiliate_url` in the data model.
+- In comments and code structure, clearly separate:
+  - `canonical_url` = original product page
+  - `affiliate_url` = monetized tracking URL (if present)
+
+If there is already an affiliate helper or redirect pattern in the repo, integrate with it. Otherwise:
+
+- Leave a small helper function stub (e.g. `getAffiliateUrlForProduct(canonicalUrl: string): string | null`) that returns `null` for now, and call it when creating items. This makes it easy to plug in affiliate logic later without refactoring.
+
+---
+
+## 8. ACCEPTANCE CRITERIA / SELF-CHECKLIST
+
+Before you finish, verify ALL of the following:
+
+- [ ] I reused the existing Cloud dashboard layout and upgrade modal patterns.
+- [ ] New Drizzle tables `shopping_items`, `shopping_collections`, and `shopping_price_snapshots` exist, with migrations applied.
+- [ ] `/api/shopping/add` supports both URL-scrape and direct payload modes and enforces tier limits.
+- [ ] `/api/shopping/list` returns items filtered by user (and optionally collection).
+- [ ] `/api/shopping/collections/create`, `/api/shopping/update`, `/api/shopping/delete`, and `/api/shopping/price-history` are implemented with proper auth.
+- [ ] The Shopping Cloud dashboard shows:
+      - Collections sidebar
+      - Item grid/list
+      - Multi-select with total and per-store breakdown
+      - “Add item via URL” flow.
+- [ ] FREE tier users are limited to 20 items and 1 collection, with a clear upgrade path using existing monetization UI.
+- [ ] The Outfit Generator product cards now have a “Save to Shopping Cloud” integration that calls the new API.
+- [ ] No tier logic is duplicated in multiple styles – Shopping Cloud gates via a clear, centralized config and existing entitlement mechanisms.
+- [ ] Types, imports, and linting all pass; the app builds successfully.
+
+Focus on a clean, minimal, **working** MVP. Do not over-engineer. Follow existing patterns and keep Shopping Cloud fully consistent with the rest of VCM Suite.
