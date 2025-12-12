@@ -1,0 +1,107 @@
+Replit Prompt: Implement save-limit gating for bespoke Universal Cart tool (Shopping Cloud)
+You are working in VCM Suite. Implement usage-based gating for the bespoke Universal Cart tool so saves are limited by tier:
+FREE: 10 saves
+STARTER: 50 saves
+BASIC: unlimited
+PRO: unlimited
+This is NOT heavyMode gating and NOT AI gating. This is a usage limit enforced server-side.
+Hard constraints (do not violate)
+Do not add any new concepts like toolRole, flagship, etc.
+Do not put any logic inside Clouds. Clouds only curate/gate/promote tools.
+Do not hardcode numbers in React components.
+Enforcement must happen in the API that performs the save action (server authority).
+The bespoke tool must still use the existing SSoT gating patterns (tier → helper → lock state → upgrade modal).
+Ensure there is a matching row in the tools table for this tool slug with the correct engine.
+Step A — Ensure tools table row exists (SSoT)
+Find the tool slug for the bespoke Universal Cart page (use the route slug). Ensure:
+tools.slug matches the tool’s slug exactly
+tools.engine is set to the correct engine for Shopping tools (whatever engine this tool should be associated with)
+If missing, add a migration or admin insert that creates it.
+This is required so existing gating + tagging pipelines can find the tool by slug.
+Step B — Add persistence for saves (required)
+Add a new table to track saves.
+Table: shopping_cart_saves
+Columns:
+id uuid primary key default gen_random_uuid()
+cart_id text NOT NULL
+user_id uuid NULL (if logged in)
+product_url text NOT NULL
+created_at timestamp default now()
+Indexes:
+index on (user_id, created_at)
+index on (cart_id, created_at)
+Notes:
+Anonymous users are tracked by cart_id stored in a cookie (existing cartId behavior, or create it if missing).
+Logged-in users use user_id and should still store cart_id for continuity.
+Step C — Single source of truth for limits
+Create a single config object in a shared server-safe place (NOT inside a component), e.g.:
+lib/limits/shopping-limits.ts
+export const SHOPPING_SAVE_LIMITS = {
+  FREE: 10,
+  STARTER: 50,
+  BASIC: Infinity,
+  PRO: Infinity,
+} as const;
+Also create a helper:
+lib/limits/get-shopping-save-limit.ts
+that maps your actual tier enum/strings to these keys and returns the numeric limit.
+Step D — Server-side enforcement on “Add / Save product”
+Locate the API route used when the user pastes a product URL and clicks Add in the Universal Cart tool.
+Before inserting a new save:
+Resolve identity:
+if logged in: user_id
+else: cart_id from cookie (create if missing and set cookie)
+Count saves used:
+If logged in: count rows where user_id = X
+Else: count rows where cart_id = Y
+Get user tier (existing tier fetch, same as cloud gating uses)
+Compute limit from SHOPPING_SAVE_LIMITS
+If used >= limit return HTTP 403 with JSON:
+{
+  "locked": true,
+  "reason": "save_limit_reached",
+  "requiredTier": "STARTER" // or "BASIC" if starter exceeded
+}
+Tier upgrade path:
+FREE → STARTER
+STARTER → BASIC
+BASIC/PRO → null (should never lock)
+If not locked, proceed to insert the save.
+Step E — UI behavior (bespoke tool page)
+In the Universal Cart client component:
+When Add/save request returns { locked: true, reason: 'save_limit_reached' }:
+Open the existing upgrade modal (same modal used elsewhere)
+Pass requiredTier
+Show clear copy:
+FREE: “You’ve used 10 free saves. Upgrade to Starter for up to 50 saves.”
+STARTER: “You’ve used 50 saves. Upgrade to Basic for unlimited saves.”
+Do NOT pre-disable the Add button based on local counts. Let server decide.
+Also display a small counter UI (optional but recommended):
+“X / 10 saves” or “X / 50 saves”
+For unlimited: “X saves”
+This counter must come from a server count endpoint or returned metadata, not guessed locally.
+Step F — Add a count endpoint (so UI can show usage)
+Add an API route:
+GET /api/shopping/saves/usage
+Returns:
+{
+  "used": 7,
+  "limit": 10,
+  "tier": "FREE"
+}
+Use the same identity rules (user_id if logged in else cart_id).
+Acceptance criteria
+FREE user can save exactly 10 items, 11th triggers upgrade modal and does not insert.
+STARTER can save exactly 50 items, 51st triggers upgrade modal and does not insert.
+BASIC and PRO never block saving.
+Anonymous users are limited by cartId cookie; logged-in users are limited by user_id.
+No magic numbers in React components.
+No new gating concepts added.
+Tools table row exists for the slug with correct engine.
+Deliverables
+Migration for shopping_cart_saves
+lib/limits/shopping-limits.ts + helper
+Updated save API with server enforcement
+New usage endpoint
+Bespoke Universal Cart UI handles 403 lock response by opening upgrade modal
+Do the smallest correct implementation that satisfies the above and keep it consistent with existing VCM Suite gating patterns.
