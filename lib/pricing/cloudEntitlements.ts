@@ -5,6 +5,11 @@ type HeavyToolsEntitlement = false | 'single-step' | 'multi-step' | 'full';
 type WorkflowsEntitlement = false | 'limited' | 'full';
 type ExportsEntitlement = 'watermarked' | 'fullres';
 
+export type ShoppingLimits = {
+  maxItems: number;
+  maxCollections: number;
+};
+
 export type CloudEntitlementConfig = {
   memory: MemoryEntitlement;
   ai: boolean;
@@ -12,6 +17,7 @@ export type CloudEntitlementConfig = {
   workflows: WorkflowsEntitlement;
   workflowLimit: number | 'unlimited';
   exports: ExportsEntitlement;
+  shopping: ShoppingLimits;
 };
 
 export const CLOUD_ENTITLEMENTS: Record<UserTier, CloudEntitlementConfig> = {
@@ -22,6 +28,10 @@ export const CLOUD_ENTITLEMENTS: Record<UserTier, CloudEntitlementConfig> = {
     workflows: false,
     workflowLimit: 0,
     exports: 'watermarked',
+    shopping: {
+      maxItems: 20,
+      maxCollections: 1,
+    },
   },
   starter: {
     memory: 'limited',
@@ -30,6 +40,10 @@ export const CLOUD_ENTITLEMENTS: Record<UserTier, CloudEntitlementConfig> = {
     workflows: 'limited',
     workflowLimit: 3,
     exports: 'fullres',
+    shopping: {
+      maxItems: Infinity,
+      maxCollections: Infinity,
+    },
   },
   basic: {
     memory: 'full',
@@ -38,6 +52,10 @@ export const CLOUD_ENTITLEMENTS: Record<UserTier, CloudEntitlementConfig> = {
     workflows: 'full',
     workflowLimit: 'unlimited',
     exports: 'fullres',
+    shopping: {
+      maxItems: Infinity,
+      maxCollections: Infinity,
+    },
   },
   pro: {
     memory: 'full',
@@ -46,6 +64,10 @@ export const CLOUD_ENTITLEMENTS: Record<UserTier, CloudEntitlementConfig> = {
     workflows: 'full',
     workflowLimit: 'unlimited',
     exports: 'fullres',
+    shopping: {
+      maxItems: Infinity,
+      maxCollections: Infinity,
+    },
   },
 };
 
