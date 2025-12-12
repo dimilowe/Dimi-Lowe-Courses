@@ -298,7 +298,7 @@ export default function UniversalShoppingCartClient() {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-5 text-white">
+      <div className="bg-emerald-500 px-6 py-5 text-white">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
             <ShoppingCart className="w-6 h-6" />
