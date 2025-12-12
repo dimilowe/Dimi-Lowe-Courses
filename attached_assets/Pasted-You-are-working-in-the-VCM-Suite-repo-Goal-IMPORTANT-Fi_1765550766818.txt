@@ -1,0 +1,197 @@
+You are working in the VCM Suite repo.
+
+Goal (IMPORTANT):
+Fix Shopping Cloud gating **properly** by:
+- Ensuring Shopping tools point to the correct engines (not ai-analysis as a hack),
+- Setting the engine metadata (heavyMode/hasAi) correctly for those engines,
+- Normalizing heavyMode for ALL engines so every tool has explicit metadata.
+
+You must NOT:
+- Change cloud components or cloud logic.
+- Change getToolLockState logic (beyond type/safety if truly needed).
+- Change global pricing or CLOUD_ENTITLEMENTS.
+- Point all Shopping tools at ai-analysis just to inherit heavyMode/hasAi.
+
+Prime Directives (do NOT violate):
+1) All real functionality lives only in Engines + Tools. Clouds may never contain functionality.
+2) Clouds must always use the universal cloud dashboard component with no custom cloud-specific UI or logic.
+3) Tools must always be defined and rendered through CMS Objects + the VCM Renderer. Nothing may bypass the Tool → CMS → Renderer pipeline.
+4) Any new logic must be implemented as a reusable Engine; Clouds may only curate, gate, and promote tools.
+5) Architectural changes may only occur when explicitly instructed; otherwise, maintain strict adherence to the established system architecture.
+
+Also respect these gating defaults:
+- heavyMode: 'none' for light, cheap tools.
+- heavyMode: 'single' for medium-cost tools (e.g., Shopping Cloud tools).
+- heavyMode: 'multi' for truly heavy/expensive tools.
+- hasAi: true ONLY when the tool uses AI and should be Pro-only.
+Gating is universal via getToolLockState.
+
+---
+
+### STEP 1 – Inspect getToolLockState and ToolAccessMeta (READ-ONLY, no logic changes)
+
+1. Open the file that contains:
+
+   export type HeavyMode = 'none' | 'single' | 'multi';
+   export type ToolAccessMeta = {
+     heavyMode?: HeavyMode;
+     hasAi?: boolean;
+   };
+
+   export function getToolLockState(
+     userTier: UserTier,
+     meta: ToolAccessMeta
+   ): ToolLockState { ... }
+
+2. Confirm the logic:
+   - AI tools (hasAi) require pro.
+   - heavyMode: 'single' blocks free.
+   - heavyMode: 'multi' blocks free + starter.
+
+3. Do NOT change the gating rules in getToolLockState.
+   - You may only tighten types if necessary (we’ll handle that in a later step).
+
+---
+
+### STEP 2 – Find the engine/ tool registry
+
+1. Locate the engine / tools registry that the cloud dashboard uses, something like:
+   - ENGINE_REGISTRY, toolsRegistry, or similar.
+   - Likely under /lib/engines, /lib/tools, or a config file that maps tool IDs to:
+     - engine
+     - heavyMode
+     - hasAi
+     - clouds
+
+2. Confirm this registry is what the cloud dashboard reads to render tool cards and to build the ToolAccessMeta passed into getToolLockState.
+
+Do NOT modify cloud components.
+
+---
+
+### STEP 3 – Identify the Shopping Cloud tools and their engines
+
+The Shopping Cloud tools we care about include (match by slug/id or title; the exact IDs may differ, but the titles will be similar):
+
+- Aesthetic Outfit Generator – Curated Style Finder
+- Capsule Wardrobe Outfit Finder – Minimal Essentials
+- Date Night Outfit Generator – Recreate Any Romantic Look
+- Gym Outfit Generator – Activewear Style Finder
+- Office Outfit Generator – Smart Casual Work Looks
+- Outfit Ideas Generator – Shop Any Look
+- Party Outfit Generator – Night Out Style Finder
+- Streetwear Outfit Finder – Shop Urban Looks
+- Track Prices on Amazon – Amazon Price Tracker Tool
+- Track Price – Free Online Price Tracker
+
+For each of these tools:
+
+1. Find its registry entry.
+2. Note its current `engine` value.
+   - If an engine is missing, do NOT blindly set it to 'ai-analysis'.
+   - Instead:
+     - Determine the intended engine for outfit generators / price trackers based on naming and existing engine definitions.
+     - If a dedicated engine already exists for these (e.g., outfit-generator, outfit-ideas, price-tracker, etc.), use that.
+     - If they currently share a common engine (other than ai-analysis), keep that.
+
+We want engines to reflect actual behavior, not pricing hacks.
+
+---
+
+### STEP 4 – Set correct metadata on the engines (NOT via ai-analysis hack)
+
+1. For the engine(s) that power the Shopping outfit tools (the ones you identified in Step 3):
+
+   - Update the ENGINE_REGISTRY entry for those engines to include:
+
+     heavyMode: 'single',
+     hasAi: false,  // unless this engine actually uses AI and should be Pro-only
+
+   Example (adapt to your actual engine registry shape):
+
+   {
+     id: 'outfit-generator',
+     // ...other fields
+     heavyMode: 'single',
+     hasAi: false,
+   }
+
+2. For the engine(s) that power the Shopping price tracker tools:
+
+   - Decide if they are light or medium-heavy:
+     - If they are simple and cheap → heavyMode: 'none'.
+     - If they do scraping / periodic checks and should be gated → heavyMode: 'single'.
+   - Set heavyMode accordingly on their engine definitions.
+
+3. IMPORTANT:
+   - Do NOT set hasAi: true unless the engine genuinely uses AI and should be Pro-only across all clouds.
+   - Do NOT repoint tools to 'ai-analysis' just to reuse its metadata. Instead, make the **intended engines** carry the correct heavyMode.
+
+---
+
+### STEP 5 – Normalize heavyMode across ALL engines (future-proofing)
+
+1. In the same engine registry, for EVERY engine:
+
+   - If `heavyMode` is currently undefined, set:
+
+     heavyMode: 'none',
+
+   - If `heavyMode` is already 'single' or 'multi', leave it as-is.
+   - If there are engines that are truly heavy/expensive, ensure they correctly use heavyMode: 'multi'.
+
+2. This ensures every engine has explicit heavyMode, which keeps the system consistent and future-proof.
+
+---
+
+### STEP 6 – (Optional but recommended) Tighten ToolAccessMeta
+
+1. Return to the file where ToolAccessMeta is defined:
+
+   export type ToolAccessMeta = {
+     heavyMode?: HeavyMode;
+     hasAi?: boolean;
+   };
+
+2. After you’ve updated all engines in the registry to have explicit heavyMode, you may safely change ToolAccessMeta to:
+
+   export type ToolAccessMeta = {
+     heavyMode: HeavyMode;
+     hasAi?: boolean;
+   };
+
+3. Keep the runtime default inside getToolLockState:
+
+   const heavyMode: HeavyMode = meta.heavyMode ?? 'none';
+
+   This is harmless redundancy and protects you from any legacy or edge cases where meta might not be fully populated.
+
+Do NOT change the gating behavior logic itself.
+
+---
+
+### STEP 7 – Verification
+
+1. Typecheck & build:
+   - Run the usual commands (e.g., npm run lint, npm run build).
+   - Fix any type issues related to heavyMode until clean.
+
+2. Behavior:
+   - As a FREE user, visit /clouds/shopping:
+     - The Shopping tools listed above should now show lock badges and upgrade prompts, consistent with other heavy tools in other clouds.
+   - As a STARTER/BASIC/PRO user (depending on your existing logic), confirm the unlock behavior matches:
+     - heavyMode: 'single' → free blocked, starter+ allowed.
+   - Visit /tools/[slug] directly for one of the Shopping tools:
+     - Tool still loads and functions as before (no route-level gating changes were introduced).
+   - Confirm no cloud-specific logic was added; Shopping Cloud is still using the universal cloud dashboard and the universal getToolLockState gating.
+
+---
+
+Report back with:
+- The engine registry file(s) you modified.
+- The list of engines you updated for the Shopping tools.
+- Confirmation that:
+  - ALL engines now have explicit heavyMode.
+  - Shopping Cloud tools now show correct lock badges for free users.
+  - No tools were repointed to 'ai-analysis' as a shortcut.
+  - No cloud components or getToolLockState logic were altered beyond type tightening.

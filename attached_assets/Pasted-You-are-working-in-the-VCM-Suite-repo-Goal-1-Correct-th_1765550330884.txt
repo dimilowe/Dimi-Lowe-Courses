@@ -1,0 +1,86 @@
+You are working in the VCM Suite repo.
+
+Goal:
+(1) Correct the metadata for all existing Shopping Cloud tools so they behave like the rest of the suite, using heavyMode: 'single'.
+(2) Normalize tool metadata so every tool explicitly has heavyMode defined, which future-proofs gating for all clouds.
+
+Prime Directives (do NOT violate):
+- Do NOT touch any Cloud components or Cloud-specific logic.
+- Do NOT modify getToolLockState logic beyond type accuracy.
+- All functionality must remain in Engines + Tools. Clouds only curate, gate, and promote.
+- Do NOT alter CLOUD_ENTITLEMENTS or pricing logic.
+
+Steps:
+
+1) Locate getToolLockState and ToolAccessMeta
+- Open `lib/tools/getToolLockState.ts` (the file that defines ToolAccessMeta and getToolLockState).
+- Confirm the current type:
+
+  export type HeavyMode = 'none' | 'single' | 'multi';
+
+  export type ToolAccessMeta = {
+    heavyMode?: HeavyMode;
+    hasAi?: boolean;
+  };
+
+- Change ToolAccessMeta so heavyMode is REQUIRED instead of optional:
+
+  export type ToolAccessMeta = {
+    heavyMode: HeavyMode;
+    hasAi?: boolean;
+  };
+
+- Do NOT change the runtime logic inside getToolLockState (keep the line that defaults to 'none' as extra safety):
+
+  const heavyMode: HeavyMode = meta.heavyMode ?? 'none';
+
+2) Find the tool/engine registry
+- Locate the file(s) where tools are defined with fields like heavyMode, hasAi, clouds, etc. (ENGINE_REGISTRY or similar under lib/tools or lib/engines).
+- This is the metadata that feeds ToolAccessMeta into getToolLockState and the cloud dashboard.
+
+3) Normalize heavyMode for ALL tools
+- For EVERY tool in the registry:
+  - If it already has heavyMode set to 'single' or 'multi', leave it as-is.
+  - If it has NO heavyMode defined, add:
+
+    heavyMode: 'none',
+
+  - This is required so the new ToolAccessMeta type compiles and so all tools have explicit metadata going forward.
+
+4) Tag the Shopping Cloud tools as heavyMode: 'single'
+- Identify the tools that belong to Shopping Cloud (the ones visible in the Shopping Cloud UI). At minimum, update the following by id/slug (names may vary slightly in code, match by slug or title):
+
+  - Aesthetic Outfit Generator – Curated Style Finder
+  - Capsule Wardrobe Outfit Finder – Minimal Essentials
+  - Date Night Outfit Generator – Recreate Any Romantic Look
+  - Gym Outfit Generator – Activewear Style Finder
+  - Office Outfit Generator – Smart Casual Work Looks
+  - Outfit Ideas Generator – Shop Any Look
+  - Party Outfit Generator – Night Out Style Finder
+  - Streetwear Outfit Finder – Shop Urban Looks
+  - Track Prices on Amazon – Amazon Price Tracker Tool
+  - Track Price – Free Online Price Tracker
+
+- For each of these tools, set:
+
+  heavyMode: 'single',
+
+- If they currently have heavyMode: 'none' or are missing heavyMode, overwrite/define it as 'single'.
+
+- DO NOT change hasAi for these tools unless it is already set; we are not altering AI gating.
+
+5) Type-check and build
+- Run the usual typecheck/build command (e.g. `npm run build` or `npm run lint`) and fix any type errors related to ToolAccessMeta until everything passes.
+- Ensure no other logic or components were modified beyond what’s described above.
+
+6) Quick behavior verification
+- Start the dev server.
+- As a free user, visit `/clouds/shopping`:
+  - The Shopping tools listed above should now show as gated (locked) in the same way other heavy tools are gated in other clouds.
+- Directly visit `/tools/[slug]` for one of these tools:
+  - The tool should still be usable for SEO/cold traffic, consistent with the existing behavior (we did NOT introduce route-level gating here).
+
+Report back with:
+- The registry file(s) where you added/updated heavyMode.
+- Confirmation that all tools now have an explicit heavyMode ('none', 'single', or 'multi').
+- Confirmation that Shopping Cloud tools now gate correctly, with NO changes made to cloud components or getToolLockState logic beyond type requirements.
