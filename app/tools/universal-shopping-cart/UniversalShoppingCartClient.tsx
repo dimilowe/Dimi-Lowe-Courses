@@ -1,65 +1,67 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { ShoppingCart, ShoppingBag, Plus, Trash2, ExternalLink, Search, Tag, X, Copy, Check, Share2, Edit2, Save, Grid, List, Link2 } from "lucide-react";
+import { ShoppingCart, ShoppingBag, Plus, Trash2, ExternalLink, Search, Tag, X, Copy, Check, Share2, Edit2, Save, Grid, List, Link2, AlertCircle } from "lucide-react";
+import { useUIStore } from "@/lib/state/uiStore";
+import type { UserTier } from "@/lib/pricing/types";
 
-const STORE_GRADIENTS: Record<string, [string, string]> = {
-  "amazon.com": ["f97316", "ea580c"],
-  "amazon.co.uk": ["f97316", "ea580c"],
-  "ebay.com": ["0064d2", "3665f3"],
-  "walmart.com": ["0071ce", "004c91"],
-  "target.com": ["cc0000", "990000"],
-  "bestbuy.com": ["0046be", "003da5"],
-  "nordstrom.com": ["1e3a5f", "2c5282"],
-  "macys.com": ["e21a2c", "b91c1c"],
-  "shein.com": ["000000", "1a1a1a"],
-  "us.shein.com": ["000000", "1a1a1a"],
-  "asos.com": ["2d2d2d", "1a1a1a"],
-  "zara.com": ["000000", "262626"],
-  "hm.com": ["cc071e", "a30517"],
-  "uniqlo.com": ["ff0000", "cc0000"],
-  "etsy.com": ["f1641e", "d35400"],
-  "aliexpress.com": ["e62e04", "ff4747"],
-  "wish.com": ["2fb7ec", "17a2b8"],
-  "wayfair.com": ["7b189f", "5d1277"],
-  "ikea.com": ["0058a3", "ffdb00"],
-  "homedepot.com": ["f96302", "e55b00"],
-  "lowes.com": ["004990", "003366"],
-  "costco.com": ["005daa", "e31837"],
-  "sephora.com": ["000000", "1a1a1a"],
-  "ulta.com": ["fb6b90", "e91e63"],
-  "nike.com": ["111111", "000000"],
-  "adidas.com": ["000000", "1a1a1a"],
-  "reebok.com": ["cc0000", "990000"],
-  "puma.com": ["000000", "1a1a1a"],
-  "underarmour.com": ["1d1d1d", "000000"],
-  "lululemon.com": ["d31334", "b91c1c"],
-  "gap.com": ["000066", "000044"],
-  "oldnavy.com": ["003057", "002040"],
-  "bananarepublic.com": ["1a1a1a", "000000"],
-  "jcrew.com": ["1c355e", "0f1f3d"],
-  "anthropologie.com": ["2d2926", "1a1714"],
-  "urbanoutfitters.com": ["000000", "1a1a1a"],
-  "freepeople.com": ["d4a574", "c49358"],
-  "revolve.com": ["000000", "1a1a1a"],
-  "shopbop.com": ["000000", "1a1a1a"],
-  "ssense.com": ["000000", "1a1a1a"],
-  "farfetch.com": ["000000", "1a1a1a"],
-  "net-a-porter.com": ["000000", "1a1a1a"],
-  "mrporter.com": ["000000", "1a1a1a"],
-  "apple.com": ["555555", "1d1d1f"],
-  "google.com": ["4285f4", "34a853"],
-  "shopping.google.com": ["4285f4", "34a853"],
+const STORE_COLORS: Record<string, string> = {
+  "amazon.com": "f97316",
+  "amazon.co.uk": "f97316",
+  "ebay.com": "0064d2",
+  "walmart.com": "0071ce",
+  "target.com": "cc0000",
+  "bestbuy.com": "0046be",
+  "nordstrom.com": "1e3a5f",
+  "macys.com": "e21a2c",
+  "shein.com": "000000",
+  "us.shein.com": "000000",
+  "asos.com": "2d2d2d",
+  "zara.com": "000000",
+  "hm.com": "cc071e",
+  "uniqlo.com": "ff0000",
+  "etsy.com": "f1641e",
+  "aliexpress.com": "e62e04",
+  "wish.com": "2fb7ec",
+  "wayfair.com": "7b189f",
+  "ikea.com": "0058a3",
+  "homedepot.com": "f96302",
+  "lowes.com": "004990",
+  "costco.com": "005daa",
+  "sephora.com": "000000",
+  "ulta.com": "fb6b90",
+  "nike.com": "111111",
+  "adidas.com": "000000",
+  "reebok.com": "cc0000",
+  "puma.com": "000000",
+  "underarmour.com": "1d1d1d",
+  "lululemon.com": "d31334",
+  "gap.com": "000066",
+  "oldnavy.com": "003057",
+  "bananarepublic.com": "1a1a1a",
+  "jcrew.com": "1c355e",
+  "anthropologie.com": "2d2926",
+  "urbanoutfitters.com": "000000",
+  "freepeople.com": "d4a574",
+  "revolve.com": "000000",
+  "shopbop.com": "000000",
+  "ssense.com": "000000",
+  "farfetch.com": "000000",
+  "net-a-porter.com": "000000",
+  "mrporter.com": "000000",
+  "apple.com": "555555",
+  "google.com": "4285f4",
+  "shopping.google.com": "4285f4",
 };
 
 function getStoreColor(domain: string): string {
   const lowerDomain = domain.toLowerCase();
-  if (STORE_GRADIENTS[lowerDomain]) {
-    return STORE_GRADIENTS[lowerDomain][0];
+  if (STORE_COLORS[lowerDomain]) {
+    return STORE_COLORS[lowerDomain];
   }
-  for (const [storeDomain, colors] of Object.entries(STORE_GRADIENTS)) {
+  for (const [storeDomain, color] of Object.entries(STORE_COLORS)) {
     if (lowerDomain.includes(storeDomain.split(".")[0])) {
-      return colors[0];
+      return color;
     }
   }
   return "10b981";
@@ -87,10 +89,10 @@ interface CartItem {
   domain: string;
 }
 
-const STORAGE_KEY = "vcm-universal-cart";
-
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 15);
+interface UsageInfo {
+  used: number;
+  limit: number | null;
+  tier: UserTier;
 }
 
 function extractDomain(url: string): string {
@@ -106,6 +108,7 @@ export default function UniversalShoppingCartClient() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [urlInput, setUrlInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -115,8 +118,10 @@ export default function UniversalShoppingCartClient() {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [isInitialized, setIsInitialized] = useState(false);
   const [isSharedView, setIsSharedView] = useState(false);
+  const [usage, setUsage] = useState<UsageInfo | null>(null);
+
+  const openUpgradeModal = useUIStore((s) => s.openUpgradeModal);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -128,28 +133,33 @@ export default function UniversalShoppingCartClient() {
         if (Array.isArray(decoded)) {
           setItems(decoded);
           setIsSharedView(true);
+          setIsFetching(false);
         }
       } catch (e) {
         console.error("Failed to load shared cart", e);
+        fetchCartItems();
       }
     } else {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        try {
-          setItems(JSON.parse(saved));
-        } catch (e) {
-          console.error("Failed to load cart", e);
-        }
-      }
+      fetchCartItems();
     }
-    setIsInitialized(true);
   }, []);
 
-  useEffect(() => {
-    if (isInitialized && !isSharedView) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  const fetchCartItems = async () => {
+    try {
+      const res = await fetch("/api/shopping/cart/items");
+      if (res.ok) {
+        const data = await res.json();
+        setItems(data.items || []);
+        if (data.usage) {
+          setUsage(data.usage);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch cart items:", err);
+    } finally {
+      setIsFetching(false);
     }
-  }, [items, isInitialized, isSharedView]);
+  };
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -184,32 +194,51 @@ export default function UniversalShoppingCartClient() {
     setError("");
 
     try {
-      const res = await fetch("/api/fetch-product-metadata", {
+      const metadataRes = await fetch("/api/fetch-product-metadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: urlInput }),
       });
 
-      const data = await res.json();
+      const metadata = await metadataRes.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch metadata");
+      if (!metadataRes.ok) {
+        throw new Error(metadata.error || "Failed to fetch metadata");
       }
 
-      const newItem: CartItem = {
-        id: generateId(),
-        url: urlInput,
-        title: data.title || "Untitled Product",
-        image: data.image || "",
-        description: data.description || "",
-        price: data.price || "",
-        notes: "",
-        tags: [],
-        savedAt: new Date().toISOString(),
-        domain: extractDomain(urlInput),
-      };
+      const domain = extractDomain(urlInput);
+      
+      const saveRes = await fetch("/api/shopping/cart/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: urlInput,
+          title: metadata.title || "Untitled Product",
+          image: metadata.image || "",
+          description: metadata.description || "",
+          price: metadata.price || "",
+          notes: "",
+          tags: [],
+          domain,
+        }),
+      });
 
-      setItems((prev) => [newItem, ...prev]);
+      const saveData = await saveRes.json();
+
+      if (saveRes.status === 403 && saveData.locked) {
+        openUpgradeModal(null, saveData.requiredTier || "starter");
+        setError(saveData.message || "Save limit reached. Upgrade to save more items.");
+        return;
+      }
+
+      if (!saveRes.ok) {
+        throw new Error(saveData.error || "Failed to save item");
+      }
+
+      setItems((prev) => [saveData.item, ...prev]);
+      if (saveData.usage) {
+        setUsage(saveData.usage);
+      }
       setUrlInput("");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to add item";
@@ -219,8 +248,21 @@ export default function UniversalShoppingCartClient() {
     }
   };
 
-  const handleDelete = (id: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/shopping/cart/items/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setItems((prev) => prev.filter((item) => item.id !== id));
+        if (usage) {
+          setUsage({ ...usage, used: Math.max(0, usage.used - 1) });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to delete item:", err);
+    }
   };
 
   const handleStartEdit = (item: CartItem) => {
@@ -234,43 +276,90 @@ export default function UniversalShoppingCartClient() {
     setTagInput("");
   };
 
-  const handleSaveEdit = (id: string) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              title: editForm.title || item.title,
-              price: editForm.price || item.price,
-              notes: editForm.notes || "",
-              image: editForm.image || item.image,
-            }
-          : item
-      )
-    );
+  const handleSaveEdit = async (id: string) => {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+
+    const updatedTags = item.tags;
+
+    try {
+      const res = await fetch(`/api/shopping/cart/items/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editForm.title,
+          price: editForm.price,
+          notes: editForm.notes,
+          image: editForm.image,
+          tags: updatedTags,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setItems((prev) =>
+          prev.map((i) => (i.id === id ? data.item : i))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to update item:", err);
+    }
+
     setEditingId(null);
     setEditForm({});
   };
 
-  const handleAddTag = (id: string) => {
+  const handleAddTag = async (id: string) => {
     if (!tagInput.trim()) return;
     const tag = tagInput.trim().toLowerCase();
+    
+    const item = items.find((i) => i.id === id);
+    if (!item || item.tags.includes(tag)) {
+      setTagInput("");
+      return;
+    }
+
+    const newTags = [...item.tags, tag];
+    
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === id && !item.tags.includes(tag)
-          ? { ...item, tags: [...item.tags, tag] }
-          : item
+      prev.map((i) =>
+        i.id === id ? { ...i, tags: newTags } : i
       )
     );
     setTagInput("");
+
+    try {
+      await fetch(`/api/shopping/cart/items/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: newTags }),
+      });
+    } catch (err) {
+      console.error("Failed to add tag:", err);
+    }
   };
 
-  const handleRemoveTag = (id: string, tag: string) => {
+  const handleRemoveTag = async (id: string, tag: string) => {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+
+    const newTags = item.tags.filter((t) => t !== tag);
+    
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, tags: item.tags.filter((t) => t !== tag) } : item
+      prev.map((i) =>
+        i.id === id ? { ...i, tags: newTags } : i
       )
     );
+
+    try {
+      await fetch(`/api/shopping/cart/items/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: newTags }),
+      });
+    } catch (err) {
+      console.error("Failed to remove tag:", err);
+    }
   };
 
   const handleGenerateShareLink = useCallback(() => {
@@ -287,7 +376,6 @@ export default function UniversalShoppingCartClient() {
     }
   };
 
-
   const totalValue = useMemo(() => {
     return items.reduce((sum, item) => {
       const price = parseFloat(item.price.replace(/[^0-9.]/g, ""));
@@ -295,25 +383,54 @@ export default function UniversalShoppingCartClient() {
     }, 0);
   }, [items]);
 
+  if (isFetching) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
+        <div className="bg-emerald-500 px-6 py-5 text-white">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+              <ShoppingCart className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">Your Universal Cart</h2>
+              <p className="text-emerald-100 text-sm">Loading...</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-12 flex justify-center">
+          <div className="w-8 h-8 border-3 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
-      {/* Header */}
       <div className="bg-emerald-500 px-6 py-5 text-white">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-            <ShoppingCart className="w-6 h-6" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+              <ShoppingCart className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">Your Universal Cart</h2>
+              <p className="text-emerald-100 text-sm">
+                {items.length} item{items.length !== 1 ? "s" : ""} saved
+                {totalValue > 0 && ` · ~$${totalValue.toFixed(2)} total`}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold">Your Universal Cart</h2>
-            <p className="text-emerald-100 text-sm">
-              {items.length} item{items.length !== 1 ? "s" : ""} saved
-              {totalValue > 0 && ` · ~$${totalValue.toFixed(2)} total`}
-            </p>
-          </div>
+          {usage && usage.limit !== null && (
+            <div className="text-right">
+              <div className="text-sm font-medium">
+                {usage.used} / {usage.limit}
+              </div>
+              <div className="text-emerald-100 text-xs">saves used</div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* URL Input */}
       <div className="p-6 border-b border-gray-100">
         <div className="flex gap-3">
           <div className="flex-1 relative">
@@ -341,17 +458,15 @@ export default function UniversalShoppingCartClient() {
           </button>
         </div>
         {error && (
-          <p className="mt-2 text-sm text-red-500 flex items-center gap-1">
-            <X className="w-4 h-4" /> {error}
-          </p>
+          <div className="mt-2 text-sm text-red-500 flex items-center gap-1">
+            <AlertCircle className="w-4 h-4" /> {error}
+          </div>
         )}
       </div>
 
-      {/* Filters & Actions */}
       {items.length > 0 && (
         <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
           <div className="flex flex-wrap items-center gap-4">
-            {/* Search */}
             <div className="flex-1 min-w-[200px] relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -363,7 +478,6 @@ export default function UniversalShoppingCartClient() {
               />
             </div>
 
-            {/* Tag Filter */}
             {allTags.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
                 <Tag className="w-4 h-4 text-gray-400" />
@@ -391,7 +505,6 @@ export default function UniversalShoppingCartClient() {
               </div>
             )}
 
-            {/* View Toggle */}
             <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setViewMode("grid")}
@@ -407,7 +520,6 @@ export default function UniversalShoppingCartClient() {
               </button>
             </div>
 
-            {/* Share Button */}
             <button
               onClick={handleGenerateShareLink}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
@@ -417,7 +529,6 @@ export default function UniversalShoppingCartClient() {
             </button>
           </div>
 
-          {/* Share Link */}
           {shareLink && (
             <div className="mt-4 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
               <input
@@ -438,7 +549,6 @@ export default function UniversalShoppingCartClient() {
         </div>
       )}
 
-      {/* Items */}
       <div className="p-6">
         {filteredItems.length === 0 ? (
           <div className="text-center py-12">
@@ -467,7 +577,6 @@ export default function UniversalShoppingCartClient() {
                   viewMode === "list" ? "flex gap-4" : ""
                 }`}
               >
-                {/* Image or Store Tile */}
                 <div
                   className={`${
                     viewMode === "list" ? "w-32 h-32 flex-shrink-0" : "aspect-square"
@@ -510,7 +619,6 @@ export default function UniversalShoppingCartClient() {
                 </div>
 
                 <div className="p-4 flex-1">
-                  {/* Header */}
                   <div className="flex items-start justify-between gap-2 mb-2">
                     {editingId === item.id ? (
                       <input
@@ -527,7 +635,6 @@ export default function UniversalShoppingCartClient() {
                     <span className="text-xs text-gray-400 whitespace-nowrap">{item.domain}</span>
                   </div>
 
-                  {/* Price */}
                   {editingId === item.id ? (
                     <input
                       type="text"
@@ -544,7 +651,6 @@ export default function UniversalShoppingCartClient() {
                     )
                   )}
 
-                  {/* Notes */}
                   {editingId === item.id ? (
                     <textarea
                       value={editForm.notes || ""}
@@ -561,7 +667,6 @@ export default function UniversalShoppingCartClient() {
                     )
                   )}
 
-                  {/* Tags */}
                   <div className="flex flex-wrap gap-1 mb-3">
                     {item.tags.map((tag) => (
                       <span
@@ -598,7 +703,6 @@ export default function UniversalShoppingCartClient() {
                     )}
                   </div>
 
-                  {/* Actions */}
                   <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
                     <a
                       href={item.url}
@@ -607,20 +711,20 @@ export default function UniversalShoppingCartClient() {
                       className="flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 font-medium"
                     >
                       <ExternalLink className="w-4 h-4" />
-                      Open on merchant
+                      Open
                     </a>
                     <div className="flex-1" />
                     {editingId === item.id ? (
                       <button
                         onClick={() => handleSaveEdit(item.id)}
-                        className="p-1.5 text-emerald-500 hover:bg-emerald-50 rounded"
+                        className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded"
                       >
                         <Save className="w-4 h-4" />
                       </button>
                     ) : (
                       <button
                         onClick={() => handleStartEdit(item)}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -632,11 +736,6 @@ export default function UniversalShoppingCartClient() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-
-                  {/* Saved date */}
-                  <p className="text-xs text-gray-400 mt-2">
-                    Saved {new Date(item.savedAt).toLocaleDateString()}
-                  </p>
                 </div>
               </div>
             ))}
