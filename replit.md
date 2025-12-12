@@ -516,6 +516,14 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2025-12-12: **SSoT Icon Registry Architecture** - Consolidated all tool icons into a single source of truth
+  - Created `lib/ui/icon-registry.ts`: Central registry mapping iconKey → lucide-react component
+  - Created `lib/ui/get-tool-ui.ts`: Helper with TOOL_ICON_MAP (slug-specific icons), ENGINE_THEMES (fallbacks)
+  - `getToolUI({ slug, engine })` returns { icon, bg, iconKey } for any tool
+  - Refactored `components/FreeToolsCarousel.tsx` and `app/tools/ToolsClient.tsx` to use getToolUI()
+  - Eliminated duplicate icon mappings that caused blank icon bugs
+  - Engine fallbacks: Tools without explicit icons inherit from their engine theme
+  - Type-safe IconKey union prevents invalid icon names at compile time
 - 2025-12-11: **Internal Linking Architecture** - Complete SEO internal linking to prevent orphaned pillar pages
   - Created ToolBreadcrumb component (components/tools/ToolBreadcrumb.tsx):
     - Shows "Tools > [Pillar] > [Tool Name]" when tool has a pillar assigned
