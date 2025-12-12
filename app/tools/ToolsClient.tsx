@@ -9,39 +9,44 @@ import {
   Search, 
   GitBranch, 
   Smile, 
-  Star, 
-  Heart,
+  Moon, 
+  HeartHandshake,
   ArrowRight,
   Youtube,
-  LayoutGrid,
-  Target,
-  Music,
-  Megaphone,
-  Link2,
-  FileText,
+  Box,
+  Crosshair,
+  Mic,
+  FileBarChart,
+  Network,
+  ListCollapse,
   ShoppingBag,
   Flame,
   FilePen,
   StickyNote,
   X,
-  TrendingUp,
-  Images,
+  Vote,
+  LayoutGrid,
   RotateCcw,
-  Users,
+  Merge,
   Instagram,
   Twitter,
   Linkedin,
-  Video
+  Video,
+  Zap,
+  Film,
+  Ruler,
+  Workflow,
+  Sparkles
 } from "lucide-react";
 
 const tools = [
   { 
     name: "Prediction Center", 
     description: "Submit predictions about future events and vote YES or NO. See what the crowd thinks.",
-    icon: TrendingUp, 
+    icon: Vote, 
     href: "/tools/prediction-center",
     category: "Community",
-    iconBg: "bg-purple-500"
+    iconBg: "bg-fuchsia-500"
   },
   { 
     name: "Calorie Deficit Calculator", 
@@ -78,26 +83,26 @@ const tools = [
   { 
     name: "Resource Box", 
     description: "Create shareable link collections for your bio.",
-    icon: LayoutGrid, 
+    icon: Box, 
     href: "/tools/resource-box",
     category: "Social",
-    iconBg: "bg-teal-500"
+    iconBg: "bg-orange-600"
   },
   { 
     name: "GIF Compressor", 
     description: "Compress GIF files to reduce size while maintaining quality.",
-    icon: FileImage, 
+    icon: Zap, 
     href: "/tools/gif-compressor",
     category: "Image",
-    iconBg: "bg-violet-500"
+    iconBg: "bg-yellow-500"
   },
   { 
     name: "GIF Maker", 
     description: "Convert video or images to GIF directly in your browser.",
-    icon: FileImage, 
+    icon: Film, 
     href: "/tools/gif-maker",
     category: "Image",
-    iconBg: "bg-fuchsia-500"
+    iconBg: "bg-pink-600"
   },
   { 
     name: "HEIC to JPG Converter", 
@@ -118,10 +123,10 @@ const tools = [
   { 
     name: "Social Media Image Sizes", 
     description: "Complete guide to image dimensions for all social platforms with free resizer tools.",
-    icon: Images, 
+    icon: Ruler, 
     href: "/tools/social-media-image-sizes",
     category: "Image",
-    iconBg: "bg-orange-500"
+    iconBg: "bg-violet-500"
   },
   { 
     name: "YouTube Thumbnail Resizer", 
@@ -206,10 +211,10 @@ const tools = [
   { 
     name: "Reach Grabber Tool", 
     description: "AI-powered SEO optimizer for your blog posts and articles.",
-    icon: Target, 
+    icon: Crosshair, 
     href: "/tools/reach-grabber-tool",
     category: "SEO",
-    iconBg: "bg-orange-500"
+    iconBg: "bg-red-400"
   },
   { 
     name: "AI Humanizer Free", 
@@ -222,42 +227,42 @@ const tools = [
   { 
     name: "Producer Tag Generator", 
     description: "Create custom AI voice tags for your beats and instrumentals.",
-    icon: Music, 
+    icon: Mic, 
     href: "/tools/producer-tag-generator",
     category: "Audio",
-    iconBg: "bg-green-500"
+    iconBg: "bg-purple-600"
   },
   { 
     name: "Ad Copy Analyzer", 
     description: "Analyze any ad copy and get scores, insights, and improved versions.",
-    icon: Megaphone, 
+    icon: FileBarChart, 
     href: "/tools/ad-copy-analyzer",
     category: "Marketing",
-    iconBg: "bg-cyan-500"
+    iconBg: "bg-sky-600"
   },
   { 
     name: "Internal Link Audit", 
     description: "Find orphan pages and weak internal links to improve your SEO.",
-    icon: Link2, 
+    icon: Network, 
     href: "/tools/internal-link-seo-audit",
     category: "SEO",
-    iconBg: "bg-emerald-500"
+    iconBg: "bg-lime-500"
   },
   { 
     name: "AI Summarizer", 
     description: "Summarize any text and extract key takeaways instantly.",
-    icon: FileText, 
+    icon: ListCollapse, 
     href: "/tools/summarizer",
     category: "Writing",
-    iconBg: "bg-yellow-500"
+    iconBg: "bg-slate-500"
   },
   { 
     name: "Visualization Tool", 
     description: "Turn text into flowcharts, diagrams, and visual maps.",
-    icon: GitBranch, 
+    icon: Workflow, 
     href: "/tools/visualization",
     category: "Design",
-    iconBg: "bg-amber-500"
+    iconBg: "bg-cyan-600"
   },
   { 
     name: "Emoji Combos", 
@@ -270,26 +275,26 @@ const tools = [
   { 
     name: "Horoscope of the Day", 
     description: "Get your personalized AI-powered daily horoscope reading.",
-    icon: Star, 
+    icon: Moon, 
     href: "/tools/horoscope-of-the-day",
     category: "Lifestyle",
-    iconBg: "bg-purple-400"
+    iconBg: "bg-indigo-400"
   },
   { 
     name: "Self-Love Affirmations", 
     description: "Daily AI-generated affirmations for self-love and confidence.",
-    icon: Heart, 
+    icon: HeartHandshake, 
     href: "/tools/affirmation-about-self-love",
     category: "Lifestyle",
-    iconBg: "bg-pink-400"
+    iconBg: "bg-rose-400"
   },
   { 
     name: "Photo Gallery Maker", 
     description: "Create multi-photo gallery layouts with grid, masonry, or horizontal strip options.",
-    icon: Images, 
+    icon: LayoutGrid, 
     href: "/tools/photo-gallery-maker",
     category: "Image",
-    iconBg: "bg-indigo-500"
+    iconBg: "bg-blue-400"
   },
   { 
     name: "YouTube Title Split-Test", 
@@ -302,10 +307,10 @@ const tools = [
   { 
     name: "Name Combiner", 
     description: "Combine 2-3 names into creative mashups for couples or groups.",
-    icon: Users, 
+    icon: Merge, 
     href: "/tools/name-combiner",
     category: "Social",
-    iconBg: "bg-cyan-500"
+    iconBg: "bg-teal-400"
   },
 ];
 
