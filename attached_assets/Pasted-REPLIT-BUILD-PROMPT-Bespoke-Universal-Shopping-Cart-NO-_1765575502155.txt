@@ -1,0 +1,193 @@
+REPLIT BUILD PROMPT — Bespoke Universal Shopping Cart (NO CMS / NO ENGINES)
+You are working inside my VCM Suite codebase. Build a bespoke tool at:
+Page: /universal-shopping-cart (or /shopping-cart if that’s cleaner)
+Optional: Add a link from the tools directory later, but do not integrate with CMS objects, VCM Renderer, engines, presets, or tool registry systems.
+Hard Rules (Drift Prevention)
+Do not touch CMS/Renderer/Engine systems at all. No changes under any folders related to:
+renderer, cms, engines, cloud dashboards, themes, getToolLockState
+Keep changes scoped to:
+app/(pages)/universal-shopping-cart/** (or equivalent route)
+app/api/universal-shopping-cart/**
+db/schema/** + db/migrations/** (or your Drizzle schema/migrations)
+small shared util files only if necessary (SSRF-safe fetch helper, auth helper)
+NO Stripe. NO checkout. NO webhooks. This tool saves links and redirects users to merchants.
+Enforce free limit only on ADD. Viewing/editing/deleting/opening links always works.
+Product Spec (Bespoke Tool)
+Core Features
+Paste any product URL → fetch OpenGraph (title, description, image, site name) server-side
+Manual price entry (price-at-save-time)
+Notes + tags
+Edit/delete saved items
+“Open on merchant” CTA
+Shareable public cart via token link
+Free limit: 10 saved items, unlimited for Shopping Cloud Starter subscribers
+Non-Goals
+No live price tracking
+No scraping beyond OpenGraph + <title> fallback
+No buying inside VCM
+No integrations with external stores beyond link-out
+Step 1 — Database (Drizzle + Migrations)
+Create these tables:
+usc_carts
+id uuid pk
+user_id nullable (logged-in owner)
+anon_session_id nullable (cookie-based id)
+title text default 'Universal Shopping Cart'
+is_public boolean default false
+public_token text unique nullable
+created_at, updated_at, last_activity_at
+Indexes:
+user_id
+anon_session_id
+unique public_token
+usc_items
+id uuid pk
+cart_id fk → usc_carts.id (cascade delete)
+url text required
+domain text
+title text nullable
+description text nullable
+image_url text nullable
+price_cents int nullable
+currency text default usd
+note text nullable
+tags jsonb nullable (array of strings)
+og_raw jsonb nullable
+created_at, updated_at
+Indexes:
+cart_id
+domain
+Step 2 — Identity (Anon + Logged-in Merge)
+Create server helper resolveCart():
+If logged in: find or create cart for user_id
+If anon: find or create cart for anon_session_id stored in httpOnly cookie
+If user logs in and anon cart exists: merge items into user cart (no duplicates by url unless you allow duplicates), then delete/mark anon cart
+Cookie:
+name: usc_anon
+httpOnly, secure in prod, sameSite lax, long expiry (30–180 days)
+Step 3 — OpenGraph Fetcher (Secure SSRF-Protected)
+Implement server-only function fetchOpenGraph(url) with:
+Only allow http/https
+Reject localhost, private IPs, link-local, metadata IPs (IPv4 + IPv6)
+Enforce timeout (e.g. 4–6s)
+Enforce max response size (e.g. 1–2MB)
+Follow redirects safely (cap at 3)
+Parse:
+og:title, fallback to <title>
+og:description / description
+og:image
+og:site_name
+Return { title, description, image_url, site_name, og_raw }
+If fetch fails:
+still allow saving the URL with minimal fields
+Step 4 — Entitlement + Usage Limit (Bespoke)
+Requirement
+Free users: max 10 saved items
+Shopping Cloud Starter: unlimited
+Implementation rules
+Do NOT block read/edit/delete/open
+Enforce limit only in POST add item
+How to detect “Starter”
+Use the simplest existing signal already in the repo (choose one):
+userTier includes shopping cloud starter entitlement
+or cloudEntitlements.shoppingCloud === 'starter'
+or profile.subscription_tier
+If nothing exists, implement a temporary stub:
+isStarter = false unless you can reliably detect it
+But do not invent a new subscription system inside this tool.
+Limit constant:
+Put 10 in one place only: USC_LIMITS = { freeMaxItems: 10 }
+Step 5 — API Routes (Scoped)
+All under: app/api/universal-shopping-cart/*
+GET /api/universal-shopping-cart
+Returns:
+cart meta
+items
+counts (itemCount)
+limit info: { maxItems: number|null, itemCount }
+POST /api/universal-shopping-cart/items
+Body:
+url required
+price_cents optional
+currency optional
+note optional
+tags optional array or comma string
+Behavior:
+resolveCart()
+compute itemCount
+if not starter and itemCount >= freeMaxItems → return 403 with:
+{ code:'UPGRADE_REQUIRED', reason:'ITEM_LIMIT', limit: freeMaxItems, current: itemCount }
+fetch OG metadata (secure)
+insert item
+return item
+PATCH /api/universal-shopping-cart/items/:id
+Allow edits:
+title, description, image_url
+price_cents, currency
+note, tags
+DELETE /api/universal-shopping-cart/items/:id
+Sharing
+POST /api/universal-shopping-cart/public
+set is_public=true
+generate public_token if missing (crypto-random, long)
+POST /api/universal-shopping-cart/private
+set is_public=false (optionally rotate token or null it)
+GET /api/universal-shopping-cart/public/:token
+returns read-only cart + items
+Security:
+public endpoint must not allow mutation
+token must be unguessable
+Rate limiting:
+apply existing limiter middleware if available, at least for POST add item and OG fetch.
+Step 6 — Bespoke UI Page
+Create page at /universal-shopping-cart with:
+Layout
+Add Item card
+URL input
+price input (optional)
+tags input (comma-separated)
+note textarea (optional)
+Save button
+show “Saved X / limit” (or “Unlimited”)
+Items list
+image thumbnail
+title (editable inline optional)
+domain
+price (editable)
+tags (chips)
+note preview/edit
+Buttons:
+“Open on merchant” (opens url in new tab)
+Edit
+Delete
+Search + Tag filter
+simple client-side filtering for MVP
+Share section
+toggle public/private
+show share link when public
+public page /universal-shopping-cart/shared/[token] OR show read-only view in same route based on token
+Upgrade UX
+When add-item returns UPGRADE_REQUIRED:
+show a clear upgrade CTA to Shopping Cloud Starter
+link to your pricing/upgrade route (existing)
+No custom checkout.
+Step 7 — Manual Test Checklist (Must pass)
+Anonymous:
+Add item → refresh → persists
+Anonymous:
+Add up to 10 → 11th blocked on add only
+Can still edit/delete/open
+Login merge:
+Save 3 items anon → login → items appear in user cart
+Sharing:
+Make public → open share link in incognito → read-only items visible
+Make private → share link no longer works (or shows not available)
+SSRF:
+Try http://localhost or private IP → rejected
+Output Required
+When done, report:
+Files changed (grouped)
+Migrations added
+The exact route URLs
+Test steps executed and results
+Any TODOs (minimal)
