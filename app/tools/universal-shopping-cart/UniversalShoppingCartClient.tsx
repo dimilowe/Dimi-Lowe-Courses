@@ -1,7 +1,78 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { ShoppingCart, Plus, Trash2, ExternalLink, Search, Tag, X, Copy, Check, Share2, Edit2, Save, Grid, List, Link2 } from "lucide-react";
+import { ShoppingCart, ShoppingBag, Plus, Trash2, ExternalLink, Search, Tag, X, Copy, Check, Share2, Edit2, Save, Grid, List, Link2 } from "lucide-react";
+
+const STORE_GRADIENTS: Record<string, [string, string]> = {
+  "amazon.com": ["f97316", "ea580c"],
+  "amazon.co.uk": ["f97316", "ea580c"],
+  "ebay.com": ["0064d2", "3665f3"],
+  "walmart.com": ["0071ce", "004c91"],
+  "target.com": ["cc0000", "990000"],
+  "bestbuy.com": ["0046be", "003da5"],
+  "nordstrom.com": ["1e3a5f", "2c5282"],
+  "macys.com": ["e21a2c", "b91c1c"],
+  "shein.com": ["000000", "1a1a1a"],
+  "us.shein.com": ["000000", "1a1a1a"],
+  "asos.com": ["2d2d2d", "1a1a1a"],
+  "zara.com": ["000000", "262626"],
+  "hm.com": ["cc071e", "a30517"],
+  "uniqlo.com": ["ff0000", "cc0000"],
+  "etsy.com": ["f1641e", "d35400"],
+  "aliexpress.com": ["e62e04", "ff4747"],
+  "wish.com": ["2fb7ec", "17a2b8"],
+  "wayfair.com": ["7b189f", "5d1277"],
+  "ikea.com": ["0058a3", "ffdb00"],
+  "homedepot.com": ["f96302", "e55b00"],
+  "lowes.com": ["004990", "003366"],
+  "costco.com": ["005daa", "e31837"],
+  "sephora.com": ["000000", "1a1a1a"],
+  "ulta.com": ["fb6b90", "e91e63"],
+  "nike.com": ["111111", "000000"],
+  "adidas.com": ["000000", "1a1a1a"],
+  "reebok.com": ["cc0000", "990000"],
+  "puma.com": ["000000", "1a1a1a"],
+  "underarmour.com": ["1d1d1d", "000000"],
+  "lululemon.com": ["d31334", "b91c1c"],
+  "gap.com": ["000066", "000044"],
+  "oldnavy.com": ["003057", "002040"],
+  "bananarepublic.com": ["1a1a1a", "000000"],
+  "jcrew.com": ["1c355e", "0f1f3d"],
+  "anthropologie.com": ["2d2926", "1a1714"],
+  "urbanoutfitters.com": ["000000", "1a1a1a"],
+  "freepeople.com": ["d4a574", "c49358"],
+  "revolve.com": ["000000", "1a1a1a"],
+  "shopbop.com": ["000000", "1a1a1a"],
+  "ssense.com": ["000000", "1a1a1a"],
+  "farfetch.com": ["000000", "1a1a1a"],
+  "net-a-porter.com": ["000000", "1a1a1a"],
+  "mrporter.com": ["000000", "1a1a1a"],
+  "apple.com": ["555555", "1d1d1f"],
+  "google.com": ["4285f4", "34a853"],
+  "shopping.google.com": ["4285f4", "34a853"],
+};
+
+function getStoreGradient(domain: string): [string, string] {
+  const lowerDomain = domain.toLowerCase();
+  if (STORE_GRADIENTS[lowerDomain]) {
+    return STORE_GRADIENTS[lowerDomain];
+  }
+  for (const [storeDomain, gradient] of Object.entries(STORE_GRADIENTS)) {
+    if (lowerDomain.includes(storeDomain.split(".")[0])) {
+      return gradient;
+    }
+  }
+  return ["10b981", "059669"];
+}
+
+function getStoreName(domain: string): string {
+  const parts = domain.split(".");
+  if (parts.length >= 2) {
+    const name = parts[parts.length - 2];
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }
+  return domain;
+}
 
 interface CartItem {
   id: string;
@@ -396,23 +467,47 @@ export default function UniversalShoppingCartClient() {
                   viewMode === "list" ? "flex gap-4" : ""
                 }`}
               >
-                {/* Image */}
-                {item.image && (
-                  <div
-                    className={`bg-gray-100 ${
-                      viewMode === "list" ? "w-32 h-32 flex-shrink-0" : "aspect-video"
-                    }`}
-                  >
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
+                {/* Image or Store Tile */}
+                <div
+                  className={`${
+                    viewMode === "list" ? "w-32 h-32 flex-shrink-0" : "aspect-square"
+                  }`}
+                >
+                  {item.image ? (
+                    <div className="w-full h-full bg-gray-100 relative">
+                      <img
+                        src={item.image}
+                        alt={item.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = "none";
+                          const fallback = target.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = "flex";
+                        }}
+                      />
+                      <div 
+                        className="absolute inset-0 flex-col items-center justify-center text-white hidden"
+                        style={{
+                          background: `linear-gradient(135deg, #${getStoreGradient(item.domain)[0]} 0%, #${getStoreGradient(item.domain)[1]} 100%)`
+                        }}
+                      >
+                        <ShoppingBag className="w-10 h-10 mb-2 opacity-90" />
+                        <span className="text-sm font-semibold opacity-90">{getStoreName(item.domain)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      className="w-full h-full flex flex-col items-center justify-center text-white rounded-t-xl"
+                      style={{
+                        background: `linear-gradient(135deg, #${getStoreGradient(item.domain)[0]} 0%, #${getStoreGradient(item.domain)[1]} 100%)`
                       }}
-                    />
-                  </div>
-                )}
+                    >
+                      <ShoppingBag className="w-10 h-10 mb-2 opacity-90" />
+                      <span className="text-sm font-semibold opacity-90">{getStoreName(item.domain)}</span>
+                    </div>
+                  )}
+                </div>
 
                 <div className="p-4 flex-1">
                   {/* Header */}
