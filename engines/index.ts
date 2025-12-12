@@ -184,7 +184,7 @@ export const ENGINE_REGISTRY: Record<EngineType, EngineConfig> = {
     sharedComponent: "components/engines/ThumbnailAnalysisEngine.tsx",
     apiRoutes: ["/api/tools/thumbnail-coach/analyze"],
     capabilities: ["analyze", "score", "recommend"],
-    heavyMode: "single",
+    heavyMode: "none",
     hasAi: true,
   }
 };
