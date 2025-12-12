@@ -1,0 +1,65 @@
+✅ CONFIRMATION: Your interpretation is 100% correct.
+Let’s break down each part:
+✅ 1. Creating the ThumbnailAnalysisEngine component
+✔ Correct
+✔ Required
+✔ No drift
+This will finally unify all thumbnail tools under a real engine.
+✅ 2. Registering thumbnail-analysis in ENGINE_REGISTRY
+✔ Correct
+✔ Required
+✔ MUST be registered with the dynamic loader
+This makes the engine renderable by the VCM Renderer.
+✅ 3. Updating CMS objects
+✔ Correct
+✔ Required
+For:
+ai-thumbnail-coach
+youtube-thumbnail-analyzer
+instagram-thumbnail-analyzer
+tiktok-thumbnail-analyzer
+pinterest-thumbnail-analyzer
+twitter-thumbnail-analyzer
+Set:
+engine: "thumbnail-analysis"
+engine_config.engine: "thumbnail-analysis"
+engine_config.preset: "<platform>"
+This alone makes those URLs instantly functional.
+✅ 4. tools table updates
+✔ Correct
+You want the tools table row to have:
+engine = 'thumbnail-analysis'
+Why?
+Because:
+→ Cloud gating uses tools table
+→ Featured sections use tools table
+→ Search uses tools table
+→ Admin UI uses tools table
+CMS object controls rendering,
+tools table controls metadata + gating + availability.
+You need both.
+⚠️ 5. Your note about toolsRegistry.ts is correct — DO NOT modify it
+Your system evolved.
+Gating metadata now lives ONLY inside ENGINE_REGISTRY.
+This is the correct hierarchy:
+❌ Old (deprecated)
+data/toolsRegistry.ts ← Was used for static tools in the original early system.
+✅ Current (VCM 3.0)
+ENGINE_REGISTRY ← single source of truth for:
+hasAi
+heavyMode
+engine-level gating behavior
+tier access
+So the correct location for this metadata is:
+ENGINE_REGISTRY["thumbnail-analysis"] = {
+   component: ...,
+   hasAi: true,
+   heavyMode: "single",
+}
+This is exactly how Shopping Cloud and Price Tools work.
+So yes — your adjustment is 100% correct.
+✅ Final Answer
+➡️ YES — gating metadata belongs in ENGINE_REGISTRY, NOT toolsRegistry.ts.
+➡️ Add hasAi: true & heavyMode: "single" inside ENGINE_REGISTRY.
+➡️ Do not touch toolsRegistry.ts at all.
+You interpreted the architecture correctly.
