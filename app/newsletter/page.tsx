@@ -244,7 +244,7 @@ export default async function NewsletterPage({
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {posts
+                      {[...posts]
                         .sort((a, b) => b.view_count - a.view_count)
                         .slice(0, 5)
                         .map((post) => (
