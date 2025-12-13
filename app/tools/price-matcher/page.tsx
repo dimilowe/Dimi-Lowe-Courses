@@ -272,7 +272,7 @@ export default function PriceMatcherPage() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Usage limits</h3>
                 <p className="text-gray-700">
                   Free users get <strong>15 price matches per day</strong>. Need more?{" "}
-                  <Link href="/clouds/shopping" className="text-emerald-700 font-semibold hover:underline">
+                  <Link href="/clouds/shopping-cloud" className="text-emerald-700 font-semibold hover:underline">
                     Shopping Cloud
                   </Link>{" "}
                   includes <strong>Starter (50/day)</strong> and <strong>Basic/Pro (unlimited)</strong>.
