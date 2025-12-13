@@ -1,0 +1,111 @@
+✅ FULL REPLIT BUILD PROMPT
+Project: Amazon Dupe Finder (Shopping Cloud flagship)
+ROLE
+You are a senior full-stack engineer building a bespoke consumer-facing tool inside an existing Next.js app.
+This tool is NOT CMS-templated. It is a flagship Shopping Cloud page.
+GOAL
+Build Amazon Dupe Finder:
+A tool that takes an Amazon product URL and returns cheaper visually similar products with affiliate links.
+PAGE LOCATION
+Create a new page at:
+/tools/amazon-dupe-finder/page.tsx
+This page:
+uses the standard site layout
+is tagged to Shopping Cloud
+does NOT use CMS blocks
+USER FLOW (V1)
+User pastes an Amazon product URL
+Clicks Find Cheaper Dupes
+Tool:
+extracts product title, image, price
+finds 3–5 cheaper similar items
+Results render immediately
+No login required
+INPUT
+Amazon product URL (required)
+Validate:
+must contain amazon.com
+must include a product identifier (ASIN)
+Show friendly error messages if invalid.
+OUTPUT (FREE – FULL VALUE)
+Original Product Card
+Product image
+Product title
+Original price
+“View on Amazon” (affiliate link)
+Dupe Results (3–5 items)
+Each dupe shows:
+Product image
+Title
+Price
+% cheaper than original
+“Similarity” label (text-based, not ML-heavy)
+Affiliate link
+CORE LOGIC (IMPORTANT)
+1. Product Parsing
+Create a utility:
+parseAmazonProduct(url) → {
+  title,
+  image,
+  price,
+  category,
+  keywords
+}
+Use:
+URL parsing
+lightweight fetch / metadata extraction
+graceful fallback if price is unavailable
+2. Dupe Matching (Marketplace-Agnostic)
+Create a generic interface:
+findDupes(product, market = "amazon")
+This should:
+use product keywords + category
+return cheaper similar items
+NOT be hardcoded to Amazon logic
+So later you can do:
+findDupes(product, "shein")
+findDupes(product, "aliexpress")
+3. Similarity Logic (V1 – simple)
+No heavy ML yet.
+Similarity score based on:
+overlapping keywords
+category match
+visual proximity (image alt/title similarity)
+Return:
+"Very Similar"
+"Similar"
+"Inspired"
+UI / UX REQUIREMENTS
+Clean, modern, consumer-grade
+Mobile-first
+Fast loading
+Clear CTA buttons
+Subtle Shopping Cloud branding
+No dashboards.
+No settings.
+No clutter.
+WHAT NOT TO BUILD (IMPORTANT)
+❌ No login
+❌ No saved boards
+❌ No price alerts
+❌ No bulk comparison
+❌ No CMS integration
+Those are paid V2 features.
+FUTURE EXTENSIBILITY (DO NOT BUILD YET)
+Design the code so we can later add:
+Shein Dupe Finder
+AliExpress Dupe Finder
+Image upload input
+Full outfit duping
+Saved boards + tracking (paid)
+But do not implement them now.
+PERFORMANCE & SAFETY
+Server-side API routes for fetching/parsing
+Rate-limit requests
+Handle Amazon blocking gracefully
+Show helpful errors, not raw failures
+DONE WHEN
+Tool works end-to-end
+Free users get real dupes
+Page feels like a real consumer product
+Code is clean and modular for reuse
