@@ -9,6 +9,18 @@ interface SearchLink {
   type: "primary" | "variation" | "broad";
 }
 
+const GENERIC_URL_SEGMENTS = new Set([
+  "product", "products", "item", "items", "browse", "shop", "shopping", "store",
+  "catalog", "catalogue", "category", "categories", "collection", "collections",
+  "detail", "details", "view", "page", "pages", "buy", "order", "cart",
+  "checkout", "search", "results", "listing", "listings", "offer", "offers",
+  "deal", "deals", "sale", "sales", "promo", "promotion", "new", "featured",
+  "best", "top", "hot", "popular", "trending", "index", "home", "main",
+  "default", "display", "show", "get", "pid", "id", "sku", "ref", "dp", "gp",
+  "asin", "product.do", "browse.do", "item.do", "web", "www", "en", "us",
+  "com", "html", "htm", "php", "asp", "jsp", "aspx"
+]);
+
 function extractKeywordsFromUrl(url: string): string[] {
   const keywords: string[] = [];
   
@@ -17,40 +29,49 @@ function extractKeywordsFromUrl(url: string): string[] {
     const pathname = urlObj.pathname.toLowerCase();
     const searchParams = urlObj.searchParams;
     
-    const slugMatch = pathname.match(/\/([a-z0-9-]+)(?:\/|\.html?)?$/i);
-    if (slugMatch) {
-      const slug = slugMatch[1];
+    const productNameMatch = pathname.match(/\/([a-z][a-z0-9-]+(?:-[a-z][a-z0-9-]+)+)(?:\/|\.html?|$)/i);
+    if (productNameMatch) {
+      const slug = productNameMatch[1];
       const words = slug
         .replace(/-/g, " ")
         .replace(/_/g, " ")
         .replace(/\d{5,}/g, "")
         .split(" ")
-        .filter(w => w.length > 2 && !/^\d+$/.test(w));
+        .filter(w => w.length > 2 && !/^\d+$/.test(w) && !GENERIC_URL_SEGMENTS.has(w));
       keywords.push(...words);
     }
     
-    const titleParam = searchParams.get("title") || searchParams.get("name") || searchParams.get("q");
+    const titleParam = searchParams.get("title") || searchParams.get("name") || 
+                       searchParams.get("q") || searchParams.get("keywords") ||
+                       searchParams.get("search") || searchParams.get("term");
     if (titleParam) {
       const words = titleParam
         .toLowerCase()
         .replace(/[^a-z0-9\s]/g, " ")
         .split(" ")
-        .filter(w => w.length > 2);
+        .filter(w => w.length > 2 && !GENERIC_URL_SEGMENTS.has(w));
       keywords.push(...words);
     }
     
     const pathParts = pathname.split("/").filter(p => p.length > 2);
     for (const part of pathParts) {
-      if (!/^\d+$/.test(part) && !["product", "item", "dp", "gp", "products", "p"].includes(part)) {
-        const words = part.replace(/-/g, " ").replace(/_/g, " ").split(" ");
-        keywords.push(...words.filter(w => w.length > 2 && !/^\d+$/.test(w)));
+      const cleanPart = part.replace(/\.(html?|php|asp|jsp|aspx|do)$/i, "");
+      if (!/^\d+$/.test(cleanPart) && !GENERIC_URL_SEGMENTS.has(cleanPart)) {
+        const words = cleanPart.replace(/-/g, " ").replace(/_/g, " ").split(" ");
+        const validWords = words.filter(w => 
+          w.length > 2 && 
+          !/^\d+$/.test(w) && 
+          !GENERIC_URL_SEGMENTS.has(w)
+        );
+        keywords.push(...validWords);
       }
     }
   } catch {
     return [];
   }
   
-  return [...new Set(keywords)].slice(0, 10);
+  const uniqueKeywords = [...new Set(keywords)];
+  return uniqueKeywords.slice(0, 10);
 }
 
 function extractKeywordsFromText(text: string): string[] {
@@ -329,12 +350,23 @@ export default function AliExpressDupeFinderClient() {
                   </div>
                 </>
               ) : (
-                <div className="text-center py-8">
-                  <div className="text-gray-500 mb-2">
-                    Couldn't extract enough keywords from your input.
+                <div className="text-center py-8 bg-amber-50 rounded-xl border border-amber-200">
+                  <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
                   </div>
-                  <div className="text-sm text-gray-400">
-                    Try a more descriptive product name like "chunky gold hoop earrings" or paste a full product URL.
+                  <div className="text-amber-800 font-medium mb-2">
+                    This URL doesn't contain product keywords
+                  </div>
+                  <div className="text-sm text-amber-700 mb-4">
+                    Some websites (like Old Navy, Gap, Target) use generic URLs without product names.
+                  </div>
+                  <div className="text-sm text-amber-800 font-medium">
+                    Try describing the item instead:
+                  </div>
+                  <div className="mt-2 text-sm text-amber-700">
+                    Example: "mid rise baggy jeans women" or "straight leg denim pants blue"
                   </div>
                 </div>
               )}
