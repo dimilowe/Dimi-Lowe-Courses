@@ -7,6 +7,8 @@ import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { NewsletterSearchList } from "@/components/NewsletterSearchList";
 
+export const revalidate = 60;
+
 const POSTS_PER_PAGE = 10;
 
 export const metadata: Metadata = {
