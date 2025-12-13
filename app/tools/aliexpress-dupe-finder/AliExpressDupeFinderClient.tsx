@@ -8,24 +8,29 @@ import {
   ShoppingBag, 
   Tag, 
   AlertCircle,
-  Sparkles,
-  Copy,
-  Check
+  Sparkles
 } from "lucide-react";
 
-interface SearchLink {
-  keywords: string;
-  focus: string;
-  url: string;
+interface ProductResult {
+  title: string;
+  price?: string;
+  imageUrl?: string;
+  source: string;
+  productUrl: string;
+  externalSearchLink?: boolean;
+  retailerGradient?: string;
+}
+
+interface DetectedItem {
+  label: string;
+  description: string;
+  category: string;
+  searchKeywords: string[];
 }
 
 interface AnalyzeResponse {
-  product: {
-    label: string;
-    description: string;
-    category: string;
-  };
-  searchLinks: SearchLink[];
+  detectedItem: DetectedItem;
+  products: ProductResult[];
   shoppingTips: string[];
 }
 
@@ -34,7 +39,6 @@ export default function AliExpressDupeFinderClient() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<AnalyzeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const analyzeProduct = async () => {
@@ -82,12 +86,6 @@ export default function AliExpressDupeFinderClient() {
     if (e.key === "Enter" && !isAnalyzing) {
       analyzeProduct();
     }
-  };
-
-  const handleCopy = async (url: string, index: number) => {
-    await navigator.clipboard.writeText(url);
-    setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 2000);
   };
 
   const clearResults = () => {
@@ -150,67 +148,82 @@ export default function AliExpressDupeFinderClient() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
           <Loader2 className="w-10 h-10 text-orange-500 animate-spin mx-auto mb-4" />
           <p className="text-gray-700 font-medium">Analyzing your product...</p>
-          <p className="text-gray-500 text-sm mt-1">Generating AliExpress search links</p>
+          <p className="text-gray-500 text-sm mt-1">Finding cheaper alternatives on AliExpress</p>
         </div>
       )}
 
       {results && (
         <div className="space-y-6">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5 text-orange-500" />
+            Found {results.products.length} Shopping Option{results.products.length !== 1 ? 's' : ''}
+          </h2>
+
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <div className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <ShoppingBag className="w-5 h-5 text-orange-500" />
-                <h3 className="text-lg font-semibold text-gray-900">{results.product.label}</h3>
-              </div>
-              <p className="text-gray-600 text-sm mb-3">{results.product.description}</p>
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-medium">
-                <Tag className="w-3 h-3" />
-                {results.product.category}
-              </span>
-            </div>
-
-            <div className="border-t border-gray-100 pt-4">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                Click any link to search AliExpress:
-              </h4>
-              
-              <div className="grid gap-3">
-                {results.searchLinks.map((link, index) => (
-                  <div
-                    key={index}
-                    className="group bg-gray-50 rounded-xl p-4 hover:bg-orange-50 transition-all border border-gray-200 hover:border-orange-300"
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{results.detectedItem.label}</h3>
+              <p className="text-gray-600 text-sm mb-3">{results.detectedItem.description}</p>
+              <div className="flex flex-wrap gap-2">
+                {results.detectedItem.searchKeywords.slice(0, 5).map((keyword, i) => (
+                  <span 
+                    key={i}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs"
                   >
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 mb-1">"{link.keywords}"</p>
-                        <p className="text-sm text-gray-500">{link.focus}</p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          onClick={() => handleCopy(link.url, index)}
-                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-all"
-                          title="Copy link"
-                        >
-                          {copiedIndex === index ? (
-                            <Check className="w-4 h-4 text-green-600" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
-                        <a
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 transition-all"
-                        >
-                          <span>Search</span>
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </div>
-                    </div>
-                  </div>
+                    <Tag className="w-3 h-3" />
+                    {keyword}
+                  </span>
                 ))}
               </div>
+            </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {results.products.map((product, pIndex) => {
+                const gradientColors = product.retailerGradient?.split(',') || ['FF6600', 'E35100'];
+                const hasRealImage = product.imageUrl && !product.externalSearchLink && !product.retailerGradient;
+                
+                return (
+                  <a
+                    key={pIndex}
+                    href={`/r?u=${encodeURIComponent(product.productUrl)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group bg-gray-50 rounded-xl p-3 hover:bg-gray-100 transition-all hover:scale-[1.02]"
+                  >
+                    {hasRealImage ? (
+                      <div className="aspect-square bg-white rounded-lg mb-2 overflow-hidden">
+                        <img
+                          src={product.imageUrl}
+                          alt={product.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div 
+                        className="aspect-square rounded-lg mb-2 flex flex-col items-center justify-center text-white relative overflow-hidden"
+                        style={{
+                          background: `linear-gradient(135deg, #${gradientColors[0]} 0%, #${gradientColors[1] || gradientColors[0]} 100%)`
+                        }}
+                      >
+                        <ShoppingBag className="w-8 h-8 mb-1 opacity-90" />
+                        <span className="text-xs font-semibold opacity-90">{product.source}</span>
+                      </div>
+                    )}
+                    <p className="text-sm font-medium text-gray-900 line-clamp-2 mb-1 group-hover:text-orange-600 transition-colors">
+                      {product.title}
+                    </p>
+                    {product.price && (
+                      <p className="text-sm font-bold text-orange-600">{product.price}</p>
+                    )}
+                    <div className="flex items-center gap-1 text-xs text-gray-400 mt-2 group-hover:text-orange-500 transition-colors">
+                      <ExternalLink className="w-3 h-3" />
+                      Shop Now
+                    </div>
+                  </a>
+                );
+              })}
             </div>
           </div>
 
@@ -245,7 +258,7 @@ export default function AliExpressDupeFinderClient() {
             Find cheaper alternatives in seconds
           </p>
           <p className="text-gray-500 text-sm">
-            Our AI analyzes your product and generates smart AliExpress search links
+            Our AI analyzes your product and finds similar items on AliExpress
           </p>
         </div>
       )}

@@ -36,12 +36,7 @@ Return JSON only in this exact shape:
     "description": "1-2 sentence description of what you're looking for",
     "category": "clothing|accessories|electronics|home|beauty|other"
   },
-  "search_variations": [
-    {
-      "keywords": "search phrase for aliexpress",
-      "focus": "what this search emphasizes (e.g., 'exact style match', 'budget option', 'similar material')"
-    }
-  ],
+  "search_keywords": ["keyword phrase 1", "keyword phrase 2", ...],
   "shopping_tips": ["Tip 1", "Tip 2", "Tip 3"]
 }
 
@@ -55,9 +50,14 @@ Guidelines:
 
 Do not include any text outside the JSON.`;
 
-interface SearchVariation {
-  keywords: string;
-  focus: string;
+interface ProductResult {
+  title: string;
+  price?: string;
+  imageUrl?: string;
+  source: string;
+  productUrl: string;
+  externalSearchLink?: boolean;
+  retailerGradient?: string;
 }
 
 interface AnalyzeResponse {
@@ -66,8 +66,65 @@ interface AnalyzeResponse {
     description: string;
     category: string;
   };
-  search_variations: SearchVariation[];
+  search_keywords: string[];
   shopping_tips: string[];
+}
+
+async function searchAliExpressProducts(keywords: string[], label: string): Promise<ProductResult[]> {
+  const query = keywords.slice(0, 3).join(' ');
+  const serpApiKey = process.env.SERPAPI_API_KEY;
+  
+  if (serpApiKey) {
+    try {
+      const url = new URL('https://serpapi.com/search.json');
+      url.searchParams.set('engine', 'aliexpress');
+      url.searchParams.set('q', query);
+      url.searchParams.set('api_key', serpApiKey);
+      
+      const response = await fetch(url.toString());
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.organic_results && data.organic_results.length > 0) {
+          return data.organic_results.slice(0, 8).map((item: {
+            title?: string;
+            price?: string;
+            price_snippet?: string;
+            thumbnail?: string;
+            link?: string;
+          }) => ({
+            title: item.title || 'Product',
+            price: item.price || item.price_snippet,
+            imageUrl: item.thumbnail,
+            source: 'AliExpress',
+            productUrl: item.link || `https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(query)}`,
+            externalSearchLink: false,
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('SerpAPI AliExpress error:', error);
+    }
+  }
+  
+  const searchVariations = keywords.slice(0, 4).map((keyword) => ({
+    title: `Search "${keyword}" on AliExpress`,
+    source: 'AliExpress',
+    productUrl: `https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(keyword)}`,
+    externalSearchLink: true,
+    retailerGradient: 'FF6600,E35100',
+  }));
+
+  const googleShopping = {
+    title: `Shop ${label} on Google Shopping`,
+    source: 'Google Shopping',
+    productUrl: `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(query + ' cheap')}`,
+    externalSearchLink: true,
+    retailerGradient: '4285F4,34A853',
+  };
+
+  return [...searchVariations, googleShopping];
 }
 
 export async function POST(request: NextRequest) {
@@ -125,42 +182,28 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to parse AI response');
     }
 
-    if (!parsed.search_variations || !Array.isArray(parsed.search_variations)) {
+    if (!parsed.search_keywords || !Array.isArray(parsed.search_keywords)) {
       throw new Error('Invalid AI response structure');
     }
 
-    let variations = parsed.search_variations
-      .filter((v) => v.keywords && v.keywords.trim().length > 0)
-      .map((v) => ({
-        keywords: v.keywords.trim(),
-        focus: v.focus?.trim() || 'General search',
-      }));
+    const keywords = parsed.search_keywords
+      .filter((k) => k && typeof k === 'string' && k.trim().length > 0)
+      .map((k) => k.trim());
 
-    const seen = new Set<string>();
-    variations = variations.filter((v) => {
-      const key = v.keywords.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    if (variations.length < 3) {
-      throw new Error('Not enough search variations generated. Please try again.');
+    if (keywords.length < 2) {
+      throw new Error('Not enough search keywords generated. Please try again.');
     }
 
-    variations = variations.slice(0, 8);
-
-    const aliexpressBaseUrl = 'https://www.aliexpress.com/wholesale?SearchText=';
-    
-    const searchLinks = variations.map((variation) => ({
-      keywords: variation.keywords,
-      focus: variation.focus,
-      url: `${aliexpressBaseUrl}${encodeURIComponent(variation.keywords)}`,
-    }));
+    const products = await searchAliExpressProducts(keywords, parsed.product.label);
 
     return NextResponse.json({
-      product: parsed.product,
-      searchLinks,
+      detectedItem: {
+        label: parsed.product.label,
+        description: parsed.product.description,
+        category: parsed.product.category,
+        searchKeywords: keywords.slice(0, 5),
+      },
+      products,
       shoppingTips: parsed.shopping_tips || [
         'Filter by 4+ star ratings',
         'Look for listings with photo reviews',
