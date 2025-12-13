@@ -60,7 +60,7 @@ export default function CloudDashboardEngine({ cms }: CloudDashboardProps) {
     title: item.title,
     description: item.description,
     primaryLabel: item.primaryCta.label,
-    primaryHref: item.primaryCta.href,
+    primaryHref: item.primaryCta.label === "View plans" ? "/pricing" : item.primaryCta.href,
     secondaryLabel: item.secondaryCta?.label,
     secondaryHref: item.secondaryCta?.href,
     badge: item.badge,

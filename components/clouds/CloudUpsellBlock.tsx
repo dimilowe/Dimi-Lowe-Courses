@@ -63,7 +63,7 @@ export function CloudUpsellBlock({ cloudSlugs }: CloudUpsellBlockProps) {
                 Open dashboard <ArrowRight className="w-3 h-3" />
               </Link>
               <Link
-                href={`/store/${cloud.productSlug}`}
+                href="/pricing"
                 className="inline-flex items-center text-xs text-gray-500 hover:text-gray-700"
               >
                 View plans
