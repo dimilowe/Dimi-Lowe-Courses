@@ -11,6 +11,7 @@ const TOOL_LIMITS: Record<string, RateLimitConfig> = {
   default: { maxRequests: 20 },
   'logo-generator': { maxRequests: 5 },
   'keyword-finder': { maxRequests: 10 },
+  'price-matcher': { maxRequests: 15, windowMs: 24 * 60 * 60 * 1000 },
 };
 
 export function checkRateLimit(
