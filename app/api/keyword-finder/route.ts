@@ -23,9 +23,23 @@ interface KeywordRequest {
   language?: string;
 }
 
-interface KeywordResponse {
-  seed: string;
-  keywords: KeywordIdea[];
+function validateKeyword(k: any): KeywordIdea | null {
+  if (
+    typeof k.keyword === 'string' &&
+    typeof k.difficulty === 'number' &&
+    typeof k.searchVolume === 'number' &&
+    ['informational', 'transactional', 'commercial', 'navigational'].includes(k.intent)
+  ) {
+    return {
+      keyword: k.keyword,
+      difficulty: Math.max(0, Math.min(100, k.difficulty)),
+      searchVolume: Math.max(0, k.searchVolume),
+      intent: k.intent,
+      contentAngle: typeof k.contentAngle === 'string' ? k.contentAngle : '',
+      notes: typeof k.notes === 'string' ? k.notes : ''
+    };
+  }
+  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -100,7 +114,7 @@ Generate exactly ${clampedMaxResults} keyword ideas.`;
 
     const userPrompt = `Find low-competition keyword ideas for: "${sanitizedSeed}"`;
 
-    const response = await openai.chat.completions.create({
+    const stream = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
@@ -108,49 +122,99 @@ Generate exactly ${clampedMaxResults} keyword ideas.`;
       ],
       temperature: 0.8,
       max_tokens: 4000,
+      stream: true,
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No response from AI');
-    }
+    const encoder = new TextEncoder();
+    let fullContent = '';
+    let sentKeywordCount = 0;
 
-    let parsed: KeywordResponse;
-    try {
-      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
-      parsed = JSON.parse(cleanContent);
-    } catch {
-      console.error('Failed to parse AI response:', content.slice(0, 500));
-      throw new Error('Invalid response format');
-    }
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'meta', seed: sanitizedSeed, remaining: rateLimit.remaining })}\n\n`));
 
-    if (!parsed.keywords || !Array.isArray(parsed.keywords)) {
-      throw new Error('Invalid response structure');
-    }
+          for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta?.content || '';
+            fullContent += delta;
 
-    const validatedKeywords: KeywordIdea[] = parsed.keywords
-      .filter((k: any) => 
-        typeof k.keyword === 'string' &&
-        typeof k.difficulty === 'number' &&
-        typeof k.searchVolume === 'number' &&
-        ['informational', 'transactional', 'commercial', 'navigational'].includes(k.intent)
-      )
-      .map((k: any): KeywordIdea => ({
-        keyword: k.keyword,
-        difficulty: Math.max(0, Math.min(100, k.difficulty)),
-        searchVolume: Math.max(0, k.searchVolume),
-        intent: k.intent,
-        contentAngle: typeof k.contentAngle === 'string' ? k.contentAngle : '',
-        notes: typeof k.notes === 'string' ? k.notes : ''
-      }))
-      .slice(0, clampedMaxResults);
+            const keywordsMatch = fullContent.match(/"keywords"\s*:\s*\[/);
+            if (keywordsMatch) {
+              const keywordsStart = fullContent.indexOf('"keywords"');
+              const arrayStart = fullContent.indexOf('[', keywordsStart);
+              if (arrayStart !== -1) {
+                let bracketCount = 0;
+                let inString = false;
+                let escape = false;
+                let lastCompleteObjectEnd = -1;
+                
+                for (let i = arrayStart; i < fullContent.length; i++) {
+                  const char = fullContent[i];
+                  
+                  if (escape) {
+                    escape = false;
+                    continue;
+                  }
+                  
+                  if (char === '\\') {
+                    escape = true;
+                    continue;
+                  }
+                  
+                  if (char === '"' && !escape) {
+                    inString = !inString;
+                    continue;
+                  }
+                  
+                  if (inString) continue;
+                  
+                  if (char === '{') bracketCount++;
+                  if (char === '}') {
+                    bracketCount--;
+                    if (bracketCount === 0) {
+                      lastCompleteObjectEnd = i;
+                    }
+                  }
+                }
 
-    console.log(`[Keyword Finder] Generated ${validatedKeywords.length} keywords for: "${sanitizedSeed}"`);
+                if (lastCompleteObjectEnd > arrayStart) {
+                  const partialArray = fullContent.slice(arrayStart, lastCompleteObjectEnd + 1) + ']';
+                  try {
+                    const parsed = JSON.parse(partialArray);
+                    if (Array.isArray(parsed)) {
+                      for (let i = sentKeywordCount; i < parsed.length; i++) {
+                        const validated = validateKeyword(parsed[i]);
+                        if (validated) {
+                          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'keyword', keyword: validated })}\n\n`));
+                          sentKeywordCount++;
+                        }
+                      }
+                    }
+                  } catch {
+                  }
+                }
+              }
+            }
+          }
 
-    return NextResponse.json({
-      seed: sanitizedSeed,
-      keywords: validatedKeywords,
-      remaining: rateLimit.remaining
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done', total: sentKeywordCount })}\n\n`));
+          controller.close();
+          
+          console.log(`[Keyword Finder] Streamed ${sentKeywordCount} keywords for: "${sanitizedSeed}"`);
+        } catch (error) {
+          console.error('Streaming error:', error);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'Stream interrupted' })}\n\n`));
+          controller.close();
+        }
+      }
+    });
+
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
     });
 
   } catch (error) {

@@ -40,6 +40,8 @@ export default function KeywordFinderPage() {
 
     setIsLoading(true);
     setError(null);
+    setKeywords([]);
+    setSearchedSeed('');
 
     try {
       const response = await fetch('/api/keyword-finder', {
@@ -53,15 +55,49 @@ export default function KeywordFinderPage() {
         }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
+        const data = await response.json();
         throw new Error(data.error || 'Failed to find keywords');
       }
 
-      setKeywords(data.keywords);
-      setSearchedSeed(data.seed);
-      setRemaining(data.remaining);
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response stream available');
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'meta') {
+                setSearchedSeed(data.seed);
+                setRemaining(data.remaining);
+              } else if (data.type === 'keyword') {
+                setKeywords(prev => [...prev, data.keyword]);
+              } else if (data.type === 'error') {
+                throw new Error(data.message);
+              }
+            } catch (parseError) {
+              if (parseError instanceof SyntaxError) {
+                continue;
+              }
+              throw parseError;
+            }
+          }
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -271,7 +307,7 @@ export default function KeywordFinderPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Finding keywords...
+                  Finding keywords... {keywords.length > 0 && `(${keywords.length} found)`}
                 </>
               ) : (
                 <>
@@ -289,12 +325,16 @@ export default function KeywordFinderPage() {
           </div>
         </div>
 
-        {keywords.length > 0 && (
+        {(keywords.length > 0 || isLoading) && searchedSeed && (
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 md:p-8 mb-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <div>
                 <p className="text-gray-700">
-                  Showing <strong>{keywords.length}</strong> low-competition keyword ideas for: <strong>&quot;{searchedSeed}&quot;</strong>
+                  {isLoading ? (
+                    <>Finding keywords for: <strong>&quot;{searchedSeed}&quot;</strong> — <strong>{keywords.length}</strong> found so far...</>
+                  ) : (
+                    <>Showing <strong>{keywords.length}</strong> low-competition keyword ideas for: <strong>&quot;{searchedSeed}&quot;</strong></>
+                  )}
                 </p>
                 <span className="inline-block mt-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
                   Max difficulty: {maxDifficulty}
@@ -303,14 +343,16 @@ export default function KeywordFinderPage() {
               <div className="flex gap-2">
                 <button
                   onClick={copyKeywords}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-all"
+                  disabled={keywords.length === 0}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-all disabled:opacity-50"
                 >
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   {copied ? 'Copied!' : 'Copy all'}
                 </button>
                 <button
                   onClick={downloadCSV}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-all"
+                  disabled={keywords.length === 0}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-all disabled:opacity-50"
                 >
                   <Download className="w-4 h-4" />
                   Download CSV
@@ -376,7 +418,7 @@ export default function KeywordFinderPage() {
               </table>
             </div>
             
-            <PostResultUpsell />
+            {!isLoading && <PostResultUpsell />}
           </div>
         )}
 
