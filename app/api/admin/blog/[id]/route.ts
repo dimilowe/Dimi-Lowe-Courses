@@ -16,7 +16,7 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const { title, slug, content, excerpt, meta_description, featured_image_url, published_at, category_ids, unlisted } = await request.json();
+    const { title, slug, content, excerpt, meta_description, featured_image_url, published_at, category_ids, unlisted, save_only } = await request.json();
 
     if (!title || !slug || !content) {
       return NextResponse.json(
@@ -38,13 +38,23 @@ export async function PUT(
       );
     }
 
-    await query(
-      `UPDATE blog_posts 
-       SET title = $1, slug = $2, content = $3, excerpt = $4, meta_description = $5, 
-           featured_image_url = $6, published_at = $7, unlisted = $8, updated_at = NOW()
-       WHERE id = $9`,
-      [title, slug, content, excerpt, meta_description, featured_image_url, published_at, unlisted || false, id]
-    );
+    if (save_only) {
+      await query(
+        `UPDATE blog_posts 
+         SET title = $1, slug = $2, content = $3, excerpt = $4, meta_description = $5, 
+             featured_image_url = $6, unlisted = $7, updated_at = NOW()
+         WHERE id = $8`,
+        [title, slug, content, excerpt, meta_description, featured_image_url, unlisted || false, id]
+      );
+    } else {
+      await query(
+        `UPDATE blog_posts 
+         SET title = $1, slug = $2, content = $3, excerpt = $4, meta_description = $5, 
+             featured_image_url = $6, published_at = $7, unlisted = $8, updated_at = NOW()
+         WHERE id = $9`,
+        [title, slug, content, excerpt, meta_description, featured_image_url, published_at, unlisted || false, id]
+      );
+    }
 
     // Update categories - remove old ones and add new ones
     await query("DELETE FROM blog_post_categories WHERE blog_post_id = $1", [id]);

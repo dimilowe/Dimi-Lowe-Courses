@@ -88,9 +88,9 @@ export function BlogPostEditor({ post }: BlogPostEditorProps) {
             excerpt: excerpt || null,
             meta_description: metaDescription || null,
             featured_image_url: featuredImageUrl || null,
-            published_at: null, // Keep as draft
             category_ids: selectedCategories,
             unlisted,
+            save_only: true,
           }),
           credentials: 'include',
         });
@@ -193,9 +193,9 @@ export function BlogPostEditor({ post }: BlogPostEditorProps) {
           excerpt: excerpt || null,
           meta_description: metaDescription || null,
           featured_image_url: featuredImageUrl || null,
-          published_at: null,
           category_ids: selectedCategories,
           unlisted,
+          save_only: true,
         }),
         credentials: 'include',
       });
@@ -307,7 +307,7 @@ export function BlogPostEditor({ post }: BlogPostEditorProps) {
                 e.currentTarget.style.backgroundColor = 'white';
               }}
             >
-              <span className="hidden sm:inline">Save Draft</span>
+              <span className="hidden sm:inline">{post?.published_at ? 'Save' : 'Save Draft'}</span>
               <span className="sm:hidden">Save</span>
             </button>
             <button
