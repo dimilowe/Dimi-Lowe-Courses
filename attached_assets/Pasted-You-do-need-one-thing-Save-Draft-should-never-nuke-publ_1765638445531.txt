@@ -1,0 +1,54 @@
+You do need one thing: “Save Draft” should never nuke published_at unless you explicitly choose to unpublish. Clearing published_at is an “unpublish” action. Period.
+The simplest correct behavior
+Publish: set published_at = publishedAt ?? now
+Save (or “Save Draft”): update content fields only
+if the post is already published, keep it published
+if it’s a draft, keep it draft (published_at stays null)
+No new “Unpublish” button required to fix your bug. You can add that later.
+Exact fix in your API (route handler)
+In app/api/admin/blog/[id]/route.ts, you likely have something like:
+Draft endpoint/action that does published_at: null
+Publish action that sets it
+Change the “draft/save” path to not include published_at at all unless the user explicitly wants to unpublish.
+Example (pseudo-TS, but this is the pattern)
+const isPublishing = action === "publish";
+const isUnpublishing = action === "unpublish"; // only if you add it later
+
+const data: any = {
+  title,
+  slug,
+  excerpt,
+  content,
+  featured_image_url,
+  updated_at: new Date().toISOString(),
+};
+
+// Only touch published_at when publishing (or explicitly unpublishing)
+if (isPublishing) {
+  data.published_at = publishedAt ?? new Date().toISOString();
+}
+if (isUnpublishing) {
+  data.published_at = null;
+}
+
+await query(
+  `UPDATE blog_posts
+   SET title=$1, slug=$2, excerpt=$3, content=$4, featured_image_url=$5,
+       updated_at=$6
+       ${isPublishing ? ", published_at=$7" : ""}
+   WHERE id=$8`,
+  // build params accordingly
+);
+Even cleaner: keep one SQL statement but build the SET clause dynamically so published_at is only present when needed.
+Also fix the button naming (tiny UX tweak)
+Calling it “Save Draft” while editing a published post is begging for mistakes.
+Do this:
+If published_at exists → label button “Save”
+If published_at is null → label button “Save Draft”
+No new features. Just prevents fat-finger errors.
+Why your newest post showed at the bottom
+If you hit “Save Draft” after publishing (even once), you likely:
+cleared published_at (post disappears), then
+re-published later (timestamp changed or got set weird), or
+the post you think is “newest” isn’t actually newest by published_at.
+Once you implement the above, this entire class of bugs goes away.
