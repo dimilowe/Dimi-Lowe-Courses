@@ -1,0 +1,39 @@
+Yeah, that screenshot proves the agent’s claim is wrong. If it were sorting by newest published_at, Dec 13 should be above Dec 2. You’ve got an ascending sort happening somewhere or you’re sorting on the wrong field.
+Here’s how to pinpoint it fast and fix it.
+Step 1 — Prove what the database thinks is “newest”
+Run this:
+SELECT title, published_at
+FROM blog_posts
+WHERE published_at IS NOT NULL
+ORDER BY published_at DESC
+LIMIT 5;
+If “Make Money Online Home” is at/near the top here, then the DB is fine and the bug is in the query actually used by the newsletter page (or in frontend sorting/caching).
+If it’s not at the top here, then the “republished with today’s timestamp” claim is false — your published_at didn’t change.
+Step 2 — You are NOT using the query you pasted earlier (or it’s being overridden)
+You earlier showed:
+ORDER BY bp.published_at DESC
+But your page behavior matches either:
+ORDER BY bp.published_at ASC
+OR no ORDER BY (then you get whatever)
+OR frontend sorting after fetch (often by a formatted string)
+So find where the newsletter page gets posts (server route / data loader) and check the actual SQL string used there.
+Dead giveaway: frontend sorting by formatted date string
+If you do something like:
+posts.sort((a,b) => formatDate(a.published_at).localeCompare(formatDate(b.published_at)))
+You’re cooked. That will absolutely produce weird ordering.
+Correct sort:
+posts.sort((a,b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime())
+Or better: don’t sort client-side at all — rely on SQL ORDER BY published_at DESC.
+Step 3 — Check for caching (but caching wouldn’t flip DESC → ASC)
+Caching can keep old order, but your screenshot shows a consistent “older first” pattern, so it’s likely not just stale content.
+Still, if this page is a Next.js Server Component and you’re doing fetch('/api/blog?...') without disabling cache, it can stick.
+If you’re fetching from an internal route, set:
+await fetch(url, { cache: "no-store" })
+(or next: { revalidate: 0 })
+But again: caching doesn’t explain Dec 2 above Dec 13 unless the underlying list is wrong.
+The fix you actually need (most likely)
+Find the query powering the newsletter page and make sure it ends with:
+ORDER BY bp.published_at DESC
+and if you have pagination, keep that ORDER BY right before LIMIT/OFFSET.
+If you paste ONE thing, I can tell you instantly
+Paste the code where the newsletter page fetches posts (the function / route it calls). The bug is 99% there: wrong ORDER BY, wrong field, or client-side sort by display string.
