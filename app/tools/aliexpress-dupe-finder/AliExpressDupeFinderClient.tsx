@@ -268,6 +268,9 @@ export default function AliExpressDupeFinderClient() {
             <p className="text-xs text-gray-500">
               Works with Amazon, Shein, ASOS, Zara, or any product URL. You can also just describe the item.
             </p>
+            <p className="text-xs text-amber-600 mt-1">
+              Pro tip: URLs work best when they contain product keywords (like "mens-puffer-jacket"). If not, just describe the item instead.
+            </p>
           </div>
 
           {/* Results Section */}
