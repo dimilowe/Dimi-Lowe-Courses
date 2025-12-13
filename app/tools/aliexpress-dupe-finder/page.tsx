@@ -167,10 +167,10 @@ export default function AliExpressDupeFinderPage() {
       />
 
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-4xl mx-auto px-4 py-12">
+        <div className="max-w-5xl mx-auto px-4 py-12">
           {/* Hero */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-100 border border-orange-200 rounded-full text-orange-700 text-sm font-medium mb-6">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-700 text-sm font-medium mb-6">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -179,16 +179,16 @@ export default function AliExpressDupeFinderPage() {
                   d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
-              Free AI-Powered Dupe Finder
+              Free AliExpress Dupe Finder
             </div>
 
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
               AliExpress Dupe Finder
             </h1>
 
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Paste any product link or describe what you want. Our AI generates smart AliExpress search links
-              to help you find cheaper alternatives instantly.
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Paste a product link or describe an item and instantly get AliExpress search links.
+              Find cheaper alternatives fast.
             </p>
           </div>
 
@@ -250,8 +250,8 @@ export default function AliExpressDupeFinderPage() {
                           key={j}
                           className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200"
                         >
-                          <div className="w-6 h-6 bg-orange-100 rounded flex items-center justify-center flex-shrink-0">
-                            <svg className="w-3 h-3 text-orange-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="w-6 h-6 bg-emerald-100 rounded flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3 h-3 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                           </div>
@@ -310,10 +310,10 @@ export default function AliExpressDupeFinderPage() {
               {features.map((feature, i) => (
                 <div
                   key={i}
-                  className="bg-white rounded-xl p-5 border border-gray-200 hover:border-orange-400 hover:shadow-md transition-all"
+                  className="bg-white rounded-xl p-5 border border-gray-200 hover:border-emerald-400 hover:shadow-md transition-all"
                 >
-                  <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mb-3">
-                    <svg className="w-5 h-5 text-orange-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center mb-3">
+                    <svg className="w-5 h-5 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
