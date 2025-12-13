@@ -1,0 +1,169 @@
+Replit Prompt — Bespoke Tool Page (Use Universal Tool Template)
+You are in an existing Next.js App Router codebase (VCM Suite). Build ONE bespoke tool page using the same structure/style as the provided “Universal Tool Template” page (metadata + JSON-LD + hero + tool client + SEO sections + FAQ + ExploreMoreTools).
+Goal
+Create a Make Money Online From Home Finder that asks 7 questions and outputs the top 3 most realistic paths + steps.
+Hard rules (do not violate)
+NO engine registry
+NO heavyMode
+NO new architecture
+NO shared engine abstraction
+DO NOT invent engine: "static" or anything like that
+This tool is bespoke: all logic lives in this page + its client component.
+Reuse existing: layout conventions, upgrade modal trigger, tier store/hook, auth helper, DB helper.
+1) Create Files
+A) Page
+Create:
+app/tools/make-money-online-from-home/page.tsx
+This file must follow the same layout pattern as the template you were shown:
+export const metadata: Metadata = {...}
+jsonLd for SoftwareApplication
+faqJsonLd for FAQPage
+Tool page wrapper UI (hero → tool → SEO sections → FAQ → ExploreMoreTools → footer note)
+B) Client component
+Create:
+app/tools/make-money-online-from-home/MakeMoneyHomeFinderClient.tsx
+Import it into the page like the template does (ThumbnailCoachClient style).
+2) Metadata (match keyword)
+In metadata:
+Title: “Make Money Online From Home Finder (Free) | Real Work-From-Home Ideas”
+Description: emphasize “answer 60 seconds of questions → get realistic paths”
+Keywords should include variations:
+"make money online from home"
+"make money online home"
+"work from home jobs"
+"legit ways to make money from home"
+"earn money online from home"
+"remote income ideas"
+"side hustle from home"
+"online income finder"
+OpenGraph should be set.
+3) Tool UI requirements (Client component)
+The client component must:
+Ask exactly 7 questions with a stepper UI:
+timePerWeek: "<5" | "5-10" | "10-20" | "20+"
+skillLevel: "none" | "basic" | "intermediate" | "advanced"
+skills (multi select chips): writing, design, video, sales, coding, fitness, teaching, admin, art
+incomeGoal: "$500" | "$2000" | "$5000+"
+speedVsScale: "fast" | "balanced" | "scalable"
+cameraComfort: "no" | "maybe" | "yes"
+startupBudget: "$0" | "<$100" | "$500+"
+Back/Next controls
+Progress indicator (“Step X of 7”)
+Validate required fields
+“Get My Plan” runs the scoring and shows results on the same page
+The result UI must show:
+Top 3 “paths” ranked
+Each path card includes:
+title
+whyItFits (short)
+timeToFirstDollar
+scalability
+3 starter steps (bullets)
+risk note (1 line)
+Also show 2 honorable mentions below (optional).
+4) Deterministic scoring (no AI)
+Implement deterministic scoring with at least 10 paths:
+Example path list (you must implement at least these 10):
+Freelance writing
+Virtual assistant / admin support
+Remote sales / appointment setting
+Tutoring / coaching
+UGC short-form content
+Affiliate content site (SEO)
+Etsy digital products
+Print-on-demand
+No-code microtools
+Coding freelance / contract dev
+Each path has a scoring function that uses the answers. Keep it transparent, not random.
+Return the top 3 by score.
+5) Tier gating (page-level only)
+Use the app’s existing tier hook/store and upgrade modal pattern.
+Free users can:
+complete the quiz
+see Top 3 titles + short teaser (1–2 lines)
+Free users cannot:
+see full steps/time/scalability details
+save result
+export result
+Paid users can:
+see full details
+export
+save
+Implementation details:
+Do NOT add new global gating systems.
+Gate only inside this client component.
+When a locked action is clicked:
+call the existing “open upgrade modal” mechanism used elsewhere in VCM Suite.
+If you need to find existing hooks/components, search for:
+useUserTier
+useUIStore
+openUpgradeModal
+UpgradeModal
+PricingModal
+or any existing upgrade modal trigger
+Use whatever exists; don’t reinvent.
+6) Save endpoint (minimal, only if paid)
+Create API route:
+app/api/tools/make-money-online-from-home/save/route.ts
+Behavior:
+Requires authentication using the project’s existing auth helper
+If user tier is free → return 403
+If paid → store answers + results JSON in DB
+Return { ok: true }
+DB:
+Add table make_money_home_saves (or similar consistent naming)
+Columns:
+id (uuid)
+user_id
+created_at
+answers_json (json)
+results_json (json)
+Use the repo’s existing DB/migration approach (Drizzle or whatever exists). Do not create a new migration system.
+If saving is too much scope, implement the endpoint + table but keep UI as “Save (Pro)” button that calls it.
+7) Export (simple)
+Add an “Export Plan” button:
+Paid users: generate and download a .txt file client-side with:
+answers summary
+top 3 full plans + steps
+Free users: clicking export opens upgrade modal
+Do not add heavy PDF libs unless there is already a PDF export utility in this repo.
+8) Add Tools table row for discovery ONLY
+Important: we still need the tool to appear in dashboards/discovery.
+Add a row in the existing tools table for slug:
+make-money-online-from-home
+But:
+Do not connect it to an engine
+Set engine to NULL / empty / whatever the schema uses for bespoke tools already
+Tag it to the most appropriate existing cloud (growth/monetization/etc. — pick from the repo’s current cloud IDs)
+If the repo requires a CMS object for listing pages, add the minimum required entry, but do not refactor anything.
+9) Page content blocks (SEO sections)
+In page.tsx, after the tool, add sections similar to your template:
+Keyword-rich intro (non-scammy, realistic)
+“How the Finder Works”
+“Fast vs Scalable paths”
+“Avoid scams” section
+“Beginner options vs skilled options”
+Internal links to:
+pricing page
+relevant cloud page
+2–3 related tools if they exist (optional)
+Target 1,200–2,000 words total.
+10) FAQ + JSON-LD
+Add 10–12 FAQs relevant to the keyword:
+Examples:
+Is making money online from home legit?
+What’s the fastest way to make money from home?
+What can I do with no skills?
+What can I do with $0?
+How do I avoid scams?
+How much can you realistically make?
+Do I need social media?
+What works long-term?
+Render FAQ UI like the template (details/summary accordion) and output FAQPage JSON-LD.
+11) Deliverable report
+When done, output:
+files created
+how gating works + which tier hook was used
+how saving works + migration
+confirm it appears in cloud listings (tools row)
+Proceed now.
