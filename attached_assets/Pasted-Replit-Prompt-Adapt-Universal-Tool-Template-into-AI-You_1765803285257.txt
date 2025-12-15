@@ -1,0 +1,158 @@
+Replit Prompt — Adapt Universal Tool Template into “AI YouTube Thumbnail Generator” (Image Model, Multi-Option)
+You are working in my existing Next.js App Router codebase. I am giving you a “Universal Tool Template” page file that we must adapt (do not change the overall structure). Build a new bespoke tool page that generates YouTube thumbnails using an image generation model and returns 4 options by default.
+Goal
+Create a new tool page:
+Route: /app/tools/ai-youtube-thumbnail-generator/page.tsx
+Client component: ThumbnailGeneratorClient.tsx in the same folder
+API route: /app/api/thumbnail/generate-images/route.ts
+Must output 1280×720 PNGs (16:9) and allow users to download.
+Hard constraints
+Keep the Universal Tool Template layout patterns:
+export const metadata
+jsonLd + faqJsonLd scripts
+hero section with badge + title + description
+tool component in the middle
+keyword-rich SEO sections
+example previews section (replace with generated preview placeholders or “what you’ll get” cards)
+features grid
+comparison table (VCM vs Canva vs “generic AI”)
+FAQ accordion
+ExploreMoreTools
+Bespoke tool (no new engine systems).
+All model calls server-side only.
+4 image options default; user can choose 1/2/4.
+Use sharp to guarantee output 1280×720 PNG base64 regardless of model output size.
+If a gating helper exists in the repo, use it; otherwise keep it open and add a TODO comment where gating should be called.
+No duplicate logic across provider pages in this step; just build the single generator page.
+1) Create the new page from the template
+Copy the template style and create /app/tools/ai-youtube-thumbnail-generator/page.tsx.
+Edits required:
+Rename page component to AIYouTubeThumbnailGeneratorPage.
+Update metadata:
+title: “Free AI YouTube Thumbnail Generator | Create 4 Thumbnail Options Instantly”
+description: mention 16:9, 1280×720, 4 options, download PNG, no login
+keywords: include “youtube thumbnail generator”, “ai thumbnail maker”, “thumbnail creator”, “1280x720 thumbnail”, “16:9 thumbnail”, “mrbeast style thumbnail” (no trademark claims)
+Update OpenGraph to match generator.
+Update jsonLd:
+name “VCM AI YouTube Thumbnail Generator”
+description generator-focused
+Keep Offer price 0 for now.
+Replace ThumbnailCoachClient with ThumbnailGeneratorClient.
+2) Build ThumbnailGeneratorClient.tsx (UI)
+Create /app/tools/ai-youtube-thumbnail-generator/ThumbnailGeneratorClient.tsx as a client component.
+UI:
+Inputs:
+Video title (required)
+Topic (optional)
+Hook Angle dropdown: Curiosity / Shock / Authority / Comparison / Tutorial
+Text overlay (optional, 2–5 words)
+Style reference (optional)
+Count selector (1,2,4) default 4
+Button: “Generate Thumbnails”
+On generate:
+POST to /api/thumbnail/generate-images
+Output:
+Grid:
+1: single
+2: 2 columns
+4: 2×2
+Each image card:
+“Download 1280×720 PNG”
+“Regenerate similar” (calls API again with a variantHint string including previous prompt + “slightly different composition/color”)
+Show:
+loading skeletons
+error message area
+“Prompt Used” collapsible section
+Download:
+Convert base64 to data:image/png;base64,...
+Use anchor download
+The client must not import OpenAI or call external APIs.
+Payload:
+{
+  "videoTitle": "...",
+  "topic": "...",
+  "hookAngle": "...",
+  "textOverlay": "...",
+  "styleRef": "...",
+  "count": 4,
+  "variantHint": ""
+}
+Response:
+{
+  "promptUsed": "string",
+  "images": [{ "id": "img_1", "pngBase64": "..." }]
+}
+3) Build the server API route (OpenAI image model)
+Create /app/api/thumbnail/generate-images/route.ts.
+Requirements:
+Validate videoTitle.
+Build a high-performing thumbnail prompt. It must include:
+16:9 YouTube thumbnail
+high contrast
+minimal text (if textOverlay exists, enforce ≤ 5 words; if longer, truncate or return 400)
+single focal subject
+clean background
+big readable typography
+“no watermarks, no logos, no text artifacts”
+Use OpenAI images generation with model gpt-image-1.
+Generate count images.
+Convert each returned image into 1280×720 PNG base64 using sharp:
+Decode model base64
+Center-crop to 16:9 if needed
+Resize to 1280×720
+Output PNG buffer
+Re-encode base64
+Return JSON with promptUsed and images[].
+If sharp is not installed, add it to dependencies and ensure it works in Replit.
+Environment variable:
+OPENAI_API_KEY
+4) Update the template sections (copy + examples + features + FAQs)
+Inside the page file, adapt sections:
+Example previews section:
+Replace exampleAnalyses with exampleGenerations cards showing:
+“Curiosity Hook Thumbnail”
+“Comparison Thumbnail”
+“Tutorial Thumbnail”
+Each card has a placeholder image area (use gradient background) + bullets describing what the generator outputs (Text overlay, focal subject, contrast, etc.). Do not reference missing images.
+SEO sections:
+Rewrite keyword-rich intro to focus on:
+“AI YouTube thumbnail generator”
+“1280×720”
+“16:9”
+“generate 4 options”
+“download PNG”
+“A/B test thumbnails”
+Features list:
+Replace with generator features:
+4 Variations per Click
+16:9 (1280×720) Output
+High-Contrast, Mobile-Readable
+Hook Angle Presets
+Text Overlay Control
+Regenerate Similar Variants
+Download PNG
+Prompt Preview
+Comparison table:
+Change rows to compare:
+VCM Generator (Free, instant 4 options, 1280×720 export, hook presets)
+Canva (manual design)
+Generic AI image tool (not thumbnail-optimized)
+FAQ:
+Update FAQs to match generator:
+“What size are YouTube thumbnails?”
+“Can I generate multiple options?”
+“Will it output 1280×720?”
+“Do you store my images?”
+“How to A/B test thumbnails?”
+“How many words should be on a thumbnail?”
+“Why do AI thumbnails look weird and how to fix?” (give practical tips)
+Keep FAQ accordion UI.
+5) Styling + structure
+Match the same Tailwind look as the template (gradients, rounded cards, borders, etc.). Keep it clean and premium.
+6) Deliverables
+Working page at /tools/ai-youtube-thumbnail-generator
+Working API route generating 1/2/4 images
+All output images downloadable as 1280×720 PNG
+No broken imports, no placeholder missing file paths
+No new architecture beyond these files
+Proceed and implement.
