@@ -90,12 +90,12 @@ function buildPrompt(
 
   const hookDesc = hookDescriptions[hookAngle || "curiosity"] || hookDescriptions.curiosity;
 
-  let prompt = `16:9 YouTube thumbnail design for a video titled "${videoTitle}". `;
-  prompt += `${hookDesc}. `;
-  prompt += `${variationHint}. `;
+  let prompt = `Create a photorealistic promotional image about "${videoTitle}". `;
+  prompt += `Style: ${hookDesc}. `;
+  prompt += `Composition: ${variationHint}. `;
 
   if (topic) {
-    prompt += `Topic: ${topic}. `;
+    prompt += `Subject matter: ${topic}. `;
   }
 
   if (textOverlay) {
@@ -106,8 +106,8 @@ function buildPrompt(
     prompt += `Visual style: ${styleRef}. `;
   }
 
-  prompt += `Requirements: high contrast colors, single clear focal subject, clean uncluttered background, readable at small sizes, mobile-optimized. `;
-  prompt += `Absolutely no watermarks, no logos, no garbled text artifacts, no extra text besides the overlay.`;
+  prompt += `Requirements: high contrast colors, single clear focal subject, clean uncluttered background, vibrant eye-catching design. `;
+  prompt += `CRITICAL: This must be a standalone image only. Do NOT include any video player interface, play buttons, progress bars, timestamps, video frames, browser windows, device mockups, or any UI elements. Just the raw image content itself.`;
 
   return prompt;
 }
