@@ -350,7 +350,7 @@ export function Navbar() {
                 href="/newsletter" 
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-orange-500 hover:bg-gray-50 transition-colors rounded-lg"
               >
-                Newsletter
+                Magazine
               </Link>
             </div>
           </div>
@@ -639,7 +639,7 @@ export function Navbar() {
               className="block text-sm font-medium py-3 text-gray-700 hover:text-orange-500 transition-colors"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Newsletter
+              Magazine
             </Link>
           </div>
         </div>
