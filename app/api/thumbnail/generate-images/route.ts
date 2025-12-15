@@ -28,10 +28,12 @@ async function generateSingleImage(
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const response = await openai.images.generate({
-        model: "gpt-image-1",
+        model: "dall-e-3",
         prompt,
         n: 1,
-        size: "1536x1024",
+        size: "1792x1024",
+        response_format: "b64_json",
+        quality: "standard",
       });
 
       const imageData = response.data?.[0];
