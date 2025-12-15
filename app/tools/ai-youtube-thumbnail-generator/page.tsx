@@ -111,16 +111,19 @@ const exampleGenerations = [
     title: "Curiosity Hook Thumbnail",
     description: "Creates intrigue with questions or surprising visuals",
     features: ["Bold question text", "Dramatic lighting", "Single focal point", "High contrast colors"],
+    image: "/examples/curiosity-hook.png",
   },
   {
     title: "Comparison Thumbnail",
     description: "Side-by-side or before/after style layouts",
     features: ["Split-screen composition", "Clear vs/or divider", "Contrasting elements", "Easy to scan"],
+    image: "/examples/comparison.png",
   },
   {
     title: "Tutorial Thumbnail",
     description: "Clean, educational look that builds trust",
     features: ["Step indicators", "Clean background", "Professional subject", "Readable text overlay"],
+    image: "/examples/tutorial.png",
   },
 ];
 
@@ -235,15 +238,12 @@ export default function AIYouTubeThumbnailGeneratorPage() {
             <div className="grid md:grid-cols-3 gap-6">
               {exampleGenerations.map((example, i) => (
                 <div key={i} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                  <div className="aspect-video bg-gradient-to-br from-orange-100 via-orange-200 to-orange-300 flex items-center justify-center">
-                    <div className="text-center px-4">
-                      <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <p className="text-orange-700 font-medium text-sm">Example Style</p>
-                    </div>
+                  <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                    <img 
+                      src={example.image} 
+                      alt={example.title}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div className="p-4">
                     <h3 className="font-bold text-gray-900 mb-1">{example.title}</h3>
