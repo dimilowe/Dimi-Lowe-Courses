@@ -24,6 +24,14 @@ const HOOK_ANGLES = [
 
 const COUNT_OPTIONS = [1, 2, 4];
 
+const SUGGESTED_PROMPTS = [
+  "Dramatic close-up",
+  "Split-screen comparison",
+  "Minimalist design",
+  "Bold text focus",
+  "Shocked reaction",
+];
+
 export default function ThumbnailGeneratorClient() {
   const [videoTitle, setVideoTitle] = useState("");
   const [topic, setTopic] = useState("");
@@ -31,6 +39,7 @@ export default function ThumbnailGeneratorClient() {
   const [textOverlay, setTextOverlay] = useState("");
   const [styleRef, setStyleRef] = useState("");
   const [count, setCount] = useState(4);
+  const [customPrompt, setCustomPrompt] = useState("");
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<GenerationResult | null>(null);
@@ -39,8 +48,8 @@ export default function ThumbnailGeneratorClient() {
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   const handleGenerate = async (variantHint: string = "") => {
-    if (!videoTitle.trim()) {
-      setError("Please enter a video title");
+    if (!videoTitle.trim() && !customPrompt.trim()) {
+      setError("Please enter a video title or describe your thumbnail");
       return;
     }
 
@@ -62,6 +71,7 @@ export default function ThumbnailGeneratorClient() {
           styleRef: styleRef.trim() || undefined,
           count: variantHint ? 1 : count,
           variantHint,
+          customPrompt: customPrompt.trim() || undefined,
         }),
       });
 
@@ -108,6 +118,15 @@ export default function ThumbnailGeneratorClient() {
     setHookAngle("curiosity");
     setTextOverlay("$1 vs $1000");
     setStyleRef("");
+    setCustomPrompt("");
+  };
+
+  const handleCustomPromptGenerate = () => {
+    if (!customPrompt.trim()) {
+      setError("Please describe your thumbnail idea");
+      return;
+    }
+    handleGenerate();
   };
 
   const getGridCols = () => {
@@ -248,6 +267,55 @@ export default function ThumbnailGeneratorClient() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Custom Prompt Section */}
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+        <div className="bg-orange-500 px-6 py-3 flex items-center gap-2">
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          <span className="font-semibold text-white">Or describe your thumbnail</span>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {SUGGESTED_PROMPTS.map((prompt) => (
+              <button
+                key={prompt}
+                onClick={() => setCustomPrompt(prev => prev ? `${prev}, ${prompt.toLowerCase()}` : prompt)}
+                className="px-3 py-1.5 text-sm bg-orange-50 text-orange-700 rounded-full hover:bg-orange-100 transition-colors border border-orange-200"
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-3">
+            <textarea
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              placeholder="Describe exactly what you want in your thumbnail... e.g., 'A person holding two objects side by side with shocked expression, bold yellow text saying WOW, bright studio lighting'"
+              rows={3}
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all resize-none"
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-500">Tip: Be specific about composition, colors, text, and mood</p>
+            <button
+              onClick={handleCustomPromptGenerate}
+              disabled={isGenerating || !customPrompt.trim()}
+              className={`px-6 py-2.5 rounded-lg font-semibold text-white transition-all flex items-center gap-2 ${
+                isGenerating || !customPrompt.trim()
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-orange-500 hover:bg-orange-600"
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Generate from Description
+            </button>
           </div>
         </div>
       </div>

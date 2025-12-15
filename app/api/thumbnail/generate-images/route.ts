@@ -19,6 +19,7 @@ interface GenerateRequest {
   styleRef?: string;
   count?: number;
   variantHint?: string;
+  customPrompt?: string;
 }
 
 async function generateSingleImage(
@@ -115,11 +116,11 @@ function buildPrompt(
 export async function POST(request: NextRequest) {
   try {
     const body: GenerateRequest = await request.json();
-    const { videoTitle, topic, hookAngle, textOverlay, styleRef, count = 4, variantHint } = body;
+    const { videoTitle, topic, hookAngle, textOverlay, styleRef, count = 4, variantHint, customPrompt } = body;
 
-    if (!videoTitle || typeof videoTitle !== "string" || !videoTitle.trim()) {
+    if (!customPrompt && (!videoTitle || typeof videoTitle !== "string" || !videoTitle.trim())) {
       return NextResponse.json(
-        { error: "Video title is required" },
+        { error: "Video title or custom prompt is required" },
         { status: 400 }
       );
     }
@@ -143,9 +144,18 @@ export async function POST(request: NextRequest) {
       hintsToUse = VARIATION_HINTS.slice(0, validCount);
     }
 
-    const prompts = hintsToUse.map((hint) =>
-      buildPrompt(videoTitle.trim(), topic, hookAngle, textOverlay, styleRef, hint)
-    );
+    let prompts: string[];
+    
+    if (customPrompt && customPrompt.trim()) {
+      const safetyAppend = ` Requirements: high contrast colors, vibrant eye-catching design for a YouTube thumbnail. CRITICAL: This must be a standalone image only. Do NOT include any video player interface, play buttons, progress bars, timestamps, video frames, browser windows, device mockups, or any UI elements. Just the raw image content itself.`;
+      prompts = hintsToUse.map((hint) => 
+        `${customPrompt.trim()}. Composition variation: ${hint}.${safetyAppend}`
+      );
+    } else {
+      prompts = hintsToUse.map((hint) =>
+        buildPrompt(videoTitle.trim(), topic, hookAngle, textOverlay, styleRef, hint)
+      );
+    }
 
     const generatePromises = prompts.map((prompt, index) =>
       generateSingleImage(prompt).then((base64) => ({
