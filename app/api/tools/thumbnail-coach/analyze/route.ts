@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
 - whatToImprove: array of 2-4 bullet points describing weaknesses
 - suggestions: array of 3-5 concrete, actionable improvement ideas
 
+IMPORTANT: Do NOT identify, name, or describe any specific individuals in the image. Focus ONLY on design elements like composition, colors, text, contrast, lighting, and visual hierarchy. When describing people, refer to them generically as "the person", "the subject", or "the figure" without identifying who they are.
+
 Assume the thumbnail will be viewed mostly on mobile YouTube. Focus on CTR potential.
 
 Scoring guidelines:
