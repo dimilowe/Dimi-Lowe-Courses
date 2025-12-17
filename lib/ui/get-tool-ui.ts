@@ -102,6 +102,7 @@ const TOOL_ICON_MAP: Record<string, { iconKey: IconKey; bg: string }> = {
   "pdf-merge-split": { iconKey: "scissors", bg: "bg-purple-500" },
   "price-matcher": { iconKey: "target", bg: "bg-emerald-500" },
   "aliexpress-dupe-finder": { iconKey: "search", bg: "bg-rose-500" },
+  "youtube-transcript-generator": { iconKey: "fileText", bg: "bg-red-500" },
 };
 
 type ToolLike = {

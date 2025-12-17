@@ -1,0 +1,145 @@
+REPLIT PROMPT — Build “YouTube Transcript Generator” Tool (Next.js App Router)
+You are working in an existing Next.js (App Router) + TypeScript + Tailwind codebase that already has tool pages using a “Universal Tool Template” pattern (metadata, JSON-LD, FAQ JSON-LD, client component, SEO sections below tool, ExploreMoreTools).
+Goal
+Create a new tool page:
+/tools/youtube-transcript-generator
+This tool generates a transcript from a YouTube video URL.
+Critical Constraints
+The tool must be above the fold.
+No login required.
+No dashboard / no history / no saved projects.
+Process-only, then output transcript.
+Prefer caption-based extraction first (fast + cheap).
+If captions are unavailable, show a friendly message and (optionally) offer fallback transcription only if the existing Echoscript transcription pipeline is already available in this repo. If it is not available, do NOT invent a fake pipeline—just show “captions unavailable” and suggest the user try a different video or use Echoscript (link).
+1) Create Files
+A) app/tools/youtube-transcript-generator/page.tsx
+Follow the Universal Tool Template style exactly.
+Import:
+import { Metadata } from "next";
+import Link from "next/link";
+import YoutubeTranscriptGeneratorClient from "./YoutubeTranscriptGeneratorClient";
+import ExploreMoreTools from "@/components/ExploreMoreTools";
+Set metadata to target keyword phrase:
+Title
+YouTube Transcript Generator – Get Video Transcripts Free
+Description
+Free YouTube transcript generator. Paste a YouTube link to instantly generate a full video transcript. Works with captions and auto-captions. No login, no watermark.
+Keywords (10–14 max, include exact phrase)
+youtube transcript generator
+youtube transcript
+get transcript from youtube video
+youtube captions transcript
+extract youtube transcript
+youtube subtitles to text
+youtube transcript copy
+transcript from youtube link
+youtube transcript downloader
+free youtube transcript generator
+OpenGraph basic.
+Add SoftwareApplication JSON-LD:
+name: “VCM YouTube Transcript Generator”
+applicationCategory: “UtilitiesApplication”
+operatingSystem: “Web”
+offers: price 0
+description aligned to above
+Add FAQPage JSON-LD with 8–10 FAQs (short answers).
+Page layout must include:
+Hero section (simple)
+Tool component <YoutubeTranscriptGeneratorClient />
+SEO sections below tool:
+“Free YouTube Transcript Generator”
+“How to Get a Transcript From a YouTube Video”
+“Common Use Cases”
+FAQ accordion (same items as JSON-LD)
+<ExploreMoreTools currentTool="/tools/youtube-transcript-generator" />
+Small privacy note: “We do not store your transcripts.”
+B) app/tools/youtube-transcript-generator/YoutubeTranscriptGeneratorClient.tsx
+Client component requirements:
+UI above the fold:
+URL input
+“Generate Transcript” button
+Loading state
+Error state
+Results state
+Result view:
+Video title + channel name (if available)
+Optional language indicator (if returned)
+Transcript displayed in a scrollable box
+Buttons:
+Copy transcript
+Download .txt
+UX rules:
+Reject invalid URLs with clear message.
+If captions are unavailable, show a clear message:
+“This video doesn’t appear to have captions available.”
+Provide optional links:
+Link to /tools/echoscript if that exists, otherwise don’t add link.
+Do not show raw stack traces.
+2) API Route
+Create:
+app/api/youtube/transcript/route.ts
+POST endpoint:
+Accept JSON body: { url: string, preferredLang?: string }
+Validate YouTube URL
+Extract videoId from:
+youtube.com/watch?v=
+youtu.be/
+ignore extra params like &t=, &list=
+Primary extraction path (caption-first):
+Try to fetch captions/subtitles without requiring Google API keys if possible.
+Use a lightweight approach:
+Install youtube-transcript (preferred) OR implement a safe transcript fetcher that works without keys.
+If transcript found:
+return JSON:
+{
+  ok: true,
+  videoId,
+  title?: string,
+  channel?: string,
+  language?: string,
+  transcript: string,
+  segments?: { start?: number; dur?: number; text: string }[]
+}
+If transcript not found:
+return JSON:
+{ ok: false, code: "NO_CAPTIONS", message: "Captions are not available for this video." }
+Also enforce basic abuse protections:
+rate-limit by IP if a rate-limit utility already exists in repo; otherwise implement a simple in-memory limiter with a small window for serverless compatibility.
+limit URL length.
+Important: do NOT hardcode YouTube API keys or require OAuth.
+3) Packages to Install
+Install these (keep it minimal):
+youtube-transcript
+If you want optional ZIP/timestamps, do NOT add now—MVP only.
+4) FAQ Content (use these exact questions; short answers)
+Include 8–10 FAQs like:
+What is a YouTube transcript generator?
+Is this YouTube transcript generator free?
+Can I get a transcript from any YouTube video?
+Why can’t I get a transcript for some videos?
+Does this work with auto-generated captions?
+Can I copy and download the transcript?
+Do you store my transcript or video?
+Can I extract transcripts in different languages?
+Is this better than YouTube’s built-in transcript feature?
+Make answers concise and honest: if captions aren’t available, tool can’t pull them.
+5) Styling + Pattern Matching
+Match the existing VCM tool styling patterns:
+same container widths
+same button styles
+same typography
+use Tailwind only
+If other tools use a shared Button component, reuse it.
+6) Internal Links
+At the bottom of SEO sections, add a small “Related tools” block (simple list) linking to:
+/tools/pdf-merge-split (if exists)
+/tools/pdf-merger-free (if exists)
+/tools/pdf-splitter-free (if exists)
+Only include links that exist—check route folders first.
+7) Definition of Done
+/tools/youtube-transcript-generator loads with correct metadata + JSON-LD
+Tool accepts URL and fetches transcript via API
+Transcript renders cleanly, copy + download work
+NO_CAPTIONS path shows friendly message
+No fake API keys or broken imports
+Build it now.

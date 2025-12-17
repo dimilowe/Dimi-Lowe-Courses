@@ -1,5 +1,6 @@
 import {
   FileImage,
+  FileText,
   Type,
   Palette,
   Search,
@@ -48,6 +49,7 @@ import {
 
 export const ICON_REGISTRY = {
   fileImage: FileImage,
+  fileText: FileText,
   type: Type,
   palette: Palette,
   search: Search,
