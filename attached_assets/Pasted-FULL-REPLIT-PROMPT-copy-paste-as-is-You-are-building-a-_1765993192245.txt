@@ -1,0 +1,149 @@
+FULL REPLIT PROMPT (copy/paste as-is)
+You are building a new VCM Suite tool page in a Next.js App Router project.
+Tool Name
+Suno Prompt Generator (Free)
+Primary Keyword Target
+suno prompt generator
+Route
+Create a new page at:
+/app/tools/suno-prompt-generator/page.tsx
+Create a client component at:
+/app/tools/suno-prompt-generator/SunoPromptGeneratorClient.tsx
+Create an API route at:
+/app/api/suno-prompt/route.ts
+Requirements (hard rules)
+The tool must generate Suno-ready prompts.
+Every output must be ≤ 500 characters (Suno’s practical limit).
+If the user includes an artist name inspiration, it must automatically be converted to include “-style” at the end (example: “Aaliyah” → “Aaliyah-style”). If the user already typed “-style” then don’t duplicate it.
+The tool must generate 3 variants per request:
+Variant A: “Clean + Direct”
+Variant B: “More Cinematic”
+Variant C: “More Minimal / Modern”
+UI must show a live character count for each generated prompt and visually warn if something is close to limit.
+Add a Copy button for each prompt.
+The tool must not generate lyrics. It generates music prompts describing style, vibe, instrumentation, vocal type, structure cues, etc.
+No login required. Free tool.
+If OpenAI errors, show a user-friendly error state.
+UI Inputs (client component)
+Build a clean, modern card UI similar to other tools.
+Inputs:
+Song / Vibe Input (textarea, required): “Describe a song” OR “reference a popular song” (no lyrics)
+Genre (text)
+Mood (dropdown): Euphoric, Romantic, Dark, Aggressive, Chill, Melancholic, Inspirational, Party
+Energy (dropdown): Low, Medium, High
+Vocal Type (dropdown): Female vocals, Male vocals, No vocals (instrumental), Mixed vocals
+Artist Inspiration (text, optional): auto-enforce “-style”
+Tempo (optional): Slow, Mid, Fast
+Buttons:
+Primary: Generate Suno Prompts
+Secondary: Clear
+Output section:
+Three cards, one for each variant
+Each shows:
+Title (Clean / Cinematic / Minimal)
+Prompt text area (read-only)
+Character count (e.g. “412 / 500”)
+Copy button
+If any prompt > 500, automatically trim it server-side and append “…” only if needed. Prefer trimming optional adjectives first.
+Add a note below output:
+“Tip: Suno works best with clear genre + mood + instrumentation + vocal type + structure cues. Don’t paste lyrics.”
+API Route
+Endpoint: POST /api/suno-prompt
+Request body:
+{
+  "input": "string",
+  "genre": "string",
+  "mood": "string",
+  "energy": "string",
+  "vocalType": "string",
+  "artistInspo": "string",
+  "tempo": "string"
+}
+Response:
+{
+  "prompts": [
+    { "label": "Clean + Direct", "text": "..." },
+    { "label": "More Cinematic", "text": "..." },
+    { "label": "More Minimal / Modern", "text": "..." }
+  ]
+}
+Implementation details:
+Use the existing OpenAI SDK pattern already used in the codebase (match how other tools call OpenAI).
+Use a system prompt that enforces:
+no lyrics
+<= 500 chars
+Suno-friendly language
+return strict JSON
+Build prompts with a consistent template:
+genre, mood, energy, tempo, vocal type
+instrumentation
+mix notes (reverb, punch, airy, etc.)
+structure cues (intro, build, drop, hook)
+reference vibe using user’s input but do NOT quote lyrics
+Server-side enforcement:
+Add a helper ensureStyleSuffix(artistInspo) that returns:
+"" if empty
+if already ends with “-style” (case-insensitive) keep it
+else append “-style”
+Add clamp500(text) function that trims to 500 chars, tries trimming at word boundary.
+Always clamp each of the three outputs before returning.
+Safety:
+If user input contains what looks like pasted lyrics (multiple lines, lots of punctuation, or many short lines), respond with 400 and message:
+“Please describe the song/vibe instead of pasting lyrics.”
+Page Template (SEO + content)
+Use the same structure as the provided universal template but adapted for Suno.
+Metadata
+Title:
+Free Suno Prompt Generator (500-Char Optimized) | VCM Suite
+Description:
+Generate Suno-ready music prompts in seconds. Auto-enforces the 500 character limit and adds -style to artist inspirations. Free, no login.
+Keywords (include these):
+suno prompt generator
+suno prompts
+suno ai prompt examples
+how to write suno prompts
+best suno prompt
+suno music prompt
+suno prompt template
+suno prompt for vocals
+suno prompt for instrumental
+OpenGraph:
+title + description + type website
+JSON-LD
+SoftwareApplication schema:
+name: “VCM Suno Prompt Generator”
+category: “MultimediaApplication”
+price: 0
+ratingValue: 4.8, ratingCount: 1250 (same pattern)
+FAQ JSON-LD + on-page FAQ accordions:
+Create FAQs relevant to Suno:
+At minimum include:
+What is the Suno prompt character limit?
+Why should I add “-style” to artist references?
+Can I paste lyrics into Suno prompts?
+What makes a good Suno prompt?
+How do I get vocals vs instrumentals?
+How do I make prompts more cinematic?
+Do you store my prompts?
+Is this tool free?
+Sections (below the tool)
+Add long-form SEO sections like your template but tailored to Suno:
+“The Free Suno Prompt Generator That Actually Works”
+“How to Write High-Quality Suno Prompts”
+“Suno Prompt Template (Copy/Paste Structure)”
+“Common Mistakes (and Fixes)”
+“Examples: Pop / EDM / R&B / Hip-Hop / Cinematic / Lo-fi”
+These should be text sections (no AI generation in the page itself).
+Add ExploreMoreTools at bottom:
+<ExploreMoreTools currentTool="/tools/suno-prompt-generator" />
+Footer note:
+“Prompts are generated on-demand and not stored.”
+Styling
+Use Tailwind like the template.
+Use a simple hero badge that says “Free Suno Prompt Generator”.
+Keep a clean gray/white look consistent with the universal template.
+Deliverables
+page.tsx with metadata, json-ld scripts, hero, tool component, and SEO sections + FAQ accordions.
+SunoPromptGeneratorClient.tsx implementing the full UI, fetch, loading state, error state, and output rendering.
+/api/suno-prompt/route.ts implementing the OpenAI call + strict JSON parsing + 500-char enforcement + “-style” enforcement + lyric detection.
+Build it complete and working.
