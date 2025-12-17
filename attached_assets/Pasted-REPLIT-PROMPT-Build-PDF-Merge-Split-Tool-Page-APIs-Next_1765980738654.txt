@@ -1,0 +1,152 @@
+REPLIT PROMPT — Build “PDF Merge Split” Tool Page + APIs (Next.js App Router)
+You are working inside an existing Next.js (App Router) + TypeScript + Tailwind codebase.
+Objective
+Build a new tool page targeting the keyword phrase:
+“pdf merge split”
+The tool must serve the intent: users want a fast utility to merge PDFs or split a PDF on one page.
+This is NOT an AI tool. No external APIs. No authentication. No watermark.
+1) Create Tool Route + Files
+Create these files:
+A) app/tools/pdf-merge-split/page.tsx
+Must follow the same structural style as the provided template:
+export const metadata: Metadata = {...}
+JSON-LD script tags
+tool component
+SEO sections below tool (keyword-rich but not bloated)
+FAQs with accordion + FAQ JSON-LD
+ExploreMoreTools at bottom (match your site conventions)
+Import a client component:
+import PdfMergeSplitClient from "./PdfMergeSplitClient";
+B) app/tools/pdf-merge-split/PdfMergeSplitClient.tsx
+Client UI:
+Two modes: Merge and Split (toggle buttons above the fold)
+Keep UI dead simple and fast.
+Merge Mode
+Upload multiple PDFs
+Show file list with:
+filename
+file size
+remove button
+reorder via drag/drop (use @dnd-kit)
+“Merge PDFs” button
+On success: download merged PDF
+Split Mode
+Upload exactly 1 PDF
+Split options (MVP):
+Split every page → returns a ZIP of PDFs
+Split by range (e.g. 1-3, 4-7) → returns a ZIP of PDFs
+“Split PDF” button
+On success: download ZIP
+Validation:
+Reject non-PDFs
+Merge requires 2+ PDFs
+Split requires exactly 1 PDF
+Show clean error messages in UI (no console-only failures)
+2) Create API Routes
+A) app/api/pdf/merge/route.ts
+POST endpoint
+Accept multipart/form-data with files[]
+Validate:
+PDFs only
+max files: 20
+max total upload: 100MB
+max single file: 50MB
+Merge using pdf-lib
+Return:
+content-type: application/pdf
+content-disposition: attachment; filename="merged.pdf"
+B) app/api/pdf/split/route.ts
+POST endpoint
+Accept multipart/form-data with:
+file (single PDF)
+mode = "every" or "ranges"
+if ranges mode: ranges string like: "1-3,4-7,10-10"
+Validate:
+PDF only
+max size: 50MB
+ranges must be valid, positive integers, within page count
+Split using pdf-lib
+Create output PDFs in memory and ZIP them
+Return ZIP:
+content-type: application/zip
+content-disposition: attachment; filename="split-pages.zip"
+3) Libraries to Install
+Install required packages (only these, nothing bloated):
+pdf-lib
+@dnd-kit/core
+@dnd-kit/sortable
+@dnd-kit/utilities
+jszip
+If you need a dropzone, prefer lightweight native input + drag/drop, but you may use react-dropzone only if necessary.
+4) SEO + Metadata (must target keyword)
+In page.tsx, set metadata:
+Title
+PDF Merge Split – Merge & Split PDF Files Free
+Description
+Free PDF merge split tool. Merge multiple PDFs into one file or split a PDF into pages instantly. No signup, no watermark.
+Keywords
+Include a focused list around:
+pdf merge split
+merge pdf and split pdf
+pdf merger and splitter
+merge pdf free
+split pdf free
+combine pdf and split pages
+merge and split pdf online
+OpenGraph
+Basic website OG.
+5) JSON-LD
+Add SoftwareApplication JSON-LD:
+name: “VCM PDF Merge Split”
+category: “UtilitiesApplication”
+operatingSystem: “Web”
+price: 0
+description aligned with above
+Add FAQPage JSON-LD with 8–10 FAQs (short, clear).
+6) SEO Content Sections (below the tool, keep it lean)
+Add these sections under the tool (NOT above it):
+Section: “Free PDF Merge Split Tool”
+2–3 paragraphs targeting the phrase naturally, emphasizing:
+no signup
+no watermark
+works in browser
+merge or split instantly
+Section: “How It Works”
+3 steps:
+Upload
+Choose merge/split + reorder/ranges
+Download result
+Section: “Common Use Cases”
+Bullets:
+combine contracts/invoices
+split a scanned PDF into pages
+extract chapters
+submit forms as one file
+FAQ accordion
+8–10 FAQs. Keep answers short.
+7) UX Requirements (important)
+Tool must be above the fold
+Two big toggle buttons: “Merge PDFs” and “Split PDF”
+Buttons show loading state
+All errors visible to user
+Do not store uploads; process in memory
+Add a small note: “Files are processed in memory and discarded.”
+8) Internal Linking
+At bottom:
+<ExploreMoreTools currentTool="/tools/pdf-merge-split" />
+Also include a small line:
+Link to /tools/pdf-merger-free and /tools/pdf-splitter-free if those exist (if not, omit for now).
+9) Code Quality
+TypeScript strict
+No TODOs
+No broken imports
+Use existing component patterns (buttons, cards, etc.) if present
+Keep styling consistent with your site
+10) Final Deliverable
+When done, ensure:
+Page renders
+Merge endpoint works
+Split endpoint returns ZIP correctly
+Reordering affects merge output
+Range splitting works and validates ranges correctly
+Build it now.
