@@ -516,6 +516,14 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2025-12-17: **Suno Prompt Generator** - Free AI-powered music prompt generator for Suno
+  - API route: `/api/suno-prompt` generates 3 variants (Clean, Cinematic, Minimal) using OpenAI
+  - Smart trimming: clamp500 prioritizes trimming adjectives → mix notes → structure cues, never genre/mood/tempo/vocals
+  - Auto-enforces 500-char limit, adds "-style" suffix to artist references
+  - Lyric detection rejects pasted lyrics (>2 newlines AND avg line <40 chars)
+  - Client component with dropdowns for mood/energy/vocals/tempo, color-coded character counts
+  - SEO page with JSON-LD schemas, comprehensive FAQ accordions, and long-form content
+  - Files: `app/api/suno-prompt/route.ts`, `app/tools/suno-prompt-generator/`
 - 2025-12-17: **YouTube Transcript Generator** - New SEO-optimized free tool for extracting YouTube transcripts
   - Server-side yt-dlp integration for reliable subtitle extraction (subtitles + auto-captions fallback)
   - API route: `/api/youtube/transcript` with VTT-to-text parsing, rate limiting (10 req/min/IP), 15s timeout
