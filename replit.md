@@ -516,6 +516,13 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2025-12-17: **YouTube Transcript Generator** - New SEO-optimized free tool for extracting YouTube transcripts
+  - Server-side yt-dlp integration for reliable subtitle extraction (subtitles + auto-captions fallback)
+  - API route: `/api/youtube/transcript` with VTT-to-text parsing, rate limiting (10 req/min/IP), 15s timeout
+  - Client component with copy/download functionality and source badges (subtitles vs auto-captions)
+  - SEO page with JSON-LD schema (SoftwareApplication + FAQPage), comprehensive FAQ sections
+  - Abuse protection: 5MB max transcript size, proper temp directory cleanup with `fs.rm({recursive:true})`
+  - Files: `app/api/youtube/transcript/route.ts`, `app/tools/youtube-transcript-generator/`
 - 2025-12-12: **SSoT Icon Registry Architecture** - Consolidated all tool icons into a single source of truth
   - Created `lib/ui/icon-registry.ts`: Central registry mapping iconKey → lucide-react component
   - Created `lib/ui/get-tool-ui.ts`: Helper with TOOL_ICON_MAP (slug-specific icons), ENGINE_THEMES (fallbacks)
