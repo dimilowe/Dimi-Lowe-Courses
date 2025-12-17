@@ -6,6 +6,8 @@ interface TranscriptResult {
   ok: boolean;
   videoId?: string;
   transcript?: string;
+  source?: "subtitles" | "auto_subtitles";
+  language?: string;
   segments?: { start: number; dur: number; text: string }[];
   code?: string;
   message?: string;
@@ -165,8 +167,19 @@ export default function YoutubeTranscriptGeneratorClient() {
 
       {result?.ok && result.transcript && (
         <div className="mt-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900">Transcript</h3>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-gray-900">Transcript</h3>
+              {result.source && (
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  result.source === "subtitles" 
+                    ? "bg-green-100 text-green-700" 
+                    : "bg-yellow-100 text-yellow-700"
+                }`}>
+                  {result.source === "subtitles" ? "Captions" : "Auto-generated"}
+                </span>
+              )}
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={handleCopy}
@@ -206,9 +219,10 @@ export default function YoutubeTranscriptGeneratorClient() {
             </p>
           </div>
 
-          <p className="text-xs text-gray-500 text-center">
-            Word count: {result.transcript.split(/\s+/).filter(Boolean).length}
-          </p>
+          <div className="flex items-center justify-center gap-4 text-xs text-gray-500">
+            <span>Words: {result.transcript.split(/\s+/).filter(Boolean).length.toLocaleString()}</span>
+            <span>Characters: {result.transcript.length.toLocaleString()}</span>
+          </div>
         </div>
       )}
     </div>

@@ -5,7 +5,7 @@ integrations = ["javascript_stripe:1.0.0", "javascript_database:1.0.0", "javascr
 
 [nix]
 channel = "stable-25_05"
-packages = ["ffmpeg"]
+packages = ["ffmpeg", "yt-dlp"]
 
 [workflows]
 runButton = "Project"

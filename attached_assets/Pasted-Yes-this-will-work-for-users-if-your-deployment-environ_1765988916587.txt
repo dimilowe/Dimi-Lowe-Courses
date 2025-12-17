@@ -1,0 +1,53 @@
+Yes — this will work for users if your deployment environment can actually run yt-dlp at request time and you put sane limits in place. The plan is directionally right, but tighten a few things so it doesn’t turn into a flaky/abusable endpoint.
+What’s good in your plan
+yt-dlp is the right hammer for YouTube transcript extraction.
+Pulling VTT subs → parsing to text is clean and fast.
+Cleaning temp files + rate limiting is mandatory. Good.
+What to fix (so it works reliably in production)
+1) Don’t “install a video downloader tool”
+You’re not downloading full video. You’re fetching subtitles only.
+If your UI says “video downloader,” it attracts abuse and expectation mismatch.
+2) Don’t rely on writing files if you don’t have to
+Best practice is: write to a temp directory you control and delete immediately.
+Use something like /tmp/vcm-ytdlp/<random> (or OS temp dir). Don’t litter the repo.
+3) Use these flags so it’s stable + doesn’t download media
+Use yt-dlp to fetch subtitles without video:
+Prefer normal subs first, then auto:
+--write-subs --sub-langs "en.*,en" --skip-download
+fallback: --write-auto-subs --sub-langs "en.*,en" --skip-download
+Force output path:
+--output "<tempdir>/%(id)s.%(ext)s"
+Also add:
+--no-warnings
+--no-playlist
+--max-filesize doesn’t matter if skipping download, but keep request-level limits anyway
+4) Return structured output, not just a blob
+Return:
+transcript (plain text)
+source = "subtitles" or "auto_subtitles"
+language
+videoId
+This helps UX and debugging.
+5) Add hard abuse limits (non-negotiable for a free tool)
+At API level:
+rate limit by IP
+max runtime (kill process after e.g. 10–15 seconds)
+max transcript size (e.g. 1–2 MB of text)
+allow only youtube.com / youtu.be URLs
+If someone runs this 1,000 times, you’ll feel it.
+6) Expect failures and message them correctly
+Even with yt-dlp, some videos will fail due to:
+no captions
+region/age restrictions
+private/unlisted
+throttling
+So the user-facing states should be:
+✅ Transcript found
+⚠️ No captions available
+❌ Video restricted / couldn’t fetch
+Will it work for users on the site?
+Yes, if:
+you’re hosting somewhere that supports running yt-dlp (Replit often does; some serverless hosts don’t),
+you implement timeouts + limits,
+and you don’t pretend it works for every video.
+If you deploy to a strict serverless environment later, you may need a small worker/VPS for this endpoint. But for now: ship it.
