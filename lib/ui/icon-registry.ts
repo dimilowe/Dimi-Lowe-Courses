@@ -40,6 +40,9 @@ import {
   PiggyBank,
   Home,
   Car,
+  Scissors,
+  Files,
+  Layers,
   type LucideIcon,
 } from "lucide-react";
 
@@ -85,6 +88,9 @@ export const ICON_REGISTRY = {
   piggyBank: PiggyBank,
   home: Home,
   car: Car,
+  scissors: Scissors,
+  files: Files,
+  layers: Layers,
 } as const;
 
 export type IconKey = keyof typeof ICON_REGISTRY;

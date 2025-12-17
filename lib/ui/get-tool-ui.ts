@@ -98,6 +98,10 @@ const TOOL_ICON_MAP: Record<string, { iconKey: IconKey; bg: string }> = {
   "weather-prediction": { iconKey: "cloudSun", bg: "bg-sky-400" },
   "maker-quotes-generator": { iconKey: "sparkles", bg: "bg-amber-400" },
   "universal-shopping-cart": { iconKey: "shoppingCart", bg: "bg-emerald-500" },
+  "pdf-merger-free": { iconKey: "layers", bg: "bg-blue-500" },
+  "pdf-merge-split": { iconKey: "scissors", bg: "bg-purple-500" },
+  "price-matcher": { iconKey: "target", bg: "bg-emerald-500" },
+  "aliexpress-dupe-finder": { iconKey: "search", bg: "bg-rose-500" },
 };
 
 type ToolLike = {
