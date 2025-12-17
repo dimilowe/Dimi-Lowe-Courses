@@ -1,0 +1,94 @@
+Replit Prompt: Build “PDF Merger Free” Tool (Next.js App Router)
+You are building a production-ready tool page for PDF Merger Free on a Next.js (App Router) codebase.
+Goal
+Create a tool at:
+Route: /tools/pdf-merger-free (if your tools live elsewhere, follow existing conventions)
+Behavior: User uploads multiple PDF files, reorders them, clicks merge, downloads a single merged PDF.
+Zero friction: No login, no watermark, no email capture, no AI.
+Requirements
+UX / UI (must be above the fold)
+Big title: “PDF Merger Free”
+One-line promise: “Merge multiple PDF files into one PDF instantly. No signup.”
+Upload area:
+Drag-and-drop + file picker
+Accept only .pdf
+Multiple files
+File list:
+Show filename + file size
+Reorder via drag-and-drop
+Remove file button
+Primary CTA button:
+“Merge PDFs”
+Disabled until 2+ files
+Shows loading state while merging
+Result:
+Auto-download merged file OR show a “Download merged PDF” button
+Output filename default: merged.pdf (optionally allow rename)
+Backend / API
+Implement a server endpoint that merges PDFs and returns a single PDF binary:
+POST /api/pdf/merge
+Accept multipart/form-data with files[] in the order provided by the client
+Merge using pdf-lib
+Return application/pdf with proper headers for download
+Performance + safety
+Reject non-PDF files
+Enforce basic limits to protect the server from abuse (keep it generous since “free” intent):
+Max files: 20
+Max total upload size: 100MB
+Max single file size: 50MB
+If limits exceeded, return a clear JSON error message and show it in UI.
+SEO page content (minimal but complete)
+The page must be SEO-ready, with:
+Metadata: title, description, keywords
+H1 matches keyword intent
+Short supporting copy below tool (not above it)
+FAQ section with 6–10 FAQs (short answers)
+Basic “How it works” section (3 steps)
+Add JSON-LD FAQ schema (optional but recommended)
+Implementation details
+Tech assumptions
+Next.js App Router
+TypeScript
+Tailwind (use existing styling patterns)
+Use pdf-lib for merging
+Use react-dropzone OR native drag/drop
+Use @dnd-kit for reordering OR lightweight HTML drag-drop
+Files to create
+app/tools/pdf-merger-free/page.tsx
+SEO metadata
+Layout consistent with the rest of the site
+Render the client component
+app/tools/pdf-merger-free/PdfMergerFreeClient.tsx
+Client component with:
+drag/drop upload
+reorder list
+remove file
+merge call
+download
+Must manage file order correctly
+app/api/pdf/merge/route.ts
+Server route:
+parse multipart form
+validate PDFs + limits
+merge with pdf-lib
+return merged PDF as Response with correct headers
+(If needed) lib/pdf/merge.ts
+Helper function to merge PDFs cleanly
+Exact behaviors / edge cases
+If user uploads 1 PDF, show message: “Add at least 2 PDFs to merge.”
+If merge fails, show a clean error toast or alert.
+If user reorders files, that order must be reflected in output.
+Keep the tool instant: no extra steps, no auth.
+Output
+Deliver working code that compiles and runs.
+Do not leave TODOs.
+Make sure the API returns the merged PDF correctly and the UI downloads it.
+Testing checklist (you must verify mentally and implement accordingly)
+Merge 2 PDFs → works
+Merge 10 PDFs → works
+Reorder and merge → output order matches UI
+Remove file → order updates
+Upload non-PDF → rejected cleanly
+Large files beyond limit → clear error
+Works on mobile layout
+Build it now.
