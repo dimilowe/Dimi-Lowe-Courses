@@ -16,6 +16,15 @@ export type CloudId = (typeof CLOUD_IDS)[number];
 export const ENTITLEMENT_TIERS = ['free', 'basic', 'pro', 'enterprise'] as const;
 export type EntitlementTier = (typeof ENTITLEMENT_TIERS)[number];
 
+export const TOOL_ACCESS_TIERS = ['starter', 'basic', 'pro'] as const;
+export type ToolAccessTier = (typeof TOOL_ACCESS_TIERS)[number];
+
+export type ToolAccess = 
+  | { access: 'free' }
+  | { access: 'cloud'; cloud: CloudId; tier: ToolAccessTier };
+
+export type CloudEntitlementsMap = Partial<Record<CloudId, EntitlementTier>>;
+
 export const ENTITLEMENT_SOURCES = ['stripe', 'manual_grant', 'bundle', 'promotion'] as const;
 export type EntitlementSource = (typeof ENTITLEMENT_SOURCES)[number];
 

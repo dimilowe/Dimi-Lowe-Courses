@@ -1,26 +1,69 @@
 'use client';
 
 import type { UserTier } from '@/lib/pricing/types';
+import type { CloudId, EntitlementTier, ToolAccessTier, CloudEntitlementsMap } from '@/lib/types/cloudEntitlements';
 
 export type HeavyMode = 'none' | 'single' | 'multi';
 
-export type ToolFeature = 'heavyTool' | 'ai' | null;
+export type ToolFeature = 'heavyTool' | 'ai' | 'cloud' | null;
 
 export type ToolLockState = {
   locked: boolean;
   feature: ToolFeature;
   requiredTier: UserTier | null;
+  requiredCloud: CloudId | null;
 };
 
 export type ToolAccessMeta = {
   heavyMode?: HeavyMode;
   hasAi?: boolean;
+  requiredCloud?: CloudId | null;
+  requiredTier?: ToolAccessTier | null;
 };
+
+const TIER_ORDER: (EntitlementTier | ToolAccessTier)[] = ['free', 'starter', 'basic', 'pro', 'enterprise'];
+
+function hasCloudAccess(
+  cloudEntitlements: CloudEntitlementsMap | undefined,
+  cloudId: CloudId,
+  requiredTier: ToolAccessTier
+): boolean {
+  if (!cloudEntitlements) return false;
+  
+  const userTierForCloud = cloudEntitlements[cloudId];
+  if (!userTierForCloud) return false;
+  
+  const userTierIndex = TIER_ORDER.indexOf(userTierForCloud);
+  const requiredTierIndex = TIER_ORDER.indexOf(requiredTier);
+  
+  return userTierIndex >= requiredTierIndex;
+}
 
 export function getToolLockState(
   userTier: UserTier,
-  meta: ToolAccessMeta
+  meta: ToolAccessMeta,
+  cloudEntitlements?: CloudEntitlementsMap
 ): ToolLockState {
+  if (meta.requiredCloud && meta.requiredTier) {
+    const hasAccess = hasCloudAccess(cloudEntitlements, meta.requiredCloud, meta.requiredTier);
+    
+    if (!hasAccess) {
+      return {
+        locked: true,
+        feature: 'cloud',
+        requiredTier: meta.requiredTier,
+        requiredCloud: meta.requiredCloud,
+      };
+    }
+    
+    return {
+      locked: false,
+      feature: null,
+      requiredTier: null,
+      requiredCloud: null,
+    };
+  }
+
   const heavyMode: HeavyMode = meta.heavyMode ?? 'none';
   const hasAi = !!meta.hasAi;
 
@@ -29,6 +72,7 @@ export function getToolLockState(
       locked: true,
       feature: 'ai',
       requiredTier: 'pro',
+      requiredCloud: null,
     };
   }
 
@@ -38,6 +82,7 @@ export function getToolLockState(
         locked: true,
         feature: 'heavyTool',
         requiredTier: 'starter',
+        requiredCloud: null,
       };
     }
   }
@@ -48,6 +93,7 @@ export function getToolLockState(
         locked: true,
         feature: 'heavyTool',
         requiredTier: 'basic',
+        requiredCloud: null,
       };
     }
   }
@@ -56,5 +102,6 @@ export function getToolLockState(
     locked: false,
     feature: null,
     requiredTier: null,
+    requiredCloud: null,
   };
 }
