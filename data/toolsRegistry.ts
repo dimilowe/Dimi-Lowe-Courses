@@ -966,6 +966,26 @@ export const toolsRegistry: Tool[] = [
     primaryKeyword: "sale business by owner",
     secondaryKeywords: ["sell business by owner", "fsbo business", "sell small business without broker", "how to sell a business without a broker"],
     searchIntent: "action"
+  },
+  {
+    id: "p-and-l-report",
+    name: "Monthly P&L Report Builder",
+    slug: "p-and-l-report",
+    description: "Create a monthly profit and loss report in minutes. Build revenue, expenses, COGS, add-backs (SDE), and export CSV/TXT. Free, no login.",
+    category: "business",
+    tags: ["business", "calculators", "new"],
+    icon: "fileSpreadsheet",
+    iconBg: "bg-emerald-600",
+    priority: 83,
+    isNew: true,
+    engineType: "standalone",
+    inputType: "multi",
+    outputType: "interactive",
+    relatedTools: ["sale-business-by-owner", "401k-retirement-calculator"],
+    relatedArticles: [],
+    primaryKeyword: "p&l report",
+    secondaryKeywords: ["p&l management", "profit and loss statement", "monthly p&l report", "p&l template", "p&l calculator", "income statement generator"],
+    searchIntent: "action"
   }
 ];
 

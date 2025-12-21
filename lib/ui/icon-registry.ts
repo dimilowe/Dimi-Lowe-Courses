@@ -1,6 +1,7 @@
 import {
   FileImage,
   FileText,
+  FileSpreadsheet,
   Type,
   Palette,
   Search,
@@ -95,6 +96,7 @@ export const ICON_REGISTRY = {
   files: Files,
   layers: Layers,
   handshake: Handshake,
+  fileSpreadsheet: FileSpreadsheet,
 } as const;
 
 export type IconKey = keyof typeof ICON_REGISTRY;
