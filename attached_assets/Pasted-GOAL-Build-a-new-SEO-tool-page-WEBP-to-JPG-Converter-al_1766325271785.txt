@@ -1,0 +1,121 @@
+GOAL
+Build a new SEO tool page: WEBP to JPG Converter (also supports WEBP → PNG). This solves the common issue where images downloaded from the internet save as .webp. Users should be able to upload/drop a .webp file and it auto-converts immediately (no extra button) and offers download buttons.
+
+HARD REQUIREMENTS
+- 100% client-side conversion (no server/API route). Do NOT upload or store files.
+- Works in modern browsers (Chrome/Safari/Firefox). Use canvas re-encode.
+- Auto-convert on file selection (and on drop).
+- Show original preview and converted preview.
+- Provide “Download JPG” and “Download PNG” buttons.
+- JPG quality presets: Small (0.7), Balanced (0.85), High (0.95) — default Balanced.
+- Allow multi-file batch drop/upload:
+  - Convert all
+  - Show a list with per-file status, preview, file name, original size, converted size
+  - Individual download buttons per item
+  - “Download All as ZIP” (zip contains converted JPGs by default; also offer a toggle to zip as PNGs).
+- Include strong error handling (non-image uploads, corrupted files, huge files).
+- Add a toggle: “Auto-download after conversion” (default ON). When ON: after conversion completes for a file, auto-trigger download for the default format (JPG).
+- Add privacy copy: “Runs in your browser. We don’t upload your files.”
+- Page must follow the Universal Tool Template structure: metadata, SoftwareApplication JSON-LD, FAQPage JSON-LD, hero, tool client component, SEO content sections, features grid, FAQ accordion, ExploreMoreTools.
+- Use Tailwind for styling. Match the same layout vibe as the template.
+- No external paid APIs.
+- Use only lightweight dependencies. You MAY install “jszip” for the ZIP feature (allowed). If installing, update package.json accordingly.
+
+FILES TO CREATE (exact)
+1) app/tools/webp-to-jpg/page.tsx
+2) app/tools/webp-to-jpg/WebpToJpgClient.tsx
+
+ROUTING
+- The tool route must be /tools/webp-to-jpg
+- ExploreMoreTools currentTool prop should match this route.
+
+PAGE CONTENT REQUIREMENTS
+Metadata:
+- title: “Free WEBP to JPG Converter (Instant Download) | WEBP to PNG”
+- description: Mention fixing downloaded .webp images, instant conversion, batch conversion, zip download, no login, private in-browser.
+- keywords: include: “webp to jpg”, “webp to png”, “convert webp to jpeg”, “webp converter”, “downloaded image saved as webp”, “webp to jpg online”, “batch webp converter”, “webp to jpg mac”, “webp to jpg iphone”, “webp to jpg windows”.
+
+OpenGraph: consistent.
+
+JSON-LD SoftwareApplication:
+- name: “VCM WEBP to JPG Converter”
+- category: “MultimediaApplication”
+- price: 0
+- description aligned
+- include aggregateRating (fake but plausible like the template).
+
+FAQ JSON-LD + on-page FAQ accordion:
+Create 10-12 FAQs specifically about WEBP conversion:
+- Why do images download as WEBP?
+- Is WEBP better than JPG?
+- Does converting reduce quality?
+- How to convert WEBP to JPG on Mac/Windows/iPhone?
+- Do you upload my files?
+- Can I batch convert?
+- Why does my converted file look blurry?
+- What’s the difference between JPG and PNG?
+- Can I convert animated WEBP?
+- What is the max file size?
+- Why won’t my file convert?
+
+SEO SECTIONS (write them like your tool pages)
+- Keyword-rich intro section: “The WEBP to JPG Converter that fixes annoying downloads”
+- “How it works” section (client-side canvas conversion explained simply)
+- “Best settings” section (when to use JPG vs PNG, what quality preset to choose)
+- “Batch conversion” section (zip download)
+- “Privacy” section
+
+FEATURES GRID
+8 items, tailored to this tool:
+- Auto-convert on upload
+- Drag & drop batch conversion
+- JPG quality presets
+- PNG option with transparency
+- Auto-download toggle
+- Download all as ZIP
+- Original vs converted size display
+- Works offline after load / no file uploads
+
+CLIENT COMPONENT UX
+- Hero card: dropzone with dashed border
+- Accept attribute: image/webp and .webp, but handle other image types gracefully.
+- Provide a secondary small button “Try a sample WEBP” that loads a built-in sample file from public (create a placeholder reference and TODO if no sample exists). If you can’t add an asset, omit this button.
+- Show top controls:
+  - Output format default: JPG (radio: JPG / PNG)
+  - JPG quality preset dropdown (disabled if PNG)
+  - Auto-download toggle
+  - ZIP format toggle: ZIP as JPG / ZIP as PNG
+- List of converted items below with:
+  - Thumbnail preview
+  - File name
+  - Status (Converting…, Ready, Failed)
+  - Original size, Converted size
+  - Download JPG / Download PNG buttons (even if output format default is one, allow both)
+- “Clear All” button resets state.
+
+TECHNICAL IMPLEMENTATION DETAILS
+- Use URL.createObjectURL for previews and cleanup URLs to avoid memory leaks.
+- For conversion:
+  - Load image via createImageBitmap when available (faster), fallback to Image().
+  - Draw to canvas at natural width/height.
+  - For JPG: canvas.toBlob("image/jpeg", quality)
+  - For PNG: canvas.toBlob("image/png")
+- Animated WEBP:
+  - If the browser decodes only first frame, warn user: “Animated WEBP will convert to a single frame.”
+  - Detect animation if possible (optional). If too complex, show note in FAQ + small UI note.
+- ZIP:
+  - Use JSZip to add files; name outputs with same base filename + .jpg or .png.
+  - Provide a single “Download All as ZIP” button when there is at least one Ready item.
+
+DON’T BREAK EXISTING ARCHITECTURE
+- Do not edit global layout unless required.
+- Keep the page self-contained like the template.
+- Ensure TypeScript types are correct and no lint errors.
+
+DELIVERABLE
+After implementation:
+- Provide the full code for both files.
+- If you added a dependency, mention it.
+- Make sure the page compiles.
+
+Start now.
