@@ -516,6 +516,15 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2025-12-21: **Cloud-Scoped Entitlements System** - Per-cloud access control for tools
+  - Added `required_cloud` and `required_tier` columns to tools table
+  - Updated `getToolLockState()` to check cloud-specific entitlements (not just global tier)
+  - Added `CloudEntitlementsMap` to uiStore for client-side access checks
+  - AppProvider now fetches `/api/user/entitlements` and populates cloud entitlements map
+  - `/api/clouds/[cloud]/tools` returns `requiredCloud` and `requiredTier` from database
+  - Backwards compatible: tools without `required_cloud` fall back to old `hasAi`/`heavyMode` logic
+  - Enables per-cloud pricing: Growth Cloud PRO only unlocks Growth Cloud tools
+  - Files: `lib/tools/getToolLockState.ts`, `lib/state/uiStore.ts`, `lib/types/cloudEntitlements.ts`
 - 2025-12-19: **WEBP to JPG Converter** - 100% client-side image converter
   - Canvas-based conversion with proper memory cleanup (ref-based URL tracking)
   - JPG quality presets (70%/85%/95%), PNG preserves transparency
