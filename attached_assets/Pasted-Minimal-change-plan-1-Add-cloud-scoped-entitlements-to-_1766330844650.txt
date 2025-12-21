@@ -1,0 +1,75 @@
+Minimal change plan
+1) Add cloud-scoped entitlements to the user (SSoT)
+You need a single “who owns what” object available everywhere (server + client).
+Data shape (ideal)
+type CloudTier = "none" | "starter" | "basic" | "pro";
+
+type CloudEntitlements = {
+  music: CloudTier;
+  shopping: CloudTier;
+  video: CloudTier;
+  writing: CloudTier;
+  // etc
+};
+
+DB minimal
+Add a table (or JSON column) that stores this:
+Option A (clean): cloud_entitlements
+user_id
+cloud_id
+tier (starter/basic/pro)
+status (active/canceled)
+Option B (fast): profiles.cloud_entitlements as JSONB
+(Works fine at your scale; normalize later.)
+This becomes the only source of truth.
+
+2) Add tool-level required cloud + tier (SSoT for tools)
+Right now gating meta is { hasAi, heavyMode }. That’s global-tier logic.
+To make Cloud real, each tool needs:
+type ToolAccess = 
+  | { access: "free" }
+  | { access: "cloud"; cloud: CloudId; tier: "starter" | "basic" | "pro" };
+
+Where do you store it?
+Minimal change: add two columns to your existing tools table:
+required_cloud (nullable)
+required_tier (nullable)
+Rules:
+required_cloud = null → free tool
+else tool requires that cloud tier
+This is straightforward and matches how your tools are already loaded via /api/clouds/[cloud]/tools.
+
+3) Update getToolLockState to check cloud entitlements (not global tier)
+This is the smallest code change that flips the model.
+Old
+getToolLockState(userTier, { hasAi, heavyMode })
+
+New
+getToolLockState(userEntitlements, toolAccess)
+
+Concretely:
+Input user: cloudEntitlements
+Input tool: ToolAccess
+And it returns the same ToolLockState.
+Example behavior:
+Free tool → unlocked
+Cloud tool → locked unless user has that cloud at required tier
+No engines involved. No overrides.
+
+4) Keep backwards compatibility during transition (so nothing breaks)
+You will have existing tools that only have { hasAi/heavyMode } and no required_cloud/required_tier.
+Minimal bridge (temporary, not “overrides”):
+If tool row has required_cloud/required_tier, use them
+Else fall back to the old hasAi/heavyMode → global tier mapping
+This lets you migrate tool-by-tool without breaking the UI.
+You can remove the fallback once everything is migrated.
+
+
+6) Stripe mapping (minimal)
+You don’t need to redesign billing.
+Just ensure each Stripe price maps to:
+cloud_id
+tier
+On webhook success:
+upsert cloud_entitlements(user_id, cloud_id) = tier
+That’s it.
