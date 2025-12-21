@@ -26,6 +26,8 @@ type TaggedTool = {
   segment?: string;
   heavyMode?: HeavyMode;
   hasAi?: boolean;
+  requiredCloud?: string | null;
+  requiredTier?: string | null;
 };
 
 export default function CloudDashboardEngine({ cms }: CloudDashboardProps) {
@@ -73,6 +75,8 @@ export default function CloudDashboardEngine({ cms }: CloudDashboardProps) {
     isPro: tool.featured,
     heavyMode: tool.heavyMode,
     hasAi: tool.hasAi,
+    requiredCloud: tool.requiredCloud as FeaturedTool['requiredCloud'],
+    requiredTier: tool.requiredTier as FeaturedTool['requiredTier'],
   }));
 
   return (

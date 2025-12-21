@@ -1,21 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { ENGINE_REGISTRY, type EngineConfig, type HeavyMode } from "@/engines";
-
-function getEngineMetaBySlug(slug: string): { heavyMode: HeavyMode; hasAi: boolean } {
-  const toolRow = Object.values(ENGINE_REGISTRY).find(
-    (engine) => engine.apiRoutes?.some((route) => route.includes(slug))
-  );
-  
-  if (toolRow) {
-    return {
-      heavyMode: toolRow.heavyMode ?? 'none',
-      hasAi: toolRow.hasAi ?? false,
-    };
-  }
-  
-  return { heavyMode: 'none', hasAi: false };
-}
+import { ENGINE_REGISTRY, type HeavyMode } from "@/engines";
+import type { CloudId, ToolAccessTier } from "@/lib/types/cloudEntitlements";
 
 function getEngineMetaByEngineType(engine: string | null): { heavyMode: HeavyMode; hasAi: boolean } {
   if (!engine) return { heavyMode: 'none', hasAi: false };
@@ -49,7 +35,9 @@ export async function GET(
         COALESCE(co.data->>'description', '') as description,
         t.featured,
         t.segment,
-        t.engine
+        t.engine,
+        t.required_cloud,
+        t.required_tier
       FROM cms_objects co
       LEFT JOIN tools t ON t.slug = co.slug
       WHERE $1 = ANY(co.cloud_tags)
@@ -70,6 +58,8 @@ export async function GET(
           segment: row.segment,
           heavyMode: engineMeta.heavyMode,
           hasAi: engineMeta.hasAi,
+          requiredCloud: row.required_cloud as CloudId | null,
+          requiredTier: row.required_tier as ToolAccessTier | null,
         };
       })
     });

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Sparkles, ArrowRight, Lock } from 'lucide-react';
 import { useUIStore } from '@/lib/state/uiStore';
 import { getToolLockState, type HeavyMode } from '@/lib/tools/getToolLockState';
+import type { CloudId, ToolAccessTier } from '@/lib/types/cloudEntitlements';
 
 export interface FeaturedTool {
   slug: string;
@@ -15,6 +16,8 @@ export interface FeaturedTool {
   gradient?: string;
   heavyMode?: HeavyMode;
   hasAi?: boolean;
+  requiredCloud?: CloudId | null;
+  requiredTier?: ToolAccessTier | null;
 }
 
 interface CloudFeaturedToolsProps {
@@ -42,7 +45,7 @@ export default function CloudFeaturedTools({
   tools, 
   title = 'Featured Tools' 
 }: CloudFeaturedToolsProps) {
-  const { userTier, openUpgradeModal } = useUIStore();
+  const { userTier, cloudEntitlements, openUpgradeModal } = useUIStore();
 
   if (tools.length === 0) return null;
 
@@ -56,16 +59,22 @@ export default function CloudFeaturedTools({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {tools.map((tool, idx) => {
           const gradient = tool.gradient || PLACEHOLDER_GRADIENTS[idx % PLACEHOLDER_GRADIENTS.length];
-          const lockState = getToolLockState(userTier, { 
-            heavyMode: tool.heavyMode, 
-            hasAi: tool.hasAi 
-          });
+          const lockState = getToolLockState(
+            userTier, 
+            { 
+              heavyMode: tool.heavyMode, 
+              hasAi: tool.hasAi,
+              requiredCloud: tool.requiredCloud,
+              requiredTier: tool.requiredTier,
+            },
+            cloudEntitlements
+          );
 
           const handleClick = (e: React.MouseEvent) => {
             if (lockState.locked && lockState.requiredTier && lockState.requiredTier !== 'free') {
               e.preventDefault();
               const feature = lockState.feature === 'heavyTool' ? 'heavyTools' : lockState.feature;
-              openUpgradeModal(feature, lockState.requiredTier as 'starter' | 'basic' | 'pro');
+              openUpgradeModal(feature, lockState.requiredTier as 'starter' | 'basic' | 'pro', lockState.requiredCloud);
             }
           };
           
