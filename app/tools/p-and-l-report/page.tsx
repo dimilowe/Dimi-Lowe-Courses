@@ -502,7 +502,7 @@ export default function PLReportPage() {
               to prepare your business for sale — from valuation to buyer vetting.
             </p>
             <Link
-              href="/sale-business-by-owner"
+              href="/tools/sale-business-by-owner"
               className="inline-flex items-center gap-2 bg-orange-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-orange-700 transition-colors"
             >
               <FileText className="w-5 h-5" />

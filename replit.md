@@ -526,7 +526,7 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
   - localStorage save/load with clear privacy messaging ("Saved only in your browser")
   - CSV/TXT/clipboard exports for spreadsheets, CPAs, and buyer-ready sharing
   - SEO page targeting "p&l report" and "p&l management" keywords
-  - Files: `app/p-and-l-report/`
+  - Files: `app/tools/p-and-l-report/`
 - 2025-12-21: **FSBO Business Sale Toolkit** - Comprehensive tool for selling a business without a broker
   - 5-module tabbed interface: Readiness Checklist, Valuation Calculator, Listing Generator, Buyer Vetting, Deal Structure
   - 24-point readiness checklist with progress tracking and "why it matters" tooltips
@@ -535,7 +535,7 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
   - Buyer vetting questions, first-call script, NDA template
   - Deal structure helper: asset/stock sale, seller financing, earn-outs with risk analysis
   - TXT export for all modules, SEO page with JSON-LD schemas, 10 FAQs
-  - Files: `app/sale-business-by-owner/`
+  - Files: `app/tools/sale-business-by-owner/`
 - 2025-12-21: **Cloud-Scoped Entitlements System** - Per-cloud access control for tools
   - Added `required_cloud` and `required_tier` columns to tools table
   - Updated `getToolLockState()` to check cloud-specific entitlements (not just global tier)
