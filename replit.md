@@ -516,6 +516,17 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2025-12-21: **Monthly P&L Report Builder** - Create monthly profit and loss statements
+  - Report settings: name, business, month/year, currency (USD/EUR/GBP/CAD/AUD)
+  - Revenue, COGS (optional), Operating Expenses, Other Income/Expense, SDE Add-Backs sections
+  - Industry presets: Creator, Agency, eCommerce, Local Service for quick onboarding
+  - P&L Health Score (0-100) with letter grade and actionable improvement suggestions
+  - Live Summary card with real-time gross/net profit and SDE calculations
+  - Report Preview tab: professional P&L statement layout
+  - localStorage save/load with clear privacy messaging ("Saved only in your browser")
+  - CSV/TXT/clipboard exports for spreadsheets, CPAs, and buyer-ready sharing
+  - SEO page targeting "p&l report" and "p&l management" keywords
+  - Files: `app/p-and-l-report/`
 - 2025-12-21: **FSBO Business Sale Toolkit** - Comprehensive tool for selling a business without a broker
   - 5-module tabbed interface: Readiness Checklist, Valuation Calculator, Listing Generator, Buyer Vetting, Deal Structure
   - 24-point readiness checklist with progress tracking and "why it matters" tooltips
