@@ -516,6 +516,15 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2025-12-21: **FSBO Business Sale Toolkit** - Comprehensive tool for selling a business without a broker
+  - 5-module tabbed interface: Readiness Checklist, Valuation Calculator, Listing Generator, Buyer Vetting, Deal Structure
+  - 24-point readiness checklist with progress tracking and "why it matters" tooltips
+  - SDE-based valuation with industry multiples, growth/dependency adjustments
+  - 3 listing variants: Direct, Anonymous, High-Trust with copy buttons
+  - Buyer vetting questions, first-call script, NDA template
+  - Deal structure helper: asset/stock sale, seller financing, earn-outs with risk analysis
+  - TXT export for all modules, SEO page with JSON-LD schemas, 10 FAQs
+  - Files: `app/sale-business-by-owner/`
 - 2025-12-21: **Cloud-Scoped Entitlements System** - Per-cloud access control for tools
   - Added `required_cloud` and `required_tier` columns to tools table
   - Updated `getToolLockState()` to check cloud-specific entitlements (not just global tier)
