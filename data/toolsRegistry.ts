@@ -946,6 +946,26 @@ export const toolsRegistry: Tool[] = [
     outputType: "interactive",
     relatedTools: ["resource-box", "outfit-ideas"],
     relatedArticles: []
+  },
+  {
+    id: "sale-business-by-owner",
+    name: "FSBO Business Sale Toolkit",
+    slug: "sale-business-by-owner",
+    description: "Free toolkit to sell your business without a broker — valuation calculator, listing generator, buyer vetting scripts, NDA template, and deal structuring",
+    category: "business",
+    tags: ["business", "calculators", "new"],
+    icon: "Handshake",
+    iconBg: "bg-blue-600",
+    priority: 82,
+    isNew: true,
+    engineType: "standalone",
+    inputType: "multi",
+    outputType: "interactive",
+    relatedTools: ["401k-retirement-calculator", "loan-estimator-home"],
+    relatedArticles: [],
+    primaryKeyword: "sale business by owner",
+    secondaryKeywords: ["sell business by owner", "fsbo business", "sell small business without broker", "how to sell a business without a broker"],
+    searchIntent: "action"
   }
 ];
 

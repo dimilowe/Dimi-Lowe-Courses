@@ -1,0 +1,157 @@
+You are Replit AI Agent working inside my existing VCM Suite Next.js (App Router + TypeScript + Tailwind) codebase.
+
+GOAL
+Build a new SEO landing page + interactive tool for the keyword intent: “sale business by owner”.
+This is NOT a marketplace. It’s a FSBO (For Sale By Owner) business-sale toolkit that helps owners sell without a broker using step-by-step modules, calculators, and generators.
+
+TOOL NAME
+For Sale By Owner Business Toolkit (FSBO)
+Primary slug/path: /sale-business-by-owner
+
+HARD REQUIREMENTS
+- App Router page at: app/sale-business-by-owner/page.tsx
+- Client component at: app/sale-business-by-owner/FsboToolkitClient.tsx
+- Purely local/in-browser processing (no storing user data). Do not write to DB.
+- Add tool to:
+  1) Tool Registry (where other tools are registered)
+  2) Global URLs table/list (where canonical site URLs are defined)
+- Use existing styling patterns from other VCM tools (Tailwind, layout, ExploreMoreTools).
+- No login required.
+- Keep it fast; no external API calls.
+
+PAGE UX REQUIREMENTS (MVP)
+The tool is a multi-module toolkit with tabs or stepper. Must include:
+
+MODULE 1 — Readiness Checklist
+- Interactive checklist with categories:
+  - Financials & Books
+  - Operations & Transferability
+  - Legal & Compliance
+  - Marketing & Buyer Pipeline
+  - Deal Structure Prep
+- Each item has a short description and a “why it matters” tooltip or expandable note.
+- Show progress: “X/Y complete” + progress bar.
+- Output: a “Readiness Score” (0–100) computed from completion.
+
+MODULE 2 — Simple Valuation Range Estimator (No false precision)
+- Inputs:
+  - Trailing 12 months revenue
+  - Trailing 12 months owner benefit / SDE
+  - Industry category dropdown (use a simple list: eCom, Agency, SaaS, Local Service, Content/Media, Other)
+  - Growth trend dropdown: Declining / Flat / Growing
+  - Owner dependency: High / Medium / Low
+- Logic:
+  - Compute a base multiple range using a small internal map, e.g.:
+    - SaaS: 3.0–6.0x SDE
+    - Agency: 2.0–4.0x SDE
+    - eCom: 2.0–4.5x SDE
+    - Local Service: 2.0–3.5x SDE
+    - Content/Media: 1.5–3.5x SDE
+    - Other: 2.0–4.0x SDE
+  - Adjust range:
+    - Growing: +0.5x to both ends
+    - Declining: -0.5x to both ends (floor at 1.0)
+    - Owner dependency High: -0.5x
+    - Owner dependency Low: +0.25x
+  - Provide outputs:
+    - Suggested asking price range (low–high)
+    - Conservative “quick sale” range (slightly lower)
+    - “Explain the math” section showing the multiple range and SDE used.
+- Include disclaimers: “Not financial advice; market multiples vary; verify with CPA/broker/lawyer.”
+
+MODULE 3 — FSBO Listing Generator
+- Inputs:
+  - Business type
+  - Location (city/state or remote)
+  - Years in business
+  - What’s included (assets, inventory, IP, customer list, etc.)
+  - Reason for selling (optional)
+  - Asking price (optional toggle)
+  - Seller financing available toggle
+- Output:
+  - 3 listing variants:
+    1) “Direct Buyer Friendly” (plain)
+    2) “Anonymous / No doxxing” (keeps it private)
+    3) “High-Trust” (focuses on proof + clean process)
+- Include a “Red Flags: don’t say this” callout list.
+- Copy buttons for each variant.
+
+MODULE 4 — Buyer Vetting + NDA Starter
+- Checklist + scripts:
+  - “First message filter” questions (proof of funds, relevant experience, timeline)
+  - “First call script” bullet points
+  - NDA starter text (basic, non-legal, clearly labeled “template only”)
+- Copy buttons.
+
+MODULE 5 — Deal Structure Helper
+- Simple toggles that generate a plain-English summary:
+  - Asset sale vs Stock sale (radio)
+  - Seller financing: Yes/No (if yes: % down + term + rate)
+  - Earn-out: Yes/No (if yes: metric + duration)
+- Output:
+  - “Here’s a simple deal structure you can propose” summary paragraph.
+  - “Risks” bullet list based on selections.
+
+EXPORTS (must-have)
+- “Download as TXT” button that downloads the user’s:
+  - Checklist status + readiness score
+  - Valuation estimate + explanation
+  - Listing drafts
+  - Vetting scripts + NDA template
+  - Deal structure summary
+Implement via client-side Blob download. No PDF for MVP.
+
+SEO REQUIREMENTS
+- Metadata must target:
+  - “sale business by owner”
+  - “sell business by owner”
+  - “how to sell a business without a broker”
+  - “fsbo business”
+  - “sell small business without broker”
+- Title example:
+  “Sale Business by Owner (FSBO) Toolkit — Sell Your Business Without a Broker”
+- Description: emphasize step-by-step toolkit + valuation + listing generator + scripts.
+- Add JSON-LD:
+  - SoftwareApplication schema for the toolkit
+  - FAQPage schema with at least 10 FAQs tailored to selling a business by owner
+
+ON-PAGE CONTENT REQUIREMENTS
+After the tool component, include SEO sections like your template, but tailored:
+- What “sale business by owner” means
+- When FSBO works vs when you should use a broker
+- Step-by-step FSBO process (summary)
+- Documents you need (financials, P&L, add-backs, inventory list, SOPs)
+- Common mistakes and how to avoid scams
+- Pricing/valuation basics (SDE multiples explanation)
+- Platforms to find buyers (generic list, no outbound links required)
+- Add a short “Legal & Tax note” disclaimers section
+
+DESIGN REQUIREMENTS
+- Match the modern VCM tool style:
+  - Hero badge pill
+  - Strong H1 + supporting paragraph
+  - Tool card area
+  - Feature grid (8–12 features)
+  - FAQ accordion
+  - ExploreMoreTools component at bottom with currentTool set to "/sale-business-by-owner"
+- Keep layout max-w-5xl.
+- Use Tailwind only; no new UI library.
+
+CODE QUALITY
+- TypeScript strict types.
+- No any.
+- Use small helper functions for calculations.
+- Persist tool state in URL hash OR local state only (no localStorage needed for MVP).
+- Provide clear empty/loading states where relevant.
+
+FILES TO CREATE / EDIT
+1) Create: app/sale-business-by-owner/page.tsx  (use the Universal Tool Template structure)
+2) Create: app/sale-business-by-owner/FsboToolkitClient.tsx
+3) Update: Tool Registry file (add this tool)
+4) Update: Global URLs table/list (add canonical URL)
+
+IMPORTANT: You must locate the existing Tool Registry and Global URLs files in the repo and modify them appropriately. Do NOT invent new registries if they already exist.
+
+DELIVERABLE
+- A fully working page at /sale-business-by-owner with the full toolkit and SEO sections.
+- The tool must run without env vars or API keys.

@@ -44,6 +44,7 @@ import {
   Scissors,
   Files,
   Layers,
+  Handshake,
   type LucideIcon,
 } from "lucide-react";
 
@@ -93,6 +94,7 @@ export const ICON_REGISTRY = {
   scissors: Scissors,
   files: Files,
   layers: Layers,
+  handshake: Handshake,
 } as const;
 
 export type IconKey = keyof typeof ICON_REGISTRY;
