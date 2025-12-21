@@ -516,6 +516,13 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2025-12-19: **WEBP to JPG Converter** - 100% client-side image converter
+  - Canvas-based conversion with proper memory cleanup (ref-based URL tracking)
+  - JPG quality presets (70%/85%/95%), PNG preserves transparency
+  - Batch processing, auto-download toggle, ZIP download via JSZip
+  - Privacy-focused: files never leave the device
+  - SEO page with JSON-LD schemas, 12 FAQs, features grid
+  - Files: `app/tools/webp-to-jpg/`
 - 2025-12-17: **Suno Prompt Generator** - Free AI-powered music prompt generator for Suno
   - API route: `/api/suno-prompt` generates 3 variants (Clean, Cinematic, Minimal) using OpenAI
   - Smart trimming: clamp500 prioritizes trimming adjectives → mix notes → structure cues, never genre/mood/tempo/vocals
