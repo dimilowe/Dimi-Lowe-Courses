@@ -1,0 +1,252 @@
+You are Replit AI Agent working inside my existing VCM Suite Next.js (App Router + TypeScript + Tailwind) codebase.
+
+GOAL
+Build a new SEO landing page + interactive tool targeting the keyword intent: “p&l report” and “p&l management”.
+This is a free Monthly Profit & Loss (P&L) Report Builder that lets owners create a clean P&L statement in minutes, every month, with exports.
+
+TOOL NAME
+Monthly P&L Report Builder (Profit & Loss Statement Generator)
+Primary slug/path: /p-and-l-report
+
+PRIMARY KEYWORDS
+- p&l report
+- p&l management
+- profit and loss report
+- monthly p&l report
+- profit and loss statement
+- p&l template
+- p&l calculator
+- how to make a profit and loss statement
+
+HARD REQUIREMENTS
+- App Router page at: app/p-and-l-report/page.tsx
+- Client component at: app/p-and-l-report/PLReportBuilderClient.tsx
+- No server/database storage. Everything runs client-side.
+- No external APIs and no env vars required.
+- Add tool to:
+  1) Tool Registry (existing registry file in repo)
+  2) Global URLs table/list (existing canonical URLs file in repo)
+- Must include ExploreMoreTools at bottom with currentTool="/p-and-l-report"
+- Use Tailwind only and match VCM tool layout patterns (hero pill, card tool area, feature grid, FAQ accordions).
+
+CORE PRODUCT PRINCIPLE
+Make it a monthly ritual. Users should be able to come back each month and reuse the same categories quickly.
+
+RETURN-LOOP FEATURE (MUST-HAVE)
+Implement “Save this setup on my device” and “Load last setup” using localStorage:
+- Save category structure + line items (NOT required to save dollar values, but OK if you store both locally).
+- Provide a clear privacy note: “Saved only in your browser. Not uploaded.”
+- Provide “Clear saved data” button.
+
+MVP TOOL FUNCTIONAL REQUIREMENTS
+
+A) REPORT SETTINGS (Top of tool)
+- Report name (default: “Monthly Profit & Loss Report”)
+- Business name (optional)
+- Period selector:
+  - Month (dropdown: Jan–Dec)
+  - Year (numeric)
+- Currency selector (USD default, allow a small list: USD, EUR, GBP, CAD, AUD)
+
+B) REVENUE SECTION (Editable line items)
+- User can add/remove revenue lines
+- Each line: name + amount (number)
+- Auto-sum total revenue
+
+C) COGS SECTION (Optional toggle)
+- Toggle “My business has cost of goods sold (COGS)”
+- If on: editable lines like revenue
+- Auto-sum COGS
+- Gross Profit = Revenue - COGS
+- Gross Margin % (if revenue > 0)
+
+D) OPERATING EXPENSES SECTION
+- Editable lines:
+  - Payroll
+  - Contractors
+  - Rent
+  - Software
+  - Marketing/Ads
+  - Payment processing fees
+  - Shipping/Fulfillment
+  - Insurance
+  - Utilities
+  - Travel
+  - Legal/Accounting
+  - Misc
+- Allow add/remove custom lines too.
+- Auto-sum OpEx
+
+E) OTHER INCOME / OTHER EXPENSE (Optional)
+- Optional toggle
+- Lines for Other Income and Other Expense
+- Net Profit = Gross Profit - OpEx + Other Income - Other Expense
+
+F) SDE / ADD-BACKS (FSBO-friendly, MUST-HAVE)
+Add an “Owner Add-Backs (SDE)” section with lines:
+- Owner salary / draws
+- One-time expenses
+- Personal expenses
+- Non-recurring legal/accounting
+- Other add-backs (custom)
+Compute:
+- SDE = Net Profit + Total Add-Backs
+Show SDE margin %
+
+G) P&L HEALTH SCORE (MUST-HAVE simple heuristic)
+Compute a score 0–100 based on:
+- Has at least 1 revenue line > 0 (else big penalty)
+- If COGS toggle on, has at least 1 COGS line (else penalty)
+- % of expenses in “Misc” (if misc > 15% of OpEx, penalty)
+- Has report month/year selected (must)
+- Has at least 5 expense categories filled (encourages detail)
+Display:
+- Score number + grade (A/B/C/D/F)
+- Bullet “What to improve” suggestions based on flags (e.g., “Reduce Misc”, “Break out Marketing vs Software”, “Add COGS if you sell products”, etc.)
+
+H) EXPORTS (MUST-HAVE)
+Provide three exports:
+1) Download CSV (structured and consistent)
+2) Download TXT summary (buyer/CPA friendly)
+3) Copy-to-clipboard “P&L Summary” (quick paste into email)
+Implement exports client-side using Blob + URL.createObjectURL.
+
+CSV format suggestion:
+- Section, Line Item, Amount
+Include totals rows.
+
+TXT summary includes:
+- Business name
+- Period
+- Revenue total
+- COGS total (if used)
+- Gross profit + margin
+- Operating expenses total
+- Other income/expense (if used)
+- Net profit + margin
+- Add-backs total
+- SDE + margin
+- Health score + notes
+
+I) OPTIONAL: CSV IMPORT (nice-to-have, but only if fast)
+- Simple CSV import for “Section, Line Item, Amount”
+- Must be robust enough to not crash on bad input; show error message.
+
+UI/UX REQUIREMENTS
+- Use tabs or collapsible sections:
+  - Inputs (Revenue, COGS, Expenses, Other, Add-backs)
+  - Report Preview (a clean P&L statement view)
+  - Export
+- Show a right-side (or below on mobile) “Live Summary” card:
+  - Revenue, Gross Profit, OpEx, Net Profit, SDE, Health Score
+- Include privacy badge: “Runs in your browser. No data stored on our servers.”
+
+SEO REQUIREMENTS
+1) Metadata
+Title:
+  “Free P&L Report Builder (Monthly Profit & Loss Statement Generator)”
+Description:
+  “Create a monthly profit and loss report in minutes. Build revenue, expenses, COGS, add-backs (SDE), and export CSV/TXT. Free, no login.”
+Keywords must include:
+  - p&l report
+  - p&l management
+  - profit and loss statement
+  - monthly p&l report
+  - p&l template
+  - p&l calculator
+
+2) JSON-LD
+- SoftwareApplication schema (price 0)
+- FAQPage schema with at least 10 FAQs focused on:
+  - What is a P&L report?
+  - How often to make one?
+  - Gross vs net profit
+  - What is COGS?
+  - What are add-backs/SDE?
+  - How to use P&L to manage cash
+  - P&L vs cash flow statement
+  - What expenses to track
+  - How to present P&L to a buyer/loan
+  - Do you store my data?
+
+ON-PAGE CONTENT REQUIREMENTS (AFTER TOOL)
+Add SEO sections similar to the template, but tailored to P&L:
+
+SECTION 1: Keyword-rich intro
+- Explain what a P&L report is and why monthly reporting matters
+- Mention “p&l management” explicitly and how it helps decision-making
+
+SECTION 2: What a P&L report includes
+- Revenue, COGS, gross profit, operating expenses, net profit
+- Add-backs/SDE for owner-operated businesses
+
+SECTION 3: Step-by-step: how to create a monthly P&L report
+- Categorize
+- Separate COGS
+- Reconcile
+- Review margins
+- Flag anomalies
+- Save/export
+
+SECTION 4: Common P&L mistakes
+- Mixing personal expenses
+- Dumping into Misc
+- Forgetting fees
+- Confusing profit with cash
+- Not tracking ad ROI
+
+SECTION 5: P&L management tips
+- Margin targets
+- Budget caps
+- Tracking marketing efficiency
+- Using trends (even without paid plan)
+
+SECTION 6: Free features grid (8–12)
+Examples:
+- Monthly P&L statement generator
+- Revenue + expense categories
+- Optional COGS
+- Gross/net margin auto-calculation
+- Owner add-backs (SDE)
+- Health score
+- CSV/TXT export
+- Save/load categories on device
+- Buyer/CPA-ready format
+- No login required
+
+SECTION 7: FAQs accordion using the same FAQ list (must match FAQ JSON-LD)
+
+SECTION 8: Internal links
+- ExploreMoreTools currentTool="/p-and-l-report"
+- Add an internal CTA section linking to the FSBO tool:
+  - “Selling your business? Use our For Sale By Owner Toolkit” linking to /sale-business-by-owner (just internal Link, no external)
+
+DESIGN GUIDELINES
+- max-w-5xl container, gradient background, clean cards, consistent typography.
+- Use the orange accent you use elsewhere.
+- Use accessible form inputs (labels, helper text).
+- Make it mobile friendly.
+
+CODE QUALITY
+- TypeScript strict, no any.
+- Use helper functions:
+  - formatCurrency(amount, currency)
+  - clampNumber
+  - computeTotals
+  - computeHealthScore
+  - exportCsv / exportTxt
+- Keep state shape typed:
+  - LineItem { id, name, amount }
+  - ReportState { businessName, month, year, currency, revenue[], cogsEnabled, cogs[], expenses[], otherEnabled, otherIncome[], otherExpense[], addBacks[] }
+
+FILES TO CREATE / EDIT
+1) Create: app/p-and-l-report/page.tsx
+2) Create: app/p-and-l-report/PLReportBuilderClient.tsx
+3) Update: Tool Registry file (add this tool with name, slug, description, category)
+4) Update: Global URLs table/list (add canonical URL for /p-and-l-report)
+
+IMPORTANT
+You must locate the existing Tool Registry and Global URLs files in the repo and modify them appropriately. Do NOT invent new registries if they already exist.
+
+DELIVERABLE
+A fully working page at /p-and-l-report with the P&L Report Builder tool, SEO sections, JSON-LD, FAQs, exports, and registry/url updates.
