@@ -516,6 +516,22 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2025-12-22: **Image to Prompt Generator** - Reverse-engineer AI prompts from any image
+  - Upload any image (PNG/JPG/WEBP up to 8MB), server-side downscaling to 1536px max
+  - OpenAI GPT-4o Vision API integration for image analysis
+  - 5 prompt variants: Faithful, Detailed, Simplified (max 240 chars), Style Shift, Creative Remix
+  - Layout preservation mode with foreground/midground/background mapping
+  - Keep text exact mode for screenshots/posters (reduces hallucinated text)
+  - Subject lock toggle to maintain identical subject across variants
+  - 8 style shift options: Anime, 3D Cartoon, Vintage Film, Cyberpunk, etc.
+  - Image type presets: Product Photo, Portrait, Logo, Screenshot/UI
+  - Per-variant regeneration (saves API costs by regenerating single variants)
+  - Deterministic Prompt Quality Score (0-100) based on field completeness
+  - Copy bundle feature for copying all variants + negative prompt at once
+  - Rate limiting: 30 requests per 10 minutes per IP (robust IP extraction)
+  - Zod schema validation for strict JSON enforcement
+  - SEO page with 12 FAQs, JSON-LD schemas (SoftwareApplication + FAQPage)
+  - Files: `app/tools/image-to-prompt/`, `app/api/image-to-prompt/`, `lib/image-to-prompt/`
 - 2025-12-21: **Monthly P&L Report Builder** - Create monthly profit and loss statements
   - Report settings: name, business, month/year, currency (USD/EUR/GBP/CAD/AUD)
   - Revenue, COGS (optional), Operating Expenses, Other Income/Expense, SDE Add-Backs sections

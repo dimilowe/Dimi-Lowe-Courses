@@ -986,6 +986,27 @@ export const toolsRegistry: Tool[] = [
     primaryKeyword: "p&l report",
     secondaryKeywords: ["p&l management", "profit and loss statement", "monthly p&l report", "p&l template", "p&l calculator", "income statement generator"],
     searchIntent: "action"
+  },
+  {
+    id: "image-to-prompt",
+    name: "Image to Prompt Generator",
+    slug: "image-to-prompt",
+    description: "Upload any image and get 5 AI-generated prompt variants to recreate it. Layout preservation, style shifts, negative prompts, and composition breakdown.",
+    category: "ai",
+    tags: ["ai", "image", "creator", "new"],
+    icon: "sparkles",
+    iconBg: "bg-purple-600",
+    priority: 92,
+    isNew: true,
+    isTrending: true,
+    engineType: "ai-generate",
+    inputType: "image",
+    outputType: "text",
+    relatedTools: ["ai-thumbnail-coach", "ai-youtube-thumbnail-generator", "webp-to-jpg"],
+    relatedArticles: [],
+    primaryKeyword: "image to prompt",
+    secondaryKeywords: ["image prompt generator", "reverse image prompt", "describe image for ai", "recreate image prompt", "prompt from image", "midjourney prompt generator", "stable diffusion prompt"],
+    searchIntent: "action"
   }
 ];
 
