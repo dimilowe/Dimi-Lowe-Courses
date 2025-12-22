@@ -1,0 +1,219 @@
+Image to Prompt Generator tool using your Universal Tool Template pattern, including: upload UI, Preserve exact layout/composition checkbox, style-shift dropdown, 5 prompt variants, negative prompt, optional “keep text exact” toggle, per-variant regenerate, SEO page + JSON-LD + FAQ, and the tool registry + global urls updates.
+Build a new VCM Suite tool page using Next.js App Router + TypeScript + Tailwind, following our “Universal Tool Template (cms block template - universal)” pattern.
+
+TOOL:
+Name: Image to Prompt Generator
+Route: /tools/image-to-prompt
+Purpose: Users upload any image and instantly receive multiple high-quality prompt variants to recreate a very similar image using any LLM / image model. This is reverse-prompt engineering (not just a caption).
+
+HARD RULES:
+- No login required.
+- Do NOT permanently store images. Process in memory only.
+- Max upload size: 8MB.
+- Accept: png, jpg, jpeg, webp.
+- Server-side OpenAI call only (never expose key).
+- Use env var: OPENAI_API_KEY
+- Return STRICT JSON from the model (no markdown).
+- Provide 5 prompt variants + a negative prompt + a details breakdown.
+- Include a “Preserve exact layout/composition” checkbox that materially changes output behavior.
+- Include a “Keep text exact (if any)” checkbox (default OFF) to reduce hallucinated text in posters/screenshots.
+- Include “Regenerate” per variant without rerunning all variants (cheaper).
+- Add basic in-memory rate limiting per IP.
+
+FILES TO CREATE:
+1) app/tools/image-to-prompt/page.tsx (SEO page, uses the universal page layout style)
+2) app/tools/image-to-prompt/ImageToPromptClient.tsx (client UI)
+3) app/api/image-to-prompt/route.ts (main generate endpoint)
+4) app/api/image-to-prompt/regenerate/route.ts (single-variant regenerate endpoint)
+5) Any small shared helper(s) you need under lib/ (rate limit, file validation, base64 conversion)
+
+UI REQUIREMENTS (ImageToPromptClient.tsx):
+- Hero area like other tools: badge + h1 + subtitle
+- Upload dropzone with click-to-upload
+- Image preview after upload
+- Controls:
+  - Checkbox: Preserve exact layout/composition (default ON)
+  - Checkbox: Keep text exact (if any) (default OFF)
+  - Dropdown: Style Shift (default “None”)
+    Options:
+      - None
+      - Anime
+      - 3D Cartoon
+      - Editorial Fashion Photo
+      - Vintage Film (35mm)
+      - Cyberpunk Neon
+      - Minimal Flat Vector
+      - Watercolor Illustration
+      - Oil Painting
+- Button: “Generate Prompts”
+- Results:
+  - Render 5 cards (tabs or stacked cards is fine), each with:
+    - title
+    - textarea showing the prompt
+    - Copy button
+    - Regenerate button (calls regenerate endpoint with variantId and same settings)
+  - Separate card for Negative Prompt with Copy button
+  - Details section (subject, setting, composition, lighting, camera/lens, color palette, mood, style notes)
+  - If preserveLayout=true, show “Layout Map” section:
+    - aspect_ratio guess
+    - foreground / midground / background
+    - subject_position (e.g., center-left)
+    - notable_objects_positions list
+- UX polish:
+  - Loading states (skeletons are fine)
+  - Error display for unsupported file, size, API error
+  - “Clear” button resets everything
+
+OUTPUT VARIANTS (must be different on purpose):
+Always return these 5 variants:
+1) faithful: “Faithful Recreation” (closest match)
+2) detailed: “Faithful + Super Detailed” (layout-locked, verbose, generator-friendly)
+3) simplified: “Simplified” (short and clean, max 240 chars)
+4) style_shift: “Style Shift” (applies selected style; composition remains if preserveLayout is ON)
+5) remix: “Creative Remix” (recognizable subject; if preserveLayout ON, keep composition identical)
+
+API CONTRACT (STRICT JSON):
+Return this structure from /api/image-to-prompt:
+{
+  "variants": [
+    { "id": "faithful", "title": "Faithful Recreation", "prompt": "..." },
+    { "id": "detailed", "title": "Faithful + Super Detailed", "prompt": "..." },
+    { "id": "simplified", "title": "Simplified", "prompt": "..." },
+    { "id": "style_shift", "title": "Style Shift", "prompt": "..." },
+    { "id": "remix", "title": "Creative Remix", "prompt": "..." }
+  ],
+  "negative_prompt": "...",
+  "details": {
+    "subject": "...",
+    "setting": "...",
+    "composition": "...",
+    "lighting": "...",
+    "camera_lens": "...",
+    "color_palette": "...",
+    "mood": "...",
+    "style_notes": "..."
+  },
+  "layout_map": {
+    "aspect_ratio": "1:1|4:5|3:2|16:9|9:16|other",
+    "foreground": "...",
+    "midground": "...",
+    "background": "...",
+    "subject_position": "center|center-left|center-right|top|bottom|etc",
+    "notable_objects_positions": [
+      { "object": "string", "position": "string" }
+    ]
+  } | null
+}
+
+REGENERATE ENDPOINT:
+POST /api/image-to-prompt/regenerate
+- Accepts: image file + preserveLayout + keepTextExact + styleShift + variantId
+- Returns ONLY:
+{ "id": "...", "title": "...", "prompt": "..." }
+- Must re-use the same analysis approach but only produce that specific variant prompt.
+
+MODEL INSTRUCTIONS (IMPORTANT):
+When preserveLayout=true:
+- DO NOT change camera angle, framing, crop, subject placement, or spatial relationships.
+- MUST explicitly describe spatial layout (foreground/midground/background).
+- MUST include layout_map (not null).
+- All variants must preserve identical composition; only wording, style, or “remix story flavor” may change (but layout remains).
+When preserveLayout=false:
+- layout_map must be null.
+- Prompts can be more flexible and vibe-based.
+
+When keepTextExact=true:
+- If the image contains text (signs, posters, UI), do NOT invent new text.
+- Describe text as “[exact text]” only if clearly legible; otherwise use placeholders like “[unreadable small text]”.
+- Focus on typography/layout instead of hallucinating content.
+
+Safety / correctness:
+- Do not guess a person’s identity.
+- Do not add brand names unless clearly visible and necessary to describe (keep minimal).
+- If the image is abstract, provide best-effort description and prompts.
+
+IMPLEMENTATION DETAILS:
+- Use multipart/form-data parsing in Next.js route handlers:
+  const formData = await req.formData()
+  const file = formData.get("image") as File
+- Validate file type and size.
+- Convert to base64 data URL in the API route.
+- Call OpenAI with a vision-capable model; request strict JSON output.
+- Enforce strict JSON parsing on server:
+  - If parsing fails, attempt a single repair pass (ask model to output valid JSON only) OR hard-fail with clear error.
+- Rate limiting:
+  - Basic in-memory Map keyed by IP with rolling window (e.g., 30 req / 10 minutes).
+  - Return 429 with friendly message.
+- Do not log image data.
+- Add “cache: no-store” on fetches if needed.
+
+SEO PAGE (page.tsx) — follow the Universal Tool Template style:
+- Replace ThumbnailCoachClient with ImageToPromptClient
+- Update metadata for this tool:
+  Title: "Free Image to Prompt Generator | Reverse Image Prompt Builder"
+  Description: "Upload any image and get multiple AI-generated prompt variations to recreate it. Includes layout-preserving mode, style shift, negative prompt, and detailed composition breakdown. Free, no login."
+  Keywords: include:
+    - image to prompt
+    - image prompt generator
+    - reverse image prompt
+    - describe image for ai
+    - recreate image prompt
+    - prompt from image
+    - ai image description prompt
+    - image to text prompt
+    - negative prompt generator
+    - composition prompt
+- OpenGraph title/description/type website
+
+JSON-LD:
+1) SoftwareApplication schema:
+- name: "VCM Image to Prompt Generator"
+- applicationCategory: "DesignApplication"
+- offers: free
+- description aligned with tool
+- aggregateRating (keep similar pattern)
+
+2) FAQPage schema:
+Create 10-12 FAQs, including:
+- What is an image to prompt generator?
+- How accurate is the layout-preserving mode?
+- Do you store uploaded images?
+- What file formats are supported?
+- What is a negative prompt?
+- How do I recreate the same composition?
+- How do I use the style shift option?
+- Why does text sometimes change in generated images?
+- Can this work for logos or product photos?
+- Is it free?
+
+On-page content sections:
+- Keyword-rich intro: explain what it does and why it’s useful.
+- “How it works” section: upload → analyze → generate 5 variants.
+- “Preserve exact layout/composition” section: explain foreground/midground/background mapping.
+- “Keep text exact” section: for posters/UI.
+- “Prompt variations explained” section (faithful, detailed, simplified, style shift, remix).
+- Best practices section (lighting, lens cues, palette cues).
+- FAQ accordion list.
+- Include ExploreMoreTools with currentTool="/tools/image-to-prompt"
+- Footer note: “Your images are processed in memory and discarded.”
+
+DESIGN:
+Match the clean VCM look from other tools:
+- Gradient background
+- Rounded cards
+- Subtle borders/shadows
+- Buttons consistent with existing components
+
+SPECIAL NOTE (REQUIRED):
+Be sure to add this tool to:
+1) the tool registry
+2) the global urls tables
+
+Follow the existing project patterns for:
+- Tool registry entry (name, slug, category, description, tags/keywords)
+- Global URL entry for /tools/image-to-prompt
+
+DELIVERABLE:
+Return completed code for all files, fully working, no placeholders.
+Also list any env vars required and where to set them.
+If you want this to hit harder as a “VCM Suite” tool: add a tiny “Prompt Quality Score” (0–100) based on whether the prompt includes composition + lighting + palette + subject clarity. It’s cheap to compute locally and makes the UI feel more legit.
