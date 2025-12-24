@@ -28,7 +28,7 @@ export default async function WorkspaceItemPage({ params }: Props) {
      SET last_opened_at = NOW()
      WHERE id = $1 AND user_id = $2
      RETURNING id, title, type, cloud_id, tool_id, workflow_id, is_starred, 
-               preview_text, payload_json, thumbnail_url, created_at, updated_at, last_opened_at`,
+               preview_text, payload_json, thumbnail_url, file_url, created_at, updated_at, last_opened_at`,
     [id, session.userId]
   );
 

@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     const sql = `
       SELECT id, title, type, cloud_id, tool_id, is_starred, preview_text, 
-             thumbnail_url, created_at, updated_at, last_opened_at
+             thumbnail_url, file_url, created_at, updated_at, last_opened_at
       FROM workspace_items
       WHERE ${conditions.join(' AND ')}
       ORDER BY ${sortColumn} ${sortDirection}

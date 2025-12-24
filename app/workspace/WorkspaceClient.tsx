@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { 
   Search, Star, Filter, Clock, Grid, List, 
   FileText, Image, Video, File, Sparkles, 
-  ChevronDown, Loader2, Trash2, AlertCircle
+  ChevronDown, Loader2, Trash2, AlertCircle,
+  Upload, X, CheckCircle
 } from 'lucide-react';
 
 interface WorkspaceItem {
@@ -18,6 +19,7 @@ interface WorkspaceItem {
   is_starred: boolean;
   preview_text: string | null;
   thumbnail_url: string | null;
+  file_url: string | null;
   created_at: string;
   updated_at: string;
   last_opened_at: string | null;
@@ -40,6 +42,12 @@ const TYPE_ICONS: Record<string, typeof FileText> = {
   image_asset: Image,
   ad_bundle: FileText,
   workflow_run: File,
+  uploaded_image: Image,
+  uploaded_video: Video,
+  uploaded_audio: File,
+  uploaded_document: FileText,
+  uploaded_file: File,
+  file_output: File,
   generic: File,
 };
 
@@ -49,6 +57,12 @@ const TYPE_COLORS: Record<string, string> = {
   image_asset: 'from-pink-400 to-pink-500',
   ad_bundle: 'from-orange-400 to-orange-500',
   workflow_run: 'from-green-400 to-green-500',
+  uploaded_image: 'from-pink-400 to-pink-500',
+  uploaded_video: 'from-red-400 to-red-500',
+  uploaded_audio: 'from-green-400 to-green-500',
+  uploaded_document: 'from-blue-400 to-blue-500',
+  uploaded_file: 'from-gray-400 to-gray-500',
+  file_output: 'from-gray-400 to-gray-500',
   generic: 'from-zinc-400 to-zinc-500',
 };
 
@@ -64,8 +78,12 @@ export default function WorkspaceClient() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showCloudDropdown, setShowCloudDropdown] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ fileName: string; status: 'uploading' | 'success' | 'error' }[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialFetchDone = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
@@ -185,6 +203,94 @@ export default function WorkspaceClient() {
     }
   };
 
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    
+    setUploading(true);
+    const newProgress = Array.from(files).map(f => ({ fileName: f.name, status: 'uploading' as const }));
+    setUploadProgress(newProgress);
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const prepareRes = await fetch('/api/workspace/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileSize: file.size,
+            contentType: file.type,
+            cloud_id: cloudFilter || 'files',
+          }),
+        });
+        
+        if (!prepareRes.ok) {
+          throw new Error('Failed to prepare upload');
+        }
+        
+        const { uploadUrl, publicUrl, cloudId } = await prepareRes.json();
+        
+        const uploadRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          body: file,
+          headers: { 'Content-Type': file.type },
+        });
+        
+        if (!uploadRes.ok) {
+          throw new Error('Failed to upload file');
+        }
+        
+        const confirmRes = await fetch('/api/workspace/upload/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            publicUrl,
+            fileName: file.name,
+            fileSize: file.size,
+            contentType: file.type,
+            cloudId,
+          }),
+        });
+        
+        if (!confirmRes.ok) {
+          throw new Error('Failed to save upload');
+        }
+        
+        setUploadProgress(prev => prev.map((p, idx) => 
+          idx === i ? { ...p, status: 'success' } : p
+        ));
+      } catch (error) {
+        console.error('Upload error:', error);
+        setUploadProgress(prev => prev.map((p, idx) => 
+          idx === i ? { ...p, status: 'error' } : p
+        ));
+      }
+    }
+    
+    setUploading(false);
+    fetchItems();
+    
+    setTimeout(() => {
+      setUploadProgress([]);
+    }, 3000);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileUpload(e.dataTransfer.files);
+  };
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
@@ -200,12 +306,73 @@ export default function WorkspaceClient() {
   const selectedCloud = CLOUDS.find(c => c.id === cloudFilter);
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-zinc-900">Workspace</h1>
-          <p className="text-zinc-500 mt-1">Your saved outputs across all tools and clouds</p>
+    <div 
+      className="min-h-screen bg-zinc-50 relative"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDragging && (
+        <div className="fixed inset-0 bg-orange-500/10 border-4 border-dashed border-orange-500 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <Upload className="w-12 h-12 text-orange-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-zinc-900">Drop files to upload</h3>
+            <p className="text-zinc-500 mt-1">Files will be saved to your workspace</p>
+          </div>
         </div>
+      )}
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-zinc-900">Workspace</h1>
+            <p className="text-zinc-500 mt-1">Your saved outputs across all tools and clouds</p>
+          </div>
+          <div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) => handleFileUpload(e.target.files)}
+              className="hidden"
+              multiple
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {uploading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+              <span className="font-medium">Upload Files</span>
+            </button>
+          </div>
+        </div>
+
+        {uploadProgress.length > 0 && (
+          <div className="mb-4 bg-white rounded-xl border border-zinc-200 p-4">
+            <div className="space-y-2">
+              {uploadProgress.map((progress, idx) => (
+                <div key={idx} className="flex items-center gap-3">
+                  {progress.status === 'uploading' && (
+                    <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                  )}
+                  {progress.status === 'success' && (
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                  )}
+                  {progress.status === 'error' && (
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                  )}
+                  <span className="text-sm text-zinc-700 truncate flex-1">{progress.fileName}</span>
+                  <span className="text-xs text-zinc-500">
+                    {progress.status === 'uploading' ? 'Uploading...' : progress.status === 'success' ? 'Done' : 'Failed'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-4 mb-6">
           <div className="flex flex-wrap gap-3 items-center">

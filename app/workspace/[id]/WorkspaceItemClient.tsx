@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, Star, Copy, Check, Clock, Calendar, 
-  FileText, Image, Sparkles, File, Trash2
+  FileText, Image, Sparkles, File, Trash2, Download
 } from 'lucide-react';
 
 interface WorkspaceItemData {
@@ -19,6 +19,7 @@ interface WorkspaceItemData {
   preview_text: string | null;
   payload_json: Record<string, any>;
   thumbnail_url: string | null;
+  file_url: string | null;
   created_at: string;
   updated_at: string;
   last_opened_at: string | null;
@@ -226,6 +227,18 @@ export default function WorkspaceItemClient({ item }: Props) {
               </div>
               
               <div className="flex items-center gap-2">
+                {item.file_url && (
+                  <a
+                    href={item.file_url}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium text-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download
+                  </a>
+                )}
                 <button
                   onClick={toggleStar}
                   className={`p-2 rounded-lg transition-colors ${
