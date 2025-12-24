@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Copy, Check, FileText, Zap, List, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Loader2, Copy, Check, FileText, Zap, List, ChevronDown, ChevronUp, FolderOpen } from 'lucide-react';
 import ExploreMoreTools from '@/components/ExploreMoreTools';
 import PostResultUpsell from '@/components/PostResultUpsell';
 
@@ -22,6 +22,8 @@ export default function SummarizerPage() {
   const [result, setResult] = useState<SummaryResult | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showFaq, setShowFaq] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +82,49 @@ export default function SummarizerPage() {
     setError('');
     setSimpleMode(false);
     setBulletsOnly(false);
+    setSaved(false);
+  };
+
+  const handleSaveToWorkspace = async () => {
+    if (!result || saving || saved) return;
+    setSaving(true);
+    try {
+      const firstWords = inputText.trim().split(/\s+/).slice(0, 5).join(' ');
+      const title = `Summary: ${firstWords}${inputText.trim().split(/\s+/).length > 5 ? '...' : ''}`;
+      
+      const response = await fetch('/api/workspace/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          type: 'copy_output',
+          cloud_id: 'writing',
+          tool_id: 'summarizer',
+          preview_text: result.summary.slice(0, 200),
+          payload_json: {
+            summary: result.summary,
+            takeaways: result.takeaways,
+            originalText: inputText.slice(0, 1000),
+          },
+        }),
+      });
+
+      if (response.ok) {
+        setSaved(true);
+      } else {
+        const data = await response.json();
+        if (data.error === 'Unauthorized') {
+          alert('Please sign in to save to your workspace');
+        } else {
+          alert('Failed to save. Please try again.');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to save to workspace:', err);
+      alert('Failed to save. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const charCount = inputText.length;
@@ -267,12 +312,37 @@ export default function SummarizerPage() {
                   </ul>
                 </div>
 
-                <button
-                  onClick={handleReset}
-                  className="w-full py-3 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-xl transition-colors"
-                >
-                  Summarize Another Text
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleSaveToWorkspace}
+                    disabled={saving || saved}
+                    className={`flex-1 py-3 font-medium rounded-xl transition-colors flex items-center justify-center gap-2 ${
+                      saved 
+                        ? 'bg-green-50 text-green-700 border border-green-200' 
+                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                    } disabled:opacity-50`}
+                  >
+                    {saving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : saved ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Saved to Workspace
+                      </>
+                    ) : (
+                      <>
+                        <FolderOpen className="w-4 h-4" />
+                        Save to Workspace
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleReset}
+                    className="flex-1 py-3 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-xl transition-colors"
+                  >
+                    Summarize Another
+                  </button>
+                </div>
                 
                 <PostResultUpsell />
               </div>

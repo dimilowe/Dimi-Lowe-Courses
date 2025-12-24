@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link";
-import { User, Bookmark, Menu, LayoutDashboard, ShieldCheck, Settings, LogOut, LogIn, ChevronDown, X, Sparkles, Trash2, Camera, Calculator, HelpCircle, Lightbulb, LinkIcon, FileImage, Image, FileText, Palette, Search, Wand2, Bot, Mic, Target, Network, Zap, Layout, Smile, Star, Heart, ArrowRight, FilePen, TrendingUp, Users, Images, RotateCcw, Youtube, Instagram, Twitter, Linkedin, Video, FileArchive } from "lucide-react";
+import { User, Bookmark, Menu, LayoutDashboard, ShieldCheck, Settings, LogOut, LogIn, ChevronDown, X, Sparkles, Trash2, Camera, Calculator, HelpCircle, Lightbulb, LinkIcon, FileImage, Image, FileText, Palette, Search, Wand2, Bot, Mic, Target, Network, Zap, Layout, Smile, Star, Heart, ArrowRight, FilePen, TrendingUp, Users, Images, RotateCcw, Youtube, Instagram, Twitter, Linkedin, Video, FileArchive, FolderOpen } from "lucide-react";
 import GoogleTranslate from "@/components/GoogleTranslate";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
@@ -466,6 +466,13 @@ export function Navbar() {
                               </div>
                             </Link>
                           )}
+                          
+                          <Link href="/workspace" onClick={() => setIsProfileOpen(false)}>
+                            <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer">
+                              <FolderOpen className="h-4 w-4 text-gray-500" />
+                              <span className="text-sm font-medium text-gray-700">Workspace</span>
+                            </div>
+                          </Link>
                           
                           <div className="border-t border-gray-100 my-2"></div>
                           
