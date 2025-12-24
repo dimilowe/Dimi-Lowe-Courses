@@ -18,6 +18,7 @@ const searchSuggestions = [
   { name: "GIF Compressor", href: "/tools/gif-compressor", icon: FileImage },
   { name: "GIF Maker", href: "/tools/gif-maker", icon: FileImage },
   { name: "HEIC to JPG", href: "/tools/heic-to-jpg", icon: FileImage },
+  { name: "WEBP to JPG", href: "/tools/webp-to-jpg", icon: FileImage },
   { name: "Image Compressor", href: "/tools/image-compressor", icon: FileImage },
   { name: "Online Notepad", href: "/tools/online-notepad", icon: StickyNote },
   { name: "Word Counter", href: "/tools/word-counter", icon: Type },
