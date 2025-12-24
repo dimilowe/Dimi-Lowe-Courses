@@ -7,10 +7,7 @@ interface WorkflowFiltersProps {
   onSearchChange: (query: string) => void;
   selectedOutcome: string | null;
   onOutcomeChange: (outcome: string | null) => void;
-  selectedDifficulty: string | null;
-  onDifficultyChange: (difficulty: string | null) => void;
   outcomeTags: string[];
-  difficulties: string[];
   resultCount: number;
   onClearFilters: () => void;
 }
@@ -20,14 +17,11 @@ export default function WorkflowFilters({
   onSearchChange,
   selectedOutcome,
   onOutcomeChange,
-  selectedDifficulty,
-  onDifficultyChange,
   outcomeTags,
-  difficulties,
   resultCount,
   onClearFilters
 }: WorkflowFiltersProps) {
-  const hasActiveFilters = searchQuery || selectedOutcome || selectedDifficulty;
+  const hasActiveFilters = searchQuery || selectedOutcome;
 
   return (
     <div className="space-y-4">
@@ -50,40 +44,21 @@ export default function WorkflowFilters({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <div className="flex flex-wrap gap-2">
-          <span className="text-sm text-gray-500 py-2">Outcome:</span>
-          {outcomeTags.map((tag) => (
-            <button
-              key={tag}
-              onClick={() => onOutcomeChange(selectedOutcome === tag ? null : tag)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                selectedOutcome === tag
-                  ? "bg-orange-500 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <span className="text-sm text-gray-500 py-2">Level:</span>
-          {difficulties.map((diff) => (
-            <button
-              key={diff}
-              onClick={() => onDifficultyChange(selectedDifficulty === diff ? null : diff)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                selectedDifficulty === diff
-                  ? "bg-orange-500 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {diff}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-gray-500">Outcome:</span>
+        {outcomeTags.map((tag) => (
+          <button
+            key={tag}
+            onClick={() => onOutcomeChange(selectedOutcome === tag ? null : tag)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+              selectedOutcome === tag
+                ? "bg-orange-500 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            {tag}
+          </button>
+        ))}
       </div>
 
       <div className="flex items-center justify-between pt-2">

@@ -2,18 +2,16 @@
 
 import { useState, useMemo } from "react";
 import { Zap } from "lucide-react";
-import { getWorkflows, getAllOutcomeTags, getAllDifficulties } from "@/lib/workflows/workflows";
+import { getWorkflows, getAllOutcomeTags } from "@/lib/workflows/workflows";
 import WorkflowCard from "@/components/workflows/WorkflowCard";
 import WorkflowFilters from "@/components/workflows/WorkflowFilters";
 
 export default function WorkflowsPage() {
   const workflows = getWorkflows();
   const outcomeTags = getAllOutcomeTags();
-  const difficulties = getAllDifficulties();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOutcome, setSelectedOutcome] = useState<string | null>(null);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
 
   const filteredWorkflows = useMemo(() => {
     return workflows.filter((workflow) => {
@@ -23,16 +21,14 @@ export default function WorkflowsPage() {
         workflow.pain_subtitle.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesOutcome = !selectedOutcome || workflow.outcome_tag === selectedOutcome;
-      const matchesDifficulty = !selectedDifficulty || workflow.difficulty === selectedDifficulty;
 
-      return matchesSearch && matchesOutcome && matchesDifficulty;
+      return matchesSearch && matchesOutcome;
     });
-  }, [workflows, searchQuery, selectedOutcome, selectedDifficulty]);
+  }, [workflows, searchQuery, selectedOutcome]);
 
   const clearFilters = () => {
     setSearchQuery("");
     setSelectedOutcome(null);
-    setSelectedDifficulty(null);
   };
 
   return (
@@ -58,10 +54,7 @@ export default function WorkflowsPage() {
             onSearchChange={setSearchQuery}
             selectedOutcome={selectedOutcome}
             onOutcomeChange={setSelectedOutcome}
-            selectedDifficulty={selectedDifficulty}
-            onDifficultyChange={setSelectedDifficulty}
             outcomeTags={outcomeTags}
-            difficulties={difficulties}
             resultCount={filteredWorkflows.length}
             onClearFilters={clearFilters}
           />
