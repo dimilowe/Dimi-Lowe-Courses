@@ -56,7 +56,7 @@ export default function WorkflowsPage() {
                 placeholder="Search workflows..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 rounded-xl border-0 text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-white/50 outline-none transition-all shadow-lg"
+                className="w-full pl-12 pr-4 py-3.5 rounded-full bg-white border border-white/50 text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-white/50 outline-none transition-all shadow-xl"
               />
               {searchQuery && (
                 <button
