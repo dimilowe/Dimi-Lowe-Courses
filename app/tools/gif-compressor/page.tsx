@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Upload, Download, FileImage, Zap, Shield, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, Download, FileImage, Zap, Shield, Clock, ChevronDown, ChevronUp, Bookmark, Check, Loader2 } from 'lucide-react';
 import ExploreMoreTools from '@/components/ExploreMoreTools';
 import PostResultUpsell from '@/components/PostResultUpsell';
 
@@ -27,6 +27,8 @@ export default function GifCompressorPage() {
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -50,6 +52,7 @@ export default function GifCompressorPage() {
         setFile(droppedFile);
         setResult(null);
         setError(null);
+        setSaved(false);
       } else {
         setError('Please upload a GIF file only.');
       }
@@ -63,6 +66,7 @@ export default function GifCompressorPage() {
         setFile(selectedFile);
         setResult(null);
         setError(null);
+        setSaved(false);
       } else {
         setError('Please upload a GIF file only.');
       }
@@ -75,6 +79,7 @@ export default function GifCompressorPage() {
     setIsCompressing(true);
     setError(null);
     setResult(null);
+    setSaved(false);
 
     try {
       const formData = new FormData();
@@ -110,8 +115,51 @@ export default function GifCompressorPage() {
     setFile(null);
     setResult(null);
     setError(null);
+    setSaved(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSaveToWorkspace = async () => {
+    if (!result || !file || saving || saved) return;
+    setSaving(true);
+    try {
+      const response = await fetch('/api/workspace/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `Compressed: ${file.name}`,
+          type: 'file_output',
+          cloud_id: 'media',
+          tool_id: 'gif-compressor',
+          preview_text: `${result.originalSizeFormatted} → ${result.compressedSizeFormatted} (${result.reduction}% reduction)`,
+          payload_json: {
+            originalName: file.name,
+            originalSize: result.originalSize,
+            compressedSize: result.compressedSize,
+            reduction: result.reduction,
+            jobId: result.jobId,
+            level,
+          },
+        }),
+      });
+
+      if (response.ok) {
+        setSaved(true);
+      } else {
+        const data = await response.json();
+        if (data.error === 'Unauthorized') {
+          alert('Please sign in to save to your workspace');
+        } else {
+          alert('Failed to save. Please try again.');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to save to workspace:', err);
+      alert('Failed to save. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -300,14 +348,44 @@ export default function GifCompressorPage() {
                   </div>
                 </div>
 
-                {/* Download Button */}
-                <Button
-                  onClick={handleDownload}
-                  className="bg-orange-500 hover:bg-orange-600 text-white py-6 px-12 text-lg font-semibold"
-                >
-                  <Download className="w-5 h-5 mr-2" />
-                  Download Compressed GIF
-                </Button>
+                {/* Download and Save Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button
+                    onClick={handleDownload}
+                    className="bg-orange-500 hover:bg-orange-600 text-white py-6 px-12 text-lg font-semibold"
+                  >
+                    <Download className="w-5 h-5 mr-2" />
+                    Download Compressed GIF
+                  </Button>
+                  
+                  <Button
+                    onClick={handleSaveToWorkspace}
+                    disabled={saving || saved}
+                    variant="outline"
+                    className={`py-6 px-8 text-lg font-semibold border-2 ${
+                      saved 
+                        ? 'border-green-500 text-green-600 bg-green-50' 
+                        : 'border-orange-500 text-orange-600 hover:bg-orange-50'
+                    }`}
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : saved ? (
+                      <>
+                        <Check className="w-5 h-5 mr-2" />
+                        Saved to Workspace
+                      </>
+                    ) : (
+                      <>
+                        <Bookmark className="w-5 h-5 mr-2" />
+                        Save to Workspace
+                      </>
+                    )}
+                  </Button>
+                </div>
 
                 {/* Tip */}
                 <p className="text-sm text-gray-500 mt-4">
