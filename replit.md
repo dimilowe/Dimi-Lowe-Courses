@@ -516,6 +516,19 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2025-12-24: **Workflows Feature** - Step-by-step creator guides for specific goals
+  - Data layer: `lib/workflows/types.ts` (Workflow, WorkflowStep, ToolRef interfaces) and `lib/workflows/workflows.ts` with 5 seeded workflows
+  - Workflow content: First Sale, Competitor Ads, Validate Offer, Traffic Funnel, Monetize Audience
+  - Each workflow has: outcome_tag, difficulty, time estimate, why_this_works, steps (with tool_slug refs), failure_points, expected_outcome, SEO metadata
+  - isPublished/isIndexed flags for content management
+  - Helper functions: getWorkflows, getWorkflowBySlug, getRelatedWorkflows (prioritizes same outcome/difficulty, never includes self)
+  - Index page: `/workflows` with search, outcome/difficulty filters, result count, empty state with "Clear filters"
+  - Detail page: `/workflows/[slug]` with badges, why this works, numbered steps, failure points, expected outcome, related workflows
+  - Tool links: Show "Coming soon" (disabled) for tools not yet in directory
+  - SEO: HowTo JSON-LD schema, meta title/description/keywords per workflow, robots noindex support
+  - Navigation: Workflows link added between Resources and Magazine (desktop and mobile)
+  - Components: WorkflowBadges, WorkflowCard, WorkflowFilters, WorkflowStepCard, RelatedWorkflows
+  - Files: `lib/workflows/`, `components/workflows/`, `app/workflows/`, `app/workflows/[slug]/`
 - 2025-12-24: **Workspace Feature** - Save and manage outputs from tools across all clouds
   - Database: `workspace_items` table with indexes for user queries, cloud filtering, and starred items
   - API endpoints: Full CRUD at `/api/workspace/items` and `/api/workspace/items/[id]`
