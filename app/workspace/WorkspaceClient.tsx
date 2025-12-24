@@ -7,8 +7,10 @@ import {
   Search, Star, Filter, Clock, Grid, List, 
   FileText, Image, Video, File, Sparkles, 
   ChevronDown, Loader2, Trash2, AlertCircle,
-  Upload, X, CheckCircle
+  Upload, X, CheckCircle, ChevronLeft, ChevronRight
 } from 'lucide-react';
+
+const ITEMS_PER_PAGE = 20;
 
 interface WorkspaceItem {
   id: string;
@@ -81,11 +83,12 @@ export default function WorkspaceClient() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ fileName: string; status: 'uploading' | 'success' | 'error' }[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const initialFetchDone = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (page: number = currentPage) => {
     setLoading(true);
     setFetchError(null);
     try {
@@ -94,6 +97,8 @@ export default function WorkspaceClient() {
       if (search) params.set('q', search);
       params.set('sort', sort);
       if (starredOnly) params.set('starred', 'true');
+      params.set('limit', String(ITEMS_PER_PAGE));
+      params.set('offset', String((page - 1) * ITEMS_PER_PAGE));
 
       const res = await fetch(`/api/workspace/items?${params}`);
       
@@ -115,7 +120,7 @@ export default function WorkspaceClient() {
     } finally {
       setLoading(false);
     }
-  }, [cloudFilter, search, sort, starredOnly, router]);
+  }, [cloudFilter, search, sort, starredOnly, currentPage, router]);
 
   useEffect(() => {
     if (!initialFetchDone.current) {
@@ -126,9 +131,16 @@ export default function WorkspaceClient() {
 
   useEffect(() => {
     if (initialFetchDone.current) {
-      fetchItems();
+      setCurrentPage(1);
+      fetchItems(1);
     }
   }, [cloudFilter, sort, starredOnly]);
+
+  useEffect(() => {
+    if (initialFetchDone.current) {
+      fetchItems(currentPage);
+    }
+  }, [currentPage]);
 
   useEffect(() => {
     if (!initialFetchDone.current) return;
@@ -137,7 +149,8 @@ export default function WorkspaceClient() {
       clearTimeout(searchDebounceRef.current);
     }
     searchDebounceRef.current = setTimeout(() => {
-      fetchItems();
+      setCurrentPage(1);
+      fetchItems(1);
     }, 300);
     
     return () => {
@@ -146,6 +159,31 @@ export default function WorkspaceClient() {
       }
     };
   }, [search]);
+
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const getPageNumbers = () => {
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('ellipsis');
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) pages.push('ellipsis');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   const toggleStar = async (id: string, currentStarred: boolean) => {
     setItems(prev => 
@@ -439,7 +477,7 @@ export default function WorkspaceClient() {
             <h3 className="text-lg font-semibold text-zinc-900 mb-2">Something went wrong</h3>
             <p className="text-zinc-500 max-w-sm mx-auto mb-4">{fetchError}</p>
             <button
-              onClick={fetchItems}
+              onClick={() => fetchItems(currentPage)}
               className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
             >
               Try Again
@@ -588,9 +626,45 @@ export default function WorkspaceClient() {
           </div>
         )}
 
-        {total > items.length && (
-          <div className="text-center mt-8">
-            <p className="text-sm text-zinc-500">Showing {items.length} of {total} items</p>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-8 pb-4">
+            <button
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 text-zinc-600" />
+            </button>
+            
+            {getPageNumbers().map((page, index) => (
+              page === 'ellipsis' ? (
+                <span key={`ellipsis-${index}`} className="px-2 text-zinc-400">...</span>
+              ) : (
+                <button
+                  key={page}
+                  onClick={() => goToPage(page)}
+                  className={`w-10 h-10 rounded-lg font-medium transition-colors ${
+                    currentPage === page
+                      ? 'bg-orange-500 text-white'
+                      : 'border border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+                  }`}
+                >
+                  {page}
+                </button>
+              )
+            ))}
+            
+            <button
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight className="w-5 h-5 text-zinc-600" />
+            </button>
+            
+            <span className="ml-4 text-sm text-zinc-500">
+              {total} items
+            </span>
           </div>
         )}
       </div>
