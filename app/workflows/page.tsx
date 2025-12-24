@@ -34,7 +34,7 @@ export default function WorkflowsPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <div className="bg-gradient-to-br from-orange-500 via-orange-400 to-amber-400 text-white">
+      <div className="bg-orange-500 text-white">
         <div className="max-w-6xl mx-auto px-4 py-16 md:py-20">
           <div className="text-center">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-sm font-medium mb-6">
