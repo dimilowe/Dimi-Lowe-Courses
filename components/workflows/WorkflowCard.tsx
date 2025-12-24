@@ -18,17 +18,17 @@ const CLOUD_LABELS: Record<CloudId, string> = {
   "advertising": "Advertising Cloud",
 };
 
-const CLOUD_GRADIENTS: Record<CloudId, string> = {
-  "creation": "from-pink-400 via-pink-300 to-rose-200",
-  "video": "from-orange-400 via-amber-300 to-yellow-200",
-  "writing-seo": "from-blue-400 via-blue-300 to-sky-200",
-  "file-data": "from-slate-400 via-slate-300 to-gray-200",
-  "monetization": "from-emerald-400 via-green-300 to-teal-200",
-  "intelligence": "from-purple-400 via-violet-300 to-indigo-200",
-  "music-performance": "from-fuchsia-400 via-pink-300 to-purple-200",
-  "growth-distribution": "from-teal-400 via-cyan-300 to-sky-200",
-  "shopping": "from-amber-400 via-orange-300 to-yellow-200",
-  "advertising": "from-red-400 via-rose-300 to-pink-200",
+const CLOUD_BG_COLORS: Record<CloudId, string> = {
+  "creation": "#fce7f3",
+  "video": "#ffedd5",
+  "writing-seo": "#dbeafe",
+  "file-data": "#f1f5f9",
+  "monetization": "#d1fae5",
+  "intelligence": "#ede9fe",
+  "music-performance": "#fae8ff",
+  "growth-distribution": "#ccfbf1",
+  "shopping": "#fef3c7",
+  "advertising": "#fee2e2",
 };
 
 interface WorkflowCardProps {
@@ -37,17 +37,18 @@ interface WorkflowCardProps {
 
 export default function WorkflowCard({ workflow }: WorkflowCardProps) {
   const cloudLabel = CLOUD_LABELS[workflow.cloud];
-  const cloudGradient = CLOUD_GRADIENTS[workflow.cloud];
+  const bgColor = CLOUD_BG_COLORS[workflow.cloud];
   const CloudIcon = CLOUD_THEMES[workflow.cloud]?.icon;
 
   return (
     <Link
       href={`/workflows/${workflow.slug}`}
       className="group block rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all hover:-translate-y-1"
+      style={{ backgroundColor: bgColor }}
     >
-      <div className={`bg-gradient-to-br ${cloudGradient} p-6 h-full flex flex-col`}>
+      <div className="p-6 h-full flex flex-col">
         <div className="mb-4">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/80 text-gray-800 backdrop-blur-sm">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/80 text-gray-800">
             {CloudIcon && <CloudIcon className="h-3.5 w-3.5" />}
             {cloudLabel}
           </span>
