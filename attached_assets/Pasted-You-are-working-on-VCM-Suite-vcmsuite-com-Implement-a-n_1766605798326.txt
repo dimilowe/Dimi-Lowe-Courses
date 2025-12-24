@@ -1,0 +1,144 @@
+You are working on VCM Suite (vcmsuite.com). Implement a new global “Workspace” feature that stores and displays ALL user-generated tool outputs (“files”) across all Clouds, while keeping commerce “Saved Items” (wishlist) and “Purchased Items” separate.
+
+HIGH-LEVEL GOAL
+Add a new item in the profile dropdown called “Workspace” that links to a new page showing the user’s saved outputs across all tools/clouds. Also, update each Cloud’s “Recent files” panel so it reads from this same global Workspace data filtered by cloud.
+
+NON-NEGOTIABLE PRODUCT RULES
+1) Workspace = work outputs only (tool results, prompts, images, bundles, workflow runs).
+2) Saved Items (wishlist) stays commerce-only (products to buy later). Do NOT mix.
+3) Purchased Items stays commerce-only (entitlements/products). Do NOT mix.
+4) Cloud pages can show “Recent files”, but those are just filtered views of the global Workspace.
+5) Workspace supports: Recents, Search, Filter by Cloud, Sort by Recent/Updated, Star (Saved).
+
+ASSUMPTIONS
+- Use the existing auth system to identify the current user.
+- Use the existing DB layer (Prisma or SQL). If Prisma exists, implement via Prisma; otherwise write SQL migrations and DB helpers.
+- Keep the change minimal and safe. No breaking changes to existing saved-items commerce flow.
+
+DATA MODEL
+Create a new table/collection: workspace_items.
+
+Minimum fields:
+- id (uuid / cuid)
+- user_id (fk to users)
+- title (string, default derived from tool output)
+- type (enum/string: ad_bundle, copy_output, prompt_output, image_asset, workflow_run, generic)
+- cloud_id (string enum: creation, video, writing, files, monetize, intelligence, music, growth) OR null for global
+- tool_id (string) optional
+- workflow_id (string) optional
+- is_starred (boolean default false)
+- created_at, updated_at
+- last_opened_at (nullable timestamp)
+- preview_text (nullable) small snippet for list display
+- payload_json (json) store the actual output data (prompt text, copy text, etc.)
+Optional but nice:
+- thumbnail_url (nullable) for image assets
+- tags_json (json array)
+
+Also create workspace_attachments if the app already uses a file storage abstraction:
+- id
+- workspace_item_id
+- storage_key/url
+- mime_type
+- width/height nullable
+- created_at
+
+If you find an existing “recent files” table in any cloud, do NOT duplicate—migrate/bridge it into workspace_items or replace reads to point to workspace_items.
+
+BACKEND/APIs
+Implement endpoints (or server actions) for:
+1) Create workspace item
+   - POST /api/workspace/items
+   - Body: { title?, type, cloud_id?, tool_id?, workflow_id?, preview_text?, payload_json, thumbnail_url? }
+   - Server sets user_id, timestamps.
+
+2) List workspace items (for current user)
+   - GET /api/workspace/items?cloud_id=...&q=...&sort=recent|updated|name&starred=true|false&limit=&offset=
+   - “recent” sorts by COALESCE(last_opened_at, updated_at) DESC.
+
+3) Get single item
+   - GET /api/workspace/items/:id
+   - Must verify ownership by user_id.
+   - Update last_opened_at on read (or only when “Open” is clicked).
+
+4) Star/unstar
+   - PATCH /api/workspace/items/:id
+   - Body: { is_starred: boolean }
+
+5) Delete (optional v1)
+   - DELETE /api/workspace/items/:id
+
+UI FEATURE: PROFILE DROPDOWN
+In the existing profile dropdown (currently has Dashboard/Admin/Settings/Sign out), add:
+- Workspace -> routes to /workspace
+
+WORKSPACE PAGE (/workspace)
+Build a new page that lists workspace items for the current user.
+
+V1 UI requirements:
+- Header: “Workspace”
+- Search input (q)
+- Filter chips or dropdown: All + each cloud (Creation, Video, Writing, Files, Monetize, Intelligence, Music, Growth)
+- Sort: Recent (default), Updated, Name
+- Toggle: Starred only
+- List/Grid:
+  - item card shows: title, type badge, cloud badge/icon, updated/recent timestamp, star button
+  - clicking an item opens a detail view (simple modal or /workspace/:id)
+
+DETAIL VIEW (/workspace/:id)
+Show:
+- Title
+- Metadata: type, cloud, created, updated
+- Render payload_json in a simple readable way:
+  - If payload_json has “text” -> show a preformatted text block
+  - If image thumbnail_url exists -> show image
+  - If bundle -> show sections for competitor_copy, adapted_copy, image_prompt, etc if present
+Add a “Copy” button for text fields.
+
+CLOUD “RECENT FILES” PANELS
+Find the Cloud home pages that show “Recent files”.
+Replace the existing data source with:
+- GET /api/workspace/items?cloud_id=<this cloud>&sort=recent&limit=10
+If a cloud currently stores recent items locally, keep writing there ONLY if it’s required for something else; otherwise standardize to workspace_items.
+
+AUTO-SAVE BEHAVIOR (IMPORTANT)
+Every tool should have an easy way to save outputs:
+- Add a “Save to Workspace” button on tool result screens (if not already present).
+- Additionally, implement a lightweight auto-save as Draft:
+  - when a tool run completes, automatically create a workspace_item with a reasonable title and preview_text.
+  - Do NOT spam: if the tool already auto-saves in some other way, unify it.
+If auto-save is risky for now, implement manual “Save to Workspace” first and wire the API so tools can adopt later.
+
+SEPARATION FROM COMMERCE
+- Do NOT modify “Saved Items” (wishlist) logic.
+- Do NOT rename “Saved Items” in the commerce UI.
+- Workspace “starred” is the internal “Saved” state for files. It is not commerce saved-items.
+
+ROUTES/NAV
+- Add /workspace route in main routing.
+- Ensure auth guard: only logged-in users can access.
+
+ACCEPTANCE CRITERIA
+1) Profile dropdown includes “Workspace” and links to /workspace.
+2) /workspace loads and lists current user’s items; supports search, cloud filter, sort, starred toggle.
+3) Items are stored globally; cloud recents display correct filtered items.
+4) Star/unstar works and persists.
+5) Viewing an item updates last_opened_at (recency behavior).
+6) No interference with commerce Saved Items / Purchased Items.
+
+IMPLEMENTATION CHECKLIST
+- [ ] DB migration for workspace_items (+ optional attachments)
+- [ ] API endpoints with ownership checks
+- [ ] /workspace page UI + /workspace/:id detail
+- [ ] Add dropdown link
+- [ ] Update Cloud “Recent files” panel queries to use workspace endpoints
+- [ ] Add at least one tool integration: “Save to Workspace” button on a tool output page (pick any existing tool that already has a result screen)
+
+DELIVERABLE
+Commit code changes with clear file edits and brief notes on what you changed and where. Also include a short test plan (manual steps) at the end.
+
+Start by scanning the codebase for:
+- existing “recent files” logic
+- existing “saved items” commerce tables/routes
+- routing structure and UI component for profile dropdown
+Then implement the Workspace feature as described with minimal disruption.
