@@ -347,6 +347,13 @@ export function Navbar() {
               )}
               
               <Link 
+                href="/workflows" 
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-orange-500 hover:bg-gray-50 transition-colors rounded-lg"
+              >
+                Workflows
+              </Link>
+              
+              <Link 
                 href="/newsletter" 
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-orange-500 hover:bg-gray-50 transition-colors rounded-lg"
               >
@@ -640,6 +647,14 @@ export function Navbar() {
                 </div>
               )}
             </div>
+            
+            <Link 
+              href="/workflows" 
+              className="block text-sm font-medium py-3 text-gray-700 hover:text-orange-500 transition-colors"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Workflows
+            </Link>
             
             <Link 
               href="/newsletter" 

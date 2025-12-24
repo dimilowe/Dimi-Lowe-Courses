@@ -1,0 +1,42 @@
+Yes — that plan is solid. It matches the codebase patterns, and it’s scoped correctly.
+A few tweaks to make it bulletproof (and avoid common “looks done but isn’t” traps):
+1) Nav placement
+Putting Workflows between Resources and Magazine is fine. Make sure:
+Active state works (same as Magazine)
+Mobile menu includes it too (if navbar has separate mobile list)
+2) Data layer
+Good call. Add two fields now so you don’t regret it later:
+isPublished: boolean (default true for seeded)
+isIndexed: boolean (default true, lets you noindex drafts later)
+Also add a helper:
+getRelatedWorkflows(workflow) that prioritizes same outcome_tag, then same difficulty, then fallback.
+3) Index page UX
+Filters + search is right. Two small things that matter:
+Show a results count: “Showing 5 workflows”
+Empty state when filters return none (with a “Clear filters” button)
+Keep the index clean. No step instructions there.
+4) Detail page “tool links”
+This is the one risky spot. Make sure tool linking is correct:
+If tools are /tools/[slug] (or something else), use the existing helper/pattern.
+If a tool_slug doesn’t exist yet, still render the step, but show the button as “Coming soon” (disabled) instead of a broken link.
+5) SEO / JSON-LD
+HowTo schema is good if the page is truly step-based (it is). Keep it minimal:
+name
+description
+step array with text + optional url (only if you have stable tool URLs)
+Also ensure:
+notFound() on missing slugs
+Canonical if the app already uses it
+6) Component boundaries
+Your component list is right. One more optional component that’s worth it:
+WorkflowBadges (Outcome/Difficulty/Time) to keep it consistent across cards + hero.
+7) Acceptance tests (add these)
+Before calling it done, verify:
+Search matches title + pain subtitle
+Chips can multi-filter (Outcome + Difficulty together)
+Related workflows never includes itself
+Unknown slug -> real 404 page
+No console errors on index (client filters) or detail (JSON-LD)
+Verdict
+Yes, good plan.
+With the tweaks above, it’s production-grade and future-proof without overbuilding.
