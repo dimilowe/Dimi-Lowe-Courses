@@ -22,13 +22,13 @@ const CLOUD_BG_COLORS: Record<CloudId, string> = {
   "creation": "#ec4899",
   "video": "#f97316",
   "writing-seo": "#3b82f6",
-  "file-data": "#64748b",
-  "monetization": "#10b981",
+  "file-data": "#71717a",
+  "monetization": "#f59e0b",
   "intelligence": "#8b5cf6",
-  "music-performance": "#d946ef",
-  "growth-distribution": "#14b8a6",
-  "shopping": "#f59e0b",
-  "advertising": "#ef4444",
+  "music-performance": "#22c55e",
+  "growth-distribution": "#f43f5e",
+  "shopping": "#ec4899",
+  "advertising": "#0ea5e9",
 };
 
 interface WorkflowCardProps {
