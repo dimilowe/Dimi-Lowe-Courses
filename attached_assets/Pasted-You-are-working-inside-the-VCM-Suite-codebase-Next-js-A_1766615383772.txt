@@ -1,0 +1,211 @@
+You are working inside the VCM Suite codebase (Next.js / App Router). Build a new first-class “Workflow Library” feature.
+
+Goal:
+- Add a new top-level nav item labeled exactly: “Workflows”
+- Create a Workflow Library index page with workflow cards (decision surface)
+- Create individual workflow detail pages that show a step-by-step sequence and link to relevant tools
+- Keep it consistent with the existing VCM design system and page wrapper patterns
+
+Hard requirements:
+1) The nav item must say exactly “Workflows” (no “Workflow Library” in nav).
+2) The Workflows index page is a decision surface (cards + filters). Do NOT put long step instructions on the index page.
+3) Step-by-step tool sequences must be shown on the workflow detail page.
+4) Every step must optionally link to a VCM tool page via existing routing/link helpers.
+5) Must be SEO-ready (Metadata, JSON-LD where applicable, canonical URLs if your app supports it).
+6) Must be data-driven: workflows should be stored as structured objects (local JSON or DB), not hardcoded into React markup.
+
+Information architecture:
+- /workflows                (index)
+- /workflows/[slug]         (detail page)
+
+UI/UX requirements:
+
+A) Workflows index (/workflows)
+Above-the-fold:
+- Title: “Workflows”
+- Subtitle: “Proven paths for making money online. Pick the one that matches your situation.”
+- A search input (client side)
+- Optional filter chips:
+  - Outcome (e.g., First Sale, Recurring Income, Validate Offer, Traffic, Ads, Brand Deals)
+  - Difficulty (Beginner / Intermediate / Advanced)
+
+Card grid:
+Each workflow card must include:
+- Title (outcome-first)
+- Pain subtitle (one sentence)
+- Badges: Outcome, Difficulty, Time-to-first-result (ex: “2–4 weeks”)
+- Tool badges/icons (secondary)
+- CTA: “View workflow”
+- Clicking opens /workflows/[slug]
+
+No steps or long instructions on index. Only high-level info that helps choosing.
+
+B) Workflow detail (/workflows/[slug])
+Layout sections in this order:
+1) Hero:
+   - Title
+   - Pain subtitle
+   - Badges: Outcome, Difficulty, Time-to-first-result
+2) “Why this works” (short explanation, 2–5 bullets)
+3) “The workflow” (the core)
+   - Render a numbered list of steps.
+   - Each step card shows:
+     - Step title
+     - What you do (1–2 sentences)
+     - Output/Result (short)
+     - Tool link(s): a prominent “Open tool” button if tool_slug exists
+     - Optional: time estimate for the step
+4) “Common failure points” (bullets)
+5) “Expected outcome” (honest, not hype)
+6) “Related workflows” (auto: same outcome tag or adjacent tags)
+
+Design:
+- Use existing app UI components (cards, badges, buttons, layout wrapper).
+- Keep it clean, magazine-like, not docs-y.
+
+Data model:
+Create a workflow object type with at least:
+
+Workflow {
+  id: string
+  slug: string  // unique, used in URL
+  title: string
+  pain_subtitle: string
+  outcome_tag: string
+  difficulty: "Beginner" | "Intermediate" | "Advanced"
+  time_to_first_result: string // e.g. "2–4 weeks"
+  summary?: string
+  why_this_works: string[] // bullets
+  steps: WorkflowStep[]
+  failure_points: string[] // bullets
+  expected_outcome: string // short paragraph
+  tool_refs?: ToolRef[] // used for badges, optional
+  related_slugs?: string[] // optional override
+  seo: {
+    title: string
+    description: string
+    keywords?: string[]
+  }
+}
+
+WorkflowStep {
+  title: string
+  instruction: string // 1–2 sentences
+  output: string // short
+  time_estimate?: string
+  tool_slug?: string // if present, link to the tool page
+  tool_label?: string // button label override
+  secondary_tools?: { tool_slug: string, label: string }[]
+}
+
+Tool linking:
+- If your suite has a canonical tool route like /tools/[slug] or /tool/[slug], use the correct existing pattern.
+- If there is a central URL registry helper, use it.
+- If uncertain, search the codebase for existing “tool link” components and reuse them.
+
+Implementation details:
+
+1) Add nav item
+- Locate the primary navbar component (likely something like:
+  /components/NavBar.tsx or /components/layout/TopNav.tsx).
+- Add a top-level link:
+  label: “Workflows”
+  href: “/workflows”
+- Ensure it appears alongside existing top items, with active state.
+
+2) Create routes
+- Create:
+  /app/workflows/page.tsx
+  /app/workflows/[slug]/page.tsx
+
+3) Create data source
+Option A (fast): local data file
+- /lib/workflows/workflows.ts exporting an array of Workflow objects
+- Add helper:
+  getWorkflows()
+  getWorkflowBySlug(slug)
+  getRelatedWorkflows(workflow)
+
+Option B (DB): only if the app already uses a DB pattern for CMS objects.
+- If DB exists and is already used for content, mirror the schema there.
+- If DB will slow you down, use Option A now.
+
+4) Create components
+- /components/workflows/WorkflowCard.tsx
+- /components/workflows/WorkflowFilters.tsx (search + chips) (client component)
+- /components/workflows/WorkflowStepCard.tsx
+- /components/workflows/RelatedWorkflows.tsx
+
+5) SEO / Metadata
+- Use Next.js Metadata in each page:
+  - Index page title: “Workflows | VCM Suite”
+  - Detail page: workflow.seo.title and workflow.seo.description
+- Add basic JSON-LD on detail pages:
+  - Use a “HowTo” schema if it fits your content structure (steps).
+  - Keep it minimal and correct.
+
+6) Error handling
+- If slug not found, return notFound().
+
+Starter workflow content (seed 5 workflows)
+Create 5 workflows with realistic copy + steps. Each step should reference tools by tool_slug where possible (even if those tools don’t exist yet, use placeholders that match VCM naming conventions).
+Use these slugs:
+
+1) slug: "first-sale-from-zero"
+   title: "From Zero to Your First Digital Sale"
+   outcome_tag: "First Sale"
+   difficulty: "Beginner"
+   time_to_first_result: "2–4 weeks"
+
+2) slug: "copy-competitor-ads"
+   title: "Copy Proven Competitor Ads (Without Guessing)"
+   outcome_tag: "Ads"
+   difficulty: "Intermediate"
+   time_to_first_result: "1–2 weeks"
+
+3) slug: "validate-offer-fast"
+   title: "Validate an Offer Before You Build It"
+   outcome_tag: "Validate Offer"
+   difficulty: "Beginner"
+   time_to_first_result: "3–7 days"
+
+4) slug: "traffic-to-tool-funnel"
+   title: "Turn Content Into an Evergreen Tool Funnel"
+   outcome_tag: "Traffic"
+   difficulty: "Intermediate"
+   time_to_first_result: "2–6 weeks"
+
+5) slug: "audience-no-money"
+   title: "You Have an Audience, But No Monetization"
+   outcome_tag: "Recurring Income"
+   difficulty: "Beginner"
+   time_to_first_result: "2–4 weeks"
+
+For each, write:
+- pain_subtitle (one sharp line)
+- why_this_works (3–5 bullets)
+- steps (6–10 steps, each with instruction + output + tool_slug when relevant)
+- failure_points (5–8 bullets)
+- expected_outcome (short paragraph)
+- seo title + description
+
+Visual requirements:
+- Cards must look consistent with existing site style (use existing Card/Badge/Button).
+- Add icons only if the design system already uses them; otherwise skip.
+
+Acceptance criteria checklist:
+- Nav shows “Workflows” and routes correctly.
+- /workflows loads and displays 5 cards.
+- Search filters cards client-side by title and pain subtitle.
+- Filter chips can narrow by outcome_tag and difficulty.
+- /workflows/[slug] renders the workflow detail with steps and at least one tool link button.
+- Unknown slug returns 404.
+- Metadata exists on both pages.
+
+Deliverables:
+- All new files created
+- Existing nav updated
+- Data file seeded with 5 workflows
+- No broken imports, no TypeScript errors
+
+Proceed now. Do not ask me questions—make reasonable assumptions and implement.
