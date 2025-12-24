@@ -3,15 +3,30 @@ import { query } from '@/lib/db';
 import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
 import { UserSessionData, userSessionOptions } from '@/lib/user-session';
-import { ObjectStorageService } from '@/lib/object-storage';
-import { randomUUID } from 'crypto';
+import { Client } from '@replit/object-storage';
 
-const objectStorage = new ObjectStorageService();
+const client = new Client();
 
 const VALID_CLOUD_IDS = [
   'creation', 'video', 'writing', 'files', 
   'monetize', 'intelligence', 'music', 'growth'
 ];
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function getFileType(contentType: string): string {
+  if (contentType.startsWith('image/')) return 'uploaded_image';
+  if (contentType.startsWith('video/')) return 'uploaded_video';
+  if (contentType.startsWith('audio/')) return 'uploaded_audio';
+  if (contentType === 'application/pdf') return 'uploaded_document';
+  return 'uploaded_file';
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,52 +35,69 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { fileName, fileSize, cloud_id } = body;
-    const contentType = body.contentType || 'application/octet-stream';
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
+    const cloudId = formData.get('cloud_id') as string | null;
 
-    if (!fileName) {
-      return NextResponse.json({ error: 'fileName is required' }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    const validCloudId = cloud_id && VALID_CLOUD_IDS.includes(cloud_id) ? cloud_id : 'files';
-    
-    const objectId = randomUUID();
-    const ext = fileName.split('.').pop() || '';
-    const objectName = `workspace/${session.userId}/${objectId}${ext ? `.${ext}` : ''}`;
-    const bucketName = objectStorage.getBucketName();
-
-    const uploadUrlResponse = await fetch('http://127.0.0.1:1106/object-storage/signed-object-url', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        bucket_name: bucketName,
-        object_name: objectName,
-        method: 'PUT',
-        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-      }),
-    });
-
-    if (!uploadUrlResponse.ok) {
-      const errorText = await uploadUrlResponse.text();
-      console.error('Failed to get signed URL:', errorText);
-      return NextResponse.json({ error: 'Failed to prepare upload' }, { status: 500 });
+    const maxSize = 100 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: 'File too large. Maximum size is 100MB.' },
+        { status: 400 }
+      );
     }
 
-    const { signed_url: uploadUrl } = await uploadUrlResponse.json();
-    const publicUrl = `https://storage.googleapis.com/${bucketName}/${objectName}`;
+    const validCloudId = cloudId && VALID_CLOUD_IDS.includes(cloudId) ? cloudId : 'files';
 
-    return NextResponse.json({
-      uploadUrl,
-      publicUrl,
-      objectName,
-      cloudId: validCloudId,
-      fileName,
-      fileSize,
-      contentType,
-    });
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 8);
+    const extension = file.name.split('.').pop() || '';
+    const fileName = `workspace-${session.userId}-${timestamp}-${randomString}${extension ? `.${extension}` : ''}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const uploadResult = await client.uploadFromBytes(fileName, buffer);
+
+    if (!uploadResult.ok) {
+      console.error('Storage upload error:', uploadResult.error);
+      return NextResponse.json(
+        { error: 'Failed to store file' },
+        { status: 500 }
+      );
+    }
+
+    const publicUrl = `/api/files/${fileName}`;
+    const contentType = file.type || 'application/octet-stream';
+    const type = getFileType(contentType);
+    const previewText = `${formatBytes(file.size)} - ${contentType}`;
+    const thumbnailUrl = contentType.startsWith('image/') ? publicUrl : null;
+
+    const result = await query(
+      `INSERT INTO workspace_items 
+       (user_id, title, type, cloud_id, preview_text, file_url, thumbnail_url, payload_json)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, title, type, cloud_id, is_starred, preview_text, 
+                 thumbnail_url, file_url, created_at, updated_at`,
+      [
+        session.userId,
+        file.name,
+        type,
+        validCloudId,
+        previewText,
+        publicUrl,
+        thumbnailUrl,
+        JSON.stringify({ originalName: file.name, fileSize: file.size, contentType })
+      ]
+    );
+
+    return NextResponse.json(result.rows[0], { status: 201 });
   } catch (error) {
-    console.error('Error preparing workspace upload:', error);
-    return NextResponse.json({ error: 'Failed to prepare upload' }, { status: 500 });
+    console.error('Error uploading to workspace:', error);
+    return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
   }
 }

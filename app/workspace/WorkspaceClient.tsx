@@ -213,47 +213,18 @@ export default function WorkspaceClient() {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       try {
-        const prepareRes = await fetch('/api/workspace/upload', {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('cloud_id', cloudFilter || 'files');
+        
+        const res = await fetch('/api/workspace/upload', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fileName: file.name,
-            fileSize: file.size,
-            contentType: file.type,
-            cloud_id: cloudFilter || 'files',
-          }),
+          body: formData,
         });
         
-        if (!prepareRes.ok) {
-          throw new Error('Failed to prepare upload');
-        }
-        
-        const { uploadUrl, publicUrl, cloudId } = await prepareRes.json();
-        
-        const uploadRes = await fetch(uploadUrl, {
-          method: 'PUT',
-          body: file,
-          headers: { 'Content-Type': file.type },
-        });
-        
-        if (!uploadRes.ok) {
-          throw new Error('Failed to upload file');
-        }
-        
-        const confirmRes = await fetch('/api/workspace/upload/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            publicUrl,
-            fileName: file.name,
-            fileSize: file.size,
-            contentType: file.type,
-            cloudId,
-          }),
-        });
-        
-        if (!confirmRes.ok) {
-          throw new Error('Failed to save upload');
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to upload');
         }
         
         setUploadProgress(prev => prev.map((p, idx) => 
