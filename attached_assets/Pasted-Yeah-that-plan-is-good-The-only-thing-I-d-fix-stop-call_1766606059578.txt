@@ -1,0 +1,93 @@
+Yeah — that plan is good. The only thing I’d fix: stop calling it “spaces” in the implementation. You’re going to confuse yourself and users.
+Workspace = global library of outputs
+Projects/Folders can come later
+“Spaces” is a different product concept and will sprawl.
+So: implement Workspace now, keep it flat, add folders/projects later if needed.
+Here’s the tightened plan + a few “don’t step on rakes” notes.
+✅ Your plan, approved (with 3 adjustments)
+1) DB: workspace_items table
+Do it. Keep it minimal.
+Must-have columns
+id (uuid default gen_random_uuid())
+user_id (uuid, indexed)
+title (text)
+type (text) — don’t over-enum yet
+cloud_id (text, nullable)
+tool_id (text, nullable)
+workflow_id (text, nullable)
+is_starred (boolean default false)
+preview_text (text, nullable)
+payload_json (jsonb not null default '{}')
+thumbnail_url (text, nullable)
+created_at / updated_at / last_opened_at
+Indexes
+(user_id, updated_at desc)
+(user_id, last_opened_at desc)
+(user_id, cloud_id, updated_at desc)
+(user_id, is_starred, updated_at desc)
+Important: store cloud_id as the origin cloud so filtering is trivial.
+2) API: /api/workspace/items
+Yes.
+Endpoints
+GET /api/workspace/items with query params:
+cloud_id, q, sort=recent|updated|name, starred, limit, offset
+POST /api/workspace/items
+GET /api/workspace/items/:id (updates last_opened_at)
+PATCH /api/workspace/items/:id (star/unstar, title)
+DELETE /api/workspace/items/:id (optional)
+Don’t step on rake: sanitize sort and use parameterized SQL. No string concatenation.
+3) UI: /workspace + detail
+Yes.
+V1 UI requirements
+Search
+Cloud filter
+Sort
+Starred toggle
+List cards
+Detail can be:
+/workspace/[id] (simpler + shareable)
+or modal (whatever’s faster)
+4) Profile dropdown
+Yes. Add Workspace between Dashboard and Settings.
+5) Cloud integration
+You said CloudRecentFilesRail takes files as props.
+Do this:
+Keep CloudRecentFilesRail dumb.
+Update the cloud pages to fetch workspace recents server-side (or client-side if that’s the pattern).
+Fetch:
+/api/workspace/items?cloud_id=creation&sort=recent&limit=10
+6) Tool integration (demo)
+Yes — pick one tool and wire “Save to Workspace.”
+Do NOT auto-save everywhere yet.
+Manual save first. Auto-save later once you’ve proven the object shape is correct.
+Minimum “Save” payload:
+title (derived)
+type
+cloud_id
+tool_id
+preview_text
+payload_json (the result object)
+The only thing I’d change in your last bullets
+You wrote:
+Create new space items storage
+Build features for managing spaces
+Create space page with search
+Create page to view space items
+Cut all that. That’s project/folder v2.
+Right now the fastest path is:
+/workspace (global list)
+/workspace/[id] (viewer)
+You can add folders later with:
+workspace_folders and folder_id column
+What “good” looks like (acceptance test)
+User runs tool → clicks Save to Workspace
+Goes to profile dropdown → Workspace
+Sees saved item immediately
+Goes into Creation Cloud → Recent files shows the same item under Creation filter
+Stars it → Starred filter works
+Opens item → recency updates
+If that loop works, you’ve won.
+Final call
+Your plan is good.
+Rename “spaces” to Workspace and keep it flat.
+Ship it in one clean pass: table → API → page → dropdown → cloud recents → one tool save.
