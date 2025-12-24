@@ -1,3 +1,5 @@
+import { CloudId } from "@/lib/cloudTheme";
+
 export type Difficulty = "Beginner" | "Intermediate" | "Advanced";
 
 export interface WorkflowStep {
@@ -26,6 +28,7 @@ export interface Workflow {
   slug: string;
   title: string;
   pain_subtitle: string;
+  cloud: CloudId;
   outcome_tag: string;
   difficulty: Difficulty;
   time_to_first_result: string;
