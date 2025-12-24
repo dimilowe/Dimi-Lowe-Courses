@@ -458,7 +458,7 @@ export default function WorkspaceClient() {
             <p className="text-zinc-500 max-w-sm mx-auto">
               {search || cloudFilter || starredOnly 
                 ? 'No items match your filters. Try adjusting your search.'
-                : 'Start using tools to save outputs to your workspace.'}
+                : 'Start using tools to save outputs, or drag and drop files here to upload.'}
             </p>
           </div>
         ) : viewMode === 'grid' ? (
