@@ -295,7 +295,7 @@ export default function WebpToJpgClient() {
             ? `Converted: ${readyFiles[0].originalName}` 
             : `Converted ${readyFiles.length} WEBP files`,
           type: "file_output",
-          cloud_id: "media",
+          cloud_id: "files",
           tool_id: "webp-to-jpg",
           preview_text: `${formatBytes(totalOriginalSize)} → ${formatBytes(totalConvertedSize)} (${readyFiles.length} file${readyFiles.length > 1 ? "s" : ""} to ${outputFormat.toUpperCase()})`,
           payload_json: {
