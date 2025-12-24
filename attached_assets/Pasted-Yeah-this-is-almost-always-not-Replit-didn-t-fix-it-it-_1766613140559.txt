@@ -1,0 +1,64 @@
+Yeah — this is almost always not “Replit didn’t fix it,” it’s “the scanner is still seeing the OLD dependency graph.”
+From your screenshot, the scanner is flagging:
+next@16.0.1 (twice)
+glob@10.4.5
+jws@4.0.0
+…but the left pane says you updated to next@16.1.1, glob@10.5.0, jws@4.0.1.
+That mismatch means your lockfile / install state didn’t actually change in the way the scanner uses.
+Here’s the fastest way to force everything to line up.
+1) Confirm what’s REALLY installed (not what package.json says)
+In the Replit Shell, run:
+node -v
+npm -v
+
+npm ls next glob jws
+If that prints 16.0.1 / 10.4.5 / 4.0.0, then the scanner is correct and your actual dependency tree is still old.
+2) Fix the lockfile problem (this is the #1 cause)
+Replit publishing/building commonly uses the lockfile (package-lock.json, pnpm-lock.yaml, or yarn.lock).
+If your lockfile still pins the old versions, the scan will keep finding them forever.
+If you’re using npm (most likely):
+Do this:
+rm -rf node_modules package-lock.json
+npm install
+npm ls next glob jws
+Now you should see the new versions.
+Then commit the new package-lock.json (or make sure it’s saved in the repl if you’re not using git).
+3) If Next shows up twice in the scan
+The scan showing next@16.0.1 twice usually means one of these:
+You have multiple package.json files (monorepo, /client + /server, etc.)
+There’s a second lockfile somewhere (like /apps/web/package-lock.json)
+The scanner is scanning a different root than the one you’re editing
+Quick check:
+find . -maxdepth 4 -name "package.json"
+find . -maxdepth 6 -name "package-lock.json" -o -name "yarn.lock" -o -name "pnpm-lock.yaml"
+If you see more than one, you need to update the one that the publish build uses (usually repo root, unless you configured a subdir).
+4) Make sure you didn’t update “glob/jws” somewhere the install doesn’t use
+Sometimes people update versions but they are transitive deps, so you can’t “fix” them by editing package.json unless you add an override.
+Check who is pulling them in:
+npm ls glob
+npm ls jws
+If glob or jws are not direct dependencies, and you still get the vulnerable version, add an override in package.json:
+{
+  "overrides": {
+    "glob": "^10.5.0",
+    "jws": "^4.0.1"
+  }
+}
+Then:
+rm -rf node_modules package-lock.json
+npm install
+npm ls glob jws
+(If you’re on Yarn, it’s "resolutions" instead of "overrides".)
+5) The “publish” environment may be using npm ci
+If Replit uses npm ci during publish, it will strictly follow the lockfile and ignore whatever your node_modules currently has.
+That’s why deleting and regenerating the lockfile is the clean fix.
+What I’d do in your exact situation (minimal, high-success path)
+Run these in order:
+npm ls next glob jws
+rm -rf node_modules package-lock.json
+npm install
+npm ls next glob jws
+If the second npm ls shows the updated versions, rerun the scan. It should clear.
+If it still flags, run:
+find . -maxdepth 6 -name "package-lock.json" -o -name "yarn.lock" -o -name "pnpm-lock.yaml"
+and you’ll almost certainly find a second lockfile / second app root that’s still on the old versions.
