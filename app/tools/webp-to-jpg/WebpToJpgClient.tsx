@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Upload, Download, Trash2, Image as ImageIcon, Check, AlertCircle, Loader2, Archive, Shield } from "lucide-react";
+import { Upload, Download, Trash2, Image as ImageIcon, Check, AlertCircle, Loader2, Archive, Shield, Bookmark } from "lucide-react";
 import JSZip from "jszip";
 
 interface ConvertedFile {
@@ -36,6 +36,8 @@ export default function WebpToJpgClient() {
   const [autoDownload, setAutoDownload] = useState(true);
   const [zipFormat, setZipFormat] = useState<ZipFormat>("jpg");
   const [isDragging, setIsDragging] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processedIds = useRef<Set<string>>(new Set());
   const createdUrls = useRef<Set<string>>(new Set());
@@ -190,6 +192,7 @@ export default function WebpToJpgClient() {
 
       if (newFiles.length === 0) return;
 
+      setSaved(false);
       setFiles((prev) => [...prev, ...newFiles]);
 
       for (const fileEntry of newFiles) {
@@ -272,7 +275,59 @@ export default function WebpToJpgClient() {
     });
     setFiles([]);
     processedIds.current.clear();
+    setSaved(false);
   }, [files, revokeUrl]);
+
+  const handleSaveToWorkspace = useCallback(async () => {
+    const readyFiles = files.filter((f) => f.status === "ready");
+    if (readyFiles.length === 0 || saving || saved) return;
+    
+    setSaving(true);
+    try {
+      const totalOriginalSize = readyFiles.reduce((sum, f) => sum + f.originalSize, 0);
+      const totalConvertedSize = readyFiles.reduce((sum, f) => sum + (outputFormat === "jpg" ? f.jpgSize : f.pngSize), 0);
+      
+      const response = await fetch("/api/workspace/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: readyFiles.length === 1 
+            ? `Converted: ${readyFiles[0].originalName}` 
+            : `Converted ${readyFiles.length} WEBP files`,
+          type: "file_output",
+          cloud_id: "media",
+          tool_id: "webp-to-jpg",
+          preview_text: `${formatBytes(totalOriginalSize)} → ${formatBytes(totalConvertedSize)} (${readyFiles.length} file${readyFiles.length > 1 ? "s" : ""} to ${outputFormat.toUpperCase()})`,
+          payload_json: {
+            fileCount: readyFiles.length,
+            outputFormat,
+            qualityPreset: outputFormat === "jpg" ? qualityPreset : null,
+            files: readyFiles.map(f => ({
+              originalName: f.originalName,
+              originalSize: f.originalSize,
+              convertedSize: outputFormat === "jpg" ? f.jpgSize : f.pngSize,
+            })),
+          },
+        }),
+      });
+
+      if (response.ok) {
+        setSaved(true);
+      } else {
+        const data = await response.json();
+        if (data.error === "Unauthorized") {
+          alert("Please sign in to save to your workspace");
+        } else {
+          alert("Failed to save. Please try again.");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to save to workspace:", err);
+      alert("Failed to save. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }, [files, saving, saved, outputFormat, qualityPreset]);
 
   const removeFile = useCallback((id: string) => {
     setFiles((prev) => {
@@ -283,6 +338,7 @@ export default function WebpToJpgClient() {
       }
       return prev.filter((f) => f.id !== id);
     });
+    setSaved(false);
   }, [revokeUrl]);
 
   const formatBytes = (bytes: number) => {
@@ -305,7 +361,7 @@ export default function WebpToJpgClient() {
             </label>
             <div className="flex gap-2">
               <button
-                onClick={() => setOutputFormat("jpg")}
+                onClick={() => { setOutputFormat("jpg"); setSaved(false); }}
                 className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
                   outputFormat === "jpg"
                     ? "bg-orange-500 text-white border-orange-500"
@@ -315,7 +371,7 @@ export default function WebpToJpgClient() {
                 JPG
               </button>
               <button
-                onClick={() => setOutputFormat("png")}
+                onClick={() => { setOutputFormat("png"); setSaved(false); }}
                 className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
                   outputFormat === "png"
                     ? "bg-orange-500 text-white border-orange-500"
@@ -333,7 +389,7 @@ export default function WebpToJpgClient() {
             </label>
             <select
               value={qualityPreset}
-              onChange={(e) => setQualityPreset(e.target.value as QualityPreset)}
+              onChange={(e) => { setQualityPreset(e.target.value as QualityPreset); setSaved(false); }}
               disabled={outputFormat === "png"}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white disabled:bg-gray-100 disabled:text-gray-400"
             >
@@ -416,15 +472,43 @@ export default function WebpToJpgClient() {
               <h3 className="font-medium text-gray-900">
                 Converted Files ({readyCount}/{files.length})
               </h3>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {readyCount > 0 && (
-                  <button
-                    onClick={downloadAllAsZip}
-                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors"
-                  >
-                    <Archive className="w-4 h-4" />
-                    Download All as ZIP
-                  </button>
+                  <>
+                    <button
+                      onClick={downloadAllAsZip}
+                      className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      <Archive className="w-4 h-4" />
+                      Download All as ZIP
+                    </button>
+                    <button
+                      onClick={handleSaveToWorkspace}
+                      disabled={saving || saved}
+                      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors border-2 ${
+                        saved
+                          ? "border-green-500 text-green-600 bg-green-50"
+                          : "border-orange-500 text-orange-600 hover:bg-orange-50"
+                      } disabled:opacity-70`}
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : saved ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Saved
+                        </>
+                      ) : (
+                        <>
+                          <Bookmark className="w-4 h-4" />
+                          Save to Workspace
+                        </>
+                      )}
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={clearAll}
