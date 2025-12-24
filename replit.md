@@ -516,6 +516,18 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2025-12-24: **Workspace Feature** - Save and manage outputs from tools across all clouds
+  - Database: `workspace_items` table with indexes for user queries, cloud filtering, and starred items
+  - API endpoints: Full CRUD at `/api/workspace/items` and `/api/workspace/items/[id]`
+  - Search, cloud filter, sort options (newest/oldest/title/starred), starred toggle
+  - Grid/list view toggle with responsive design
+  - Individual item detail page at `/workspace/[id]` with full content display
+  - Workspace link added to profile dropdown between Dashboard and Settings
+  - Cloud dashboard integration: Recent files rail fetches from workspace API by cloud_id
+  - AI Summarizer integration: "Save to Workspace" button with optimistic UI updates
+  - 401 handling redirects to login, error states with retry functionality
+  - Flat structure (no folders/projects), separate from commerce "Saved Items"
+  - Files: `app/workspace/`, `app/api/workspace/`, `components/navbar.tsx`
 - 2025-12-22: **Image to Prompt Generator** - Reverse-engineer AI prompts from any image
   - Upload any image (PNG/JPG/WEBP up to 8MB), server-side downscaling to 1536px max
   - OpenAI GPT-4o Vision API integration for image analysis
