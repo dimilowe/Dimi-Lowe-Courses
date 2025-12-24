@@ -1,18 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Clock, ArrowRight, Lock } from "lucide-react";
+import { CheckCircle2, Clock, ArrowRight, Lock, ExternalLink } from "lucide-react";
 import { WorkflowStep } from "@/lib/workflows/types";
+
+interface ToolInfo {
+  name: string;
+  available: boolean;
+}
 
 interface WorkflowStepCardProps {
   step: WorkflowStep;
   stepNumber: number;
-  availableTools: Set<string>;
+  toolsInfo: Map<string, ToolInfo>;
 }
 
-export default function WorkflowStepCard({ step, stepNumber, availableTools }: WorkflowStepCardProps) {
-  const hasMainTool = step.tool_slug && step.tool_label;
-  const isToolAvailable = step.tool_slug ? availableTools.has(step.tool_slug) : false;
+export default function WorkflowStepCard({ step, stepNumber, toolsInfo }: WorkflowStepCardProps) {
+  const hasMainTool = step.tool_slug;
+  const toolInfo = step.tool_slug ? toolsInfo.get(step.tool_slug) : null;
+  const isToolAvailable = toolInfo?.available ?? false;
+  const toolName = toolInfo?.name ?? step.tool_label;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
@@ -48,41 +55,48 @@ export default function WorkflowStepCard({ step, stepNumber, availableTools }: W
           {hasMainTool && (
             <div className="mt-4 pt-4 border-t border-gray-100">
               {isToolAvailable ? (
-                <Link
+                <a
                   href={`/tools/${step.tool_slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors"
                 >
-                  {step.tool_label}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+                  {toolName}
+                  <ExternalLink className="h-4 w-4" />
+                </a>
               ) : (
                 <button
                   disabled
                   className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-400 font-medium rounded-lg cursor-not-allowed"
                 >
                   <Lock className="h-4 w-4" />
-                  {step.tool_label} — Coming soon
+                  {toolName} — Coming soon
                 </button>
               )}
 
               {step.secondary_tools && step.secondary_tools.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {step.secondary_tools.map((tool) => {
-                    const available = availableTools.has(tool.tool_slug);
+                    const secToolInfo = toolsInfo.get(tool.tool_slug);
+                    const secToolName = secToolInfo?.name ?? tool.label;
+                    const available = secToolInfo?.available ?? false;
                     return available ? (
-                      <Link
+                      <a
                         key={tool.tool_slug}
                         href={`/tools/${tool.tool_slug}`}
-                        className="text-sm text-orange-600 hover:text-orange-700 underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-orange-600 hover:text-orange-700 underline inline-flex items-center gap-1"
                       >
-                        {tool.label}
-                      </Link>
+                        {secToolName}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
                     ) : (
                       <span
                         key={tool.tool_slug}
                         className="text-sm text-gray-400"
                       >
-                        {tool.label} (coming soon)
+                        {secToolName} (coming soon)
                       </span>
                     );
                   })}

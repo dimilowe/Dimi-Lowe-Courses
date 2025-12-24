@@ -38,12 +38,16 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-async function getAvailableTools(): Promise<Set<string>> {
+async function getToolsInfo(): Promise<Map<string, { name: string; available: boolean }>> {
   try {
-    const result = await query("SELECT slug FROM tools WHERE in_directory = true");
-    return new Set(result.rows.map((row: { slug: string }) => row.slug));
+    const result = await query("SELECT slug, name, in_directory FROM tools");
+    const toolsMap = new Map<string, { name: string; available: boolean }>();
+    result.rows.forEach((row: { slug: string; name: string; in_directory: boolean }) => {
+      toolsMap.set(row.slug, { name: row.name, available: row.in_directory });
+    });
+    return toolsMap;
   } catch {
-    return new Set();
+    return new Map();
   }
 }
 
@@ -101,7 +105,7 @@ export default async function WorkflowDetailPage({ params }: PageProps) {
   }
 
   const relatedWorkflows = getRelatedWorkflows(workflow, 3);
-  const availableTools = await getAvailableTools();
+  const toolsInfo = await getToolsInfo();
   const schema = generateHowToSchema(workflow);
 
   return (
@@ -169,7 +173,7 @@ export default async function WorkflowDetailPage({ params }: PageProps) {
                   key={i}
                   step={step}
                   stepNumber={i + 1}
-                  availableTools={availableTools}
+                  toolsInfo={toolsInfo}
                 />
               ))}
             </div>
