@@ -19,16 +19,16 @@ const CLOUD_LABELS: Record<CloudId, string> = {
 };
 
 const CLOUD_BG_COLORS: Record<CloudId, string> = {
-  "creation": "#fce7f3",
-  "video": "#ffedd5",
-  "writing-seo": "#dbeafe",
-  "file-data": "#f1f5f9",
-  "monetization": "#d1fae5",
-  "intelligence": "#ede9fe",
-  "music-performance": "#fae8ff",
-  "growth-distribution": "#ccfbf1",
-  "shopping": "#fef3c7",
-  "advertising": "#fee2e2",
+  "creation": "#ec4899",
+  "video": "#f97316",
+  "writing-seo": "#3b82f6",
+  "file-data": "#64748b",
+  "monetization": "#10b981",
+  "intelligence": "#8b5cf6",
+  "music-performance": "#d946ef",
+  "growth-distribution": "#14b8a6",
+  "shopping": "#f59e0b",
+  "advertising": "#ef4444",
 };
 
 interface WorkflowCardProps {
@@ -48,26 +48,26 @@ export default function WorkflowCard({ workflow }: WorkflowCardProps) {
     >
       <div className="p-6 h-full flex flex-col">
         <div className="mb-4">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/80 text-gray-800">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/90 text-gray-800">
             {CloudIcon && <CloudIcon className="h-3.5 w-3.5" />}
             {cloudLabel}
           </span>
         </div>
 
-        <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-gray-800 transition-colors">
+        <h3 className="text-lg font-bold text-white mb-2">
           {workflow.title}
         </h3>
 
-        <p className="text-gray-700/80 text-sm mb-4 line-clamp-2 flex-1">
+        <p className="text-white/80 text-sm mb-4 line-clamp-2 flex-1">
           {workflow.pain_subtitle}
         </p>
 
         <div className="flex items-center justify-between text-sm">
-          <span className="flex items-center gap-1.5 text-gray-700/70 font-medium">
+          <span className="flex items-center gap-1.5 text-white/70 font-medium">
             <Sparkles className="h-4 w-4" />
             {workflow.steps.length} steps
           </span>
-          <span className="flex items-center gap-1 text-gray-900 font-semibold group-hover:gap-2 transition-all">
+          <span className="flex items-center gap-1 text-white font-semibold group-hover:gap-2 transition-all">
             Start workflow
             <ArrowRight className="h-4 w-4" />
           </span>
