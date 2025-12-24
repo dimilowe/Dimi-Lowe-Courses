@@ -2,45 +2,124 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ArrowRight, FileImage, Type, Palette, Star, Heart, Smile, GitBranch, Zap, QrCode, Flame, MessageCircleQuestion, Users, TrendingUp, Rocket, ShoppingBag, FilePen, LayoutGrid, Youtube, StickyNote, Target, Sparkles, Music, Megaphone, Link2, FileText } from "lucide-react";
+import { 
+  Search, 
+  ArrowRight, 
+  FileImage, 
+  Type, 
+  Palette, 
+  Star, 
+  Heart, 
+  Smile, 
+  GitBranch, 
+  Zap, 
+  QrCode, 
+  Flame, 
+  MessageCircleQuestion, 
+  Users, 
+  TrendingUp, 
+  Rocket, 
+  ShoppingBag, 
+  FilePen, 
+  LayoutGrid, 
+  Youtube, 
+  StickyNote, 
+  Target, 
+  Sparkles, 
+  Music, 
+  Megaphone, 
+  Link2, 
+  FileText,
+  Instagram,
+  Video,
+  RotateCcw,
+  Moon,
+  Merge,
+  Ruler,
+  Box,
+  Film,
+  Twitter,
+  Linkedin,
+  ListCollapse,
+  Calculator,
+  Footprints,
+  Dumbbell,
+  PiggyBank,
+  Home,
+  Package,
+  Car,
+  Wrench,
+  LucideIcon
+} from "lucide-react";
+import { toolsRegistry } from "@/data/toolsRegistry";
 
-const searchSuggestions = [
-  // Tools
-  { name: "Prediction Center", href: "/tools/prediction-center", icon: TrendingUp },
+const iconMap: Record<string, LucideIcon> = {
+  FileImage,
+  Type,
+  Palette,
+  Star,
+  Heart,
+  Smile,
+  GitBranch,
+  Zap,
+  QrCode,
+  Flame,
+  MessageCircleQuestion,
+  Users,
+  TrendingUp,
+  Rocket,
+  ShoppingBag,
+  FilePen,
+  LayoutGrid,
+  Youtube,
+  StickyNote,
+  Target,
+  Sparkles,
+  Music,
+  Megaphone,
+  Link2,
+  FileText,
+  Instagram,
+  Video,
+  RotateCcw,
+  Moon,
+  Merge,
+  Ruler,
+  Box,
+  Film,
+  Twitter,
+  Linkedin,
+  ListCollapse,
+  Calculator,
+  Footprints,
+  Dumbbell,
+  PiggyBank,
+  Home,
+  Package,
+  Car,
+  Search,
+  Wrench
+};
+
+const staticSuggestions = [
   { name: "VCM Answers", href: "/answers", icon: MessageCircleQuestion },
   { name: "Ideas Hub", href: "/ideas", icon: Rocket },
-  { name: "Calorie Deficit Calculator", href: "/tools/calorie-deficit-calculator", icon: Flame },
-  { name: "Outfit Ideas", href: "/tools/outfit-ideas", icon: ShoppingBag },
-  { name: "Self-Love Affirmations", href: "/tools/affirmation-about-self-love", icon: Heart },
-  { name: "PDF Editor", href: "/tools/pdf-editor", icon: FilePen },
-  { name: "Resource Box", href: "/tools/resource-box", icon: LayoutGrid },
-  { name: "Thumbnail Coach", href: "/tools/ai-thumbnail-coach", icon: Youtube },
-  { name: "GIF Compressor", href: "/tools/gif-compressor", icon: FileImage },
-  { name: "GIF Maker", href: "/tools/gif-maker", icon: FileImage },
-  { name: "HEIC to JPG", href: "/tools/heic-to-jpg", icon: FileImage },
-  { name: "WEBP to JPG", href: "/tools/webp-to-jpg", icon: FileImage },
-  { name: "Image Compressor", href: "/tools/image-compressor", icon: FileImage },
-  { name: "Online Notepad", href: "/tools/online-notepad", icon: StickyNote },
-  { name: "Word Counter", href: "/tools/word-counter", icon: Type },
-  { name: "Logo Generator", href: "/tools/logo-generator", icon: Palette },
-  { name: "Keyword Finder", href: "/tools/keyword-finder", icon: Search },
-  { name: "Reach Grabber", href: "/tools/reach-grabber-tool", icon: Target },
-  { name: "AI Humanizer", href: "/tools/ai-humanizer-free", icon: Sparkles },
-  { name: "Producer Tag", href: "/tools/producer-tag-generator", icon: Music },
-  { name: "Ad Copy Analyzer", href: "/tools/ad-copy-analyzer", icon: Megaphone },
-  { name: "Internal Link Audit", href: "/tools/internal-link-seo-audit", icon: Link2 },
-  { name: "AI Summarizer", href: "/tools/summarizer", icon: FileText },
-  { name: "Visualization", href: "/tools/visualization", icon: GitBranch },
-  { name: "Emoji Combos", href: "/tools/emoji-combos", icon: Smile },
-  { name: "Daily Horoscope", href: "/tools/horoscope-of-the-day", icon: Star },
-  { name: "Name Combiner", href: "/tools/name-combiner", icon: Users },
-  // Products & Pages
   { name: "QR Social", href: "/product/qrsocial", icon: QrCode },
   { name: "C-Score", href: "/product/cscorecals", icon: Flame },
   { name: "APE", href: "https://ape.vcm.fyi", icon: Zap },
   { name: "Blog", href: "/blog", icon: Type },
   { name: "Store", href: "/store", icon: Palette },
 ];
+
+const toolSuggestions = [...toolsRegistry]
+  .sort((a, b) => b.priority - a.priority)
+  .map(tool => ({
+    name: tool.name,
+    href: `/tools/${tool.slug}`,
+    icon: iconMap[tool.icon] || Wrench
+  }));
+
+const allSuggestions = [...toolSuggestions, ...staticSuggestions];
 
 export function HeroSearch() {
   const [query, setQuery] = useState("");
@@ -51,10 +130,10 @@ export function HeroSearch() {
   const router = useRouter();
 
   const filteredSuggestions = query.length > 0
-    ? searchSuggestions.filter(s => 
+    ? allSuggestions.filter(s => 
         s.name.toLowerCase().includes(query.toLowerCase())
-      )
-    : searchSuggestions.slice(0, 6);
+      ).slice(0, 10)
+    : allSuggestions.slice(0, 6);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -97,7 +176,7 @@ export function HeroSearch() {
     }
   };
 
-  const handleSelect = (suggestion: typeof searchSuggestions[0]) => {
+  const handleSelect = (suggestion: typeof allSuggestions[0]) => {
     if (suggestion.href.startsWith("http")) {
       window.open(suggestion.href, "_blank");
     } else {
