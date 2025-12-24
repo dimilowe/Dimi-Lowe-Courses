@@ -3,10 +3,36 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle, CheckCircle2, Lightbulb } from "lucide-react";
 import { getWorkflowBySlug, getRelatedWorkflows, getWorkflows } from "@/lib/workflows/workflows";
-import WorkflowBadges from "@/components/workflows/WorkflowBadges";
+import { CloudId, CLOUD_THEMES } from "@/lib/cloudTheme";
 import WorkflowStepCard from "@/components/workflows/WorkflowStepCard";
 import RelatedWorkflows from "@/components/workflows/RelatedWorkflows";
 import { query } from "@/lib/db";
+
+const CLOUD_LABELS: Record<CloudId, string> = {
+  "creation": "Creation Cloud",
+  "video": "Video Cloud",
+  "writing-seo": "Writing & SEO Cloud",
+  "file-data": "File & Data Cloud",
+  "monetization": "Monetization Cloud",
+  "intelligence": "Intelligence Cloud",
+  "music-performance": "Music Cloud",
+  "growth-distribution": "Growth Cloud",
+  "shopping": "Shopping Cloud",
+  "advertising": "Advertising Cloud",
+};
+
+const CLOUD_BG_COLORS: Record<CloudId, string> = {
+  "creation": "#ec4899",
+  "video": "#f97316",
+  "writing-seo": "#3b82f6",
+  "file-data": "#71717a",
+  "monetization": "#f59e0b",
+  "intelligence": "#8b5cf6",
+  "music-performance": "#22c55e",
+  "growth-distribution": "#f43f5e",
+  "shopping": "#ec4899",
+  "advertising": "#0ea5e9",
+};
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -96,11 +122,20 @@ export default async function WorkflowDetailPage({ params }: PageProps) {
           </Link>
 
           <header className="mb-12">
-            <WorkflowBadges
-              outcome_tag={workflow.outcome_tag}
-              difficulty={workflow.difficulty}
-              time_to_first_result={workflow.time_to_first_result}
-            />
+            <span 
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold text-white"
+              style={{ backgroundColor: CLOUD_BG_COLORS[workflow.cloud] }}
+            >
+              {CLOUD_THEMES[workflow.cloud]?.icon && (
+                <span className="h-4 w-4">
+                  {(() => {
+                    const Icon = CLOUD_THEMES[workflow.cloud].icon;
+                    return <Icon className="h-4 w-4" />;
+                  })()}
+                </span>
+              )}
+              {CLOUD_LABELS[workflow.cloud]}
+            </span>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mt-6 mb-4">
               {workflow.title}
             </h1>
