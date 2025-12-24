@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Search, 
@@ -49,11 +49,13 @@ import {
   Package,
   Car,
   Wrench,
-  LucideIcon
+  LucideIcon,
+  FileType,
+  ArrowLeftRight
 } from "lucide-react";
-import { toolsRegistry } from "@/data/toolsRegistry";
 
 const iconMap: Record<string, LucideIcon> = {
+  Image: FileImage,
   FileImage,
   Type,
   Palette,
@@ -98,7 +100,9 @@ const iconMap: Record<string, LucideIcon> = {
   Package,
   Car,
   Search,
-  Wrench
+  Wrench,
+  FileType,
+  ArrowLeftRight
 };
 
 const staticSuggestions = [
@@ -111,29 +115,62 @@ const staticSuggestions = [
   { name: "Store", href: "/store", icon: Palette },
 ];
 
-const toolSuggestions = [...toolsRegistry]
-  .sort((a, b) => b.priority - a.priority)
-  .map(tool => ({
-    name: tool.name,
-    href: `/tools/${tool.slug}`,
-    icon: iconMap[tool.icon] || Wrench
-  }));
+interface ToolFromAPI {
+  slug: string;
+  name: string;
+  icon: string;
+}
 
-const allSuggestions = [...toolSuggestions, ...staticSuggestions];
+let cachedTools: { name: string; href: string; icon: LucideIcon }[] | null = null;
 
 export function HeroSearch() {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [toolSuggestions, setToolSuggestions] = useState<{ name: string; href: string; icon: LucideIcon }[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  const filteredSuggestions = query.length > 0
-    ? allSuggestions.filter(s => 
+  useEffect(() => {
+    if (cachedTools) {
+      setToolSuggestions(cachedTools);
+      setIsLoading(false);
+      return;
+    }
+
+    fetch("/api/tools/search")
+      .then(res => res.json())
+      .then(data => {
+        const tools = (data.tools || []).map((tool: ToolFromAPI) => ({
+          name: tool.name,
+          href: `/tools/${tool.slug}`,
+          icon: iconMap[tool.icon] || Wrench
+        }));
+        cachedTools = tools;
+        setToolSuggestions(tools);
+      })
+      .catch(err => {
+        console.error("Failed to fetch tools:", err);
+        setToolSuggestions([]);
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const allSuggestions = useMemo(() => 
+    [...toolSuggestions, ...staticSuggestions],
+    [toolSuggestions]
+  );
+
+  const filteredSuggestions = useMemo(() => {
+    if (query.length > 0) {
+      return allSuggestions.filter(s => 
         s.name.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 10)
-    : allSuggestions.slice(0, 6);
+      ).slice(0, 10);
+    }
+    return allSuggestions.slice(0, 6);
+  }, [query, allSuggestions]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -215,7 +252,7 @@ export function HeroSearch() {
         </button>
       </div>
 
-      {isOpen && filteredSuggestions.length > 0 && (
+      {isOpen && !isLoading && filteredSuggestions.length > 0 && (
         <div 
           ref={dropdownRef}
           className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden"
