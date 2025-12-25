@@ -106,3 +106,33 @@ export async function revokeCloudEntitlement(
 
   console.log(`[CloudEntitlements] Revoked: userId=${userId}, cloudId=${cloudId}`);
 }
+
+export type CloudEntitlementDetails = {
+  tier: EntitlementTier;
+  status: EntitlementStatus;
+  currentPeriodEnd: Date | null;
+  stripeSubscriptionId: string | null;
+} | null;
+
+export async function getUserCloudEntitlement(
+  userId: number,
+  cloudId: string
+): Promise<CloudEntitlementDetails> {
+  const { rows } = await query(
+    `SELECT tier, status, current_period_end, stripe_subscription_id
+     FROM cloud_entitlements
+     WHERE user_id = $1 AND cloud_id = $2
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [userId, cloudId]
+  );
+
+  if (!rows[0]) return null;
+
+  return {
+    tier: rows[0].tier as EntitlementTier,
+    status: rows[0].status as EntitlementStatus,
+    currentPeriodEnd: rows[0].current_period_end ? new Date(rows[0].current_period_end) : null,
+    stripeSubscriptionId: rows[0].stripe_subscription_id || null,
+  };
+}

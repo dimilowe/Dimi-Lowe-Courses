@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { CLOUDS, type CloudConfig } from "@/lib/clouds";
 import { CLOUD_THEMES, type CloudId } from "@/lib/cloudTheme";
-import { Check } from "lucide-react";
+import { Check, Loader2, CheckCircle, XCircle } from "lucide-react";
 
 type Tier = {
   id: "starter" | "basic" | "pro";
@@ -77,15 +77,89 @@ function getCloudIcon(slug: string) {
 }
 
 export default function PricingPage() {
+  const searchParams = useSearchParams();
   const [tier, setTier] = useState<string | null>(null);
   const [cloud, setCloud] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const ready = tier && cloud;
+
+  useEffect(() => {
+    if (searchParams.get("success") === "1") {
+      setMessage({ type: "success", text: "Subscription successful! Your cloud is now active." });
+    } else if (searchParams.get("canceled") === "1") {
+      setMessage({ type: "error", text: "Checkout was canceled. You can try again when ready." });
+    }
+  }, [searchParams]);
+
+  const handleSubscribe = async () => {
+    if (!tier || !cloud) return;
+
+    setIsLoading(true);
+    setMessage(null);
+
+    try {
+      const cloudId = cloud.replace(/_/g, "-");
+      
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "cloud",
+          cloudId,
+          tier,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create checkout session");
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No checkout URL returned");
+      }
+    } catch (error: any) {
+      console.error("Checkout error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Something went wrong. Please try again.";
+      
+      if (errorMessage.includes("sign in") || errorMessage.includes("signed in")) {
+        setMessage({ 
+          type: "error", 
+          text: "Please sign in to subscribe to a cloud plan." 
+        });
+      } else {
+        setMessage({ 
+          type: "error", 
+          text: errorMessage 
+        });
+      }
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-zinc-50">
       <div className="max-w-6xl mx-auto px-4 py-12 pb-32">
-        {/* Hero */}
+        {message && (
+          <div className={`mb-8 p-4 rounded-xl flex items-center gap-3 ${
+            message.type === "success" 
+              ? "bg-green-50 border border-green-200 text-green-800"
+              : "bg-red-50 border border-red-200 text-red-800"
+          }`}>
+            {message.type === "success" ? (
+              <CheckCircle className="w-5 h-5 text-green-600" />
+            ) : (
+              <XCircle className="w-5 h-5 text-red-600" />
+            )}
+            <span className="font-medium">{message.text}</span>
+          </div>
+        )}
+
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-zinc-900">
             Simple pricing. Real power.
@@ -95,7 +169,6 @@ export default function PricingPage() {
           </p>
         </div>
 
-        {/* Tiers */}
         <section>
           <h2 className="text-2xl font-bold text-zinc-900 mb-6">
             Choose a plan
@@ -142,7 +215,6 @@ export default function PricingPage() {
           </div>
         </section>
 
-        {/* Clouds */}
         <section className="mt-14">
           <h2 className="text-2xl font-bold text-zinc-900 mb-6">
             Choose a cloud
@@ -179,7 +251,6 @@ export default function PricingPage() {
         </section>
       </div>
 
-      {/* Sticky CTA */}
       <div className="fixed bottom-0 inset-x-0 border-t border-zinc-200 bg-white/95 backdrop-blur-sm shadow-lg">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="text-sm text-zinc-700">
@@ -193,20 +264,18 @@ export default function PricingPage() {
             </span>
           </div>
 
-          <Link
-            href={
-              ready
-                ? `/subscribe?tier=${tier}&cloud=${cloud}`
-                : "#"
-            }
-            className={`px-6 py-3 rounded-xl font-semibold transition ${
-              ready
+          <button
+            onClick={handleSubscribe}
+            disabled={!ready || isLoading}
+            className={`px-6 py-3 rounded-xl font-semibold transition flex items-center gap-2 ${
+              ready && !isLoading
                 ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white hover:opacity-90 shadow-md"
-                : "bg-zinc-200 text-zinc-400 pointer-events-none"
+                : "bg-zinc-200 text-zinc-400 cursor-not-allowed"
             }`}
           >
-            Subscribe
-          </Link>
+            {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isLoading ? "Redirecting..." : "Subscribe"}
+          </button>
         </div>
       </div>
     </div>
