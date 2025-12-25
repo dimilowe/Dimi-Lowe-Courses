@@ -1,0 +1,117 @@
+Here’s a full Replit prompt you can paste into Replit AI. It implements the clean model:
+1 Stripe Product
+3 Prices (Starter/Basic/Pro)
+Cloud selection + tier selection passed via metadata
+Webhook grants entitlements in your DB
+Your app remains the source of truth
+Copy/paste this whole thing.
+You are working in my existing Next.js + TypeScript app (VCM Suite). I want to hook up Stripe subscriptions for “Clouds” using a metadata-driven entitlement model.
+
+GOAL
+- We have 10 clouds.
+- We have 3 tiers: starter ($9.99/mo), basic ($29/mo), pro ($59/mo).
+- User selects a tier + a single cloud on the Pricing page.
+- Stripe should be “dumb”: only 1 Stripe Product + 3 recurring Prices.
+- Cloud selection must NOT be encoded as 30 Stripe products. We pass cloud_id in Checkout Session metadata.
+- On successful payment, we grant the entitlement in our DB via webhook.
+
+CONSTRAINTS
+- Use Stripe Checkout for subscriptions.
+- Use Stripe webhooks as the source of truth for provisioning.
+- Store entitlements in a DB table (create it if it doesn’t exist).
+- Do NOT touch existing “saved_items” table (commerce-only).
+- Use environment variables for Stripe keys.
+- Implement robust signature verification for webhooks.
+- Make sure this works in local + production.
+
+WHAT TO BUILD
+
+1) ENV VARS
+Add and use these env vars:
+- STRIPE_SECRET_KEY
+- STRIPE_WEBHOOK_SECRET
+- NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+- NEXT_PUBLIC_APP_URL (e.g. https://vcmsuite.com or Replit URL)
+
+2) STRIPE SETUP (code expects these IDs)
+We will create 1 Stripe Product in Stripe dashboard called: “VCM Cloud Subscription”
+We will create 3 recurring monthly prices for that product:
+- Starter: 9.99 USD / month
+- Basic: 29 USD / month
+- Pro: 59 USD / month
+We will store the Price IDs in env vars:
+- STRIPE_PRICE_STARTER
+- STRIPE_PRICE_BASIC
+- STRIPE_PRICE_PRO
+
+3) DB: CLOUD ENTITLEMENTS TABLE
+Create a table called cloud_entitlements:
+
+Columns:
+- id (uuid primary key default gen_random_uuid())
+- user_id (text or uuid depending on existing users table; match existing convention)
+- cloud_id (text)  // e.g. "ai_video", "ai_writing_seo"
+- tier (text)      // "starter" | "basic" | "pro"
+- status (text)    // "active" | "canceled" | "past_due"
+- stripe_customer_id (text)
+- stripe_subscription_id (text unique)
+- current_period_end (timestamptz)
+- created_at (timestamptz default now())
+- updated_at (timestamptz default now())
+
+Add an index on (user_id, cloud_id) and unique constraint on (stripe_subscription_id).
+
+If there is already an entitlements table, extend it instead of creating duplicates. But do not break existing schema.
+
+4) API ROUTES
+A) POST /api/stripe/create-checkout-session
+- Requires auth (use existing auth method; if none, implement a simple guard using current session user id).
+- Accept body: { cloudId: string, tier: "starter"|"basic"|"pro" }
+- Validate cloudId is one of the 10 allowed clouds.
+- Map tier -> priceId via env vars STRIPE_PRICE_*
+- Create Stripe Checkout Session in subscription mode with:
+  - customer_email (if available)
+  - success_url = `${NEXT_PUBLIC_APP_URL}/pricing?success=1`
+  - cancel_url = `${NEXT_PUBLIC_APP_URL}/pricing?canceled=1`
+  - metadata: { user_id, cloud_id, tier }
+  - subscription_data.metadata: { user_id, cloud_id, tier }  (IMPORTANT: set both)
+- Return { url } to redirect client.
+
+B) POST /api/stripe/webhook
+- Use raw body parsing (disable Next.js body parser) to verify Stripe signature using STRIPE_WEBHOOK_SECRET.
+- Handle these events:
+  1. checkout.session.completed
+     - If subscription present, retrieve subscription + customer from Stripe.
+     - Read metadata user_id, cloud_id, tier from session (fallback to subscription metadata).
+     - Upsert cloud_entitlements row with:
+       status=active
+       stripe_customer_id
+       stripe_subscription_id
+       current_period_end (from subscription.current_period_end)
+  2. customer.subscription.updated
+     - Update status and current_period_end in DB for the matching stripe_subscription_id.
+  3. customer.subscription.deleted
+     - Set status=canceled in DB for matching stripe_subscription_id.
+- Return 200 quickly. Log errors, but do not crash.
+
+5) FRONTEND INTEGRATION (Pricing Page)
+- On the pricing UI:
+  - when user selects tier + cloud and clicks Subscribe:
+    - call /api/stripe/create-checkout-session
+    - redirect to returned url
+- Also display a small “Selected: {tier} • {cloud}” state (already exists visually).
+- Disable Subscribe button until both tier + cloud selected.
+
+6) ENTITLEMENT CHECK HELPERS
+Create a helper function:
+- getUserCloudEntitlement(userId, cloudId) -> returns tier/status/period_end or null
+Use it later for gating tools.
+
+DELIVERABLES
+- Migration SQL file (or code migration) for cloud_entitlements
+- New API routes implemented
+- Pricing page wired to checkout session creation
+- Webhook route working with signature verification
+- Clear comments + minimal, clean code
+
+IMPORTANT: do NOT implement 30 Stripe products. Use 1 product + 3 prices + metadata-driven cloud selection.
