@@ -94,78 +94,86 @@ export const workflows: Workflow[] = [
   {
     id: "wf-2",
     slug: "copy-competitor-ads",
-    title: "Copy Proven Competitor Ads (Without Guessing)",
-    pain_subtitle: "You're burning money on ads that don't convert while competitors print cash.",
+    title: "Copy Proven Competitor Ads (Without Burning Cash)",
+    pain_subtitle: "You don't guess what works. You borrow proof, then adapt it to your offer. This workflow is built to find ads that convert, not just ads that get clicks.",
     cloud: "advertising",
     outcome_tag: "Ads",
     difficulty: "Intermediate",
     time_to_first_result: "1–2 weeks",
     why_this_works: [
-      "Competitors have already spent thousands testing what works—you're borrowing their lessons",
-      "Removes creative guesswork by reverse-engineering proven patterns",
-      "Lets you start with winning angles instead of random experiments",
-      "Saves ad budget by avoiding common beginner mistakes"
+      "Your competitors already spent thousands discovering what works",
+      "You extract patterns, not words (legal + effective)",
+      "You start with winning angles, not random ideas",
+      "You avoid early-stage ad budget death",
+      "You replace emotion with signals"
     ],
     steps: [
       {
-        title: "Identify 5 successful competitors",
-        instruction: "Find brands in your niche that have been running ads consistently for 3+ months. Consistency = profitability.",
-        output: "List of 5 competitor brands",
+        title: "Identify a Truly Profitable Competitor",
+        instruction: "Find one brand in your niche that has been running ads 3+ months, is advertising the same product category, and is running ads on the same platform you plan to use. Rule: Consistency = profit. Short bursts = experiments or failure.",
+        output: "1 confirmed profitable competitor",
         time_estimate: "1 hour"
       },
       {
-        title: "Collect their top-performing ads",
-        instruction: "Use Facebook Ad Library and TikTok Creative Center to find their longest-running ads. Save screenshots and copy.",
-        output: "20+ ad screenshots with copy",
+        title: "Deconstruct the Offer (Not the Ad)",
+        instruction: "Before touching creative, answer: What pain are they solving? What outcome is promised? How is risk reduced? (trial, guarantee, framing) What makes this feel urgent or necessary? If your offer is weaker than theirs, the ad will fail.",
+        output: "A strengthened or re-framed offer that can compete",
         time_estimate: "2 hours"
       },
       {
-        title: "Analyze the patterns",
-        instruction: "Look for repeated hooks, offers, and visual styles. Note the emotional triggers they use (fear, aspiration, curiosity).",
-        output: "Pattern analysis document",
-        time_estimate: "2 hours",
-        tool_slug: "ad-copy-analyzer",
-        tool_label: "Analyze copy"
+        title: "Collect Their Longest-Running Ads",
+        instruction: "Use Facebook Ad Library and TikTok Creative Center. Find ads running the longest, ads with multiple variations, and ads reused across campaigns. Save screenshots, on-screen text, hook language, and call-to-action phrasing.",
+        output: "5–10 proven ad examples",
+        time_estimate: "2 hours"
       },
       {
-        title: "Adapt the winning formula",
-        instruction: "Rewrite their best hooks in your voice. Keep the structure, change the specifics to match your product.",
-        output: "5 new ad concepts",
+        title: "Extract Winning Patterns",
+        instruction: "Do not copy. Analyze: Opening hook type (shock, pain, contrast, authority), emotional framing (fear, relief, aspiration), structure (problem → proof → payoff), and visual style (UGC, demo, lifestyle, before/after).",
+        output: "5 rewritten hooks + angles tailored to your offer",
+        time_estimate: "3 hours",
+        tool_slug: "ad-copy-analyzer",
+        tool_label: "Analyze patterns"
+      },
+      {
+        title: "Generate Visual Prompts (Pattern-Matched)",
+        instruction: "Describe the style and composition, preserve the pattern (not the asset), and generate variation automatically. Rule: Same structure, different execution.",
+        output: "5 image prompts ready for generation",
+        time_estimate: "2 hours",
+        tool_slug: "image-prompt-generator",
+        tool_label: "Generate prompts"
+      },
+      {
+        title: "Create Your Ad Creatives",
+        instruction: "Generate images using ChatGPT (DALL·E), Gemini, Grok, or any image LLM you trust. Make small variations: change background, change subject, change emotion. Do not over-iterate.",
+        output: "5 ad creatives ready to launch",
         time_estimate: "3 hours"
       },
       {
-        title: "Create your ad creatives",
-        instruction: "Match the visual style of top performers. Use similar color schemes, text overlays, and video pacing.",
-        output: "5 ad creatives ready to launch",
-        time_estimate: "4 hours",
-        tool_slug: "ai-thumbnail-coach",
-        tool_label: "Get visual feedback"
-      },
-      {
-        title: "Launch with small budget tests",
-        instruction: "Run each creative at $10–20/day. Let them run for 3 days before judging performance.",
-        output: "5 ads live with initial data",
+        title: "Launch Controlled Tests",
+        instruction: "Launch each creative at $3–$20/day with the same audience, same offer, and same landing page. Let ads run 3 days minimum or 1,000+ impressions.",
+        output: "Clean initial performance data",
         time_estimate: "3 days"
       },
       {
-        title: "Double down on winners",
-        instruction: "Kill ads below 1% CTR. Scale ads above 2% CTR. Iterate on the messaging of middle performers.",
-        output: "1–2 profitable ad creatives",
+        title: "Decide With Real Signals",
+        instruction: "Use metrics correctly: CTR = creative filter, CPC + downstream action = scale signal. Rules: Kill ads under 1% CTR, iterate 1–2% CTR, scale ads that maintain CTR while CPC drops or stays stable. Never scale clickbait.",
+        output: "1–2 scalable ad creatives",
         time_estimate: "1 week"
       }
     ],
     failure_points: [
-      "Copying ads word-for-word (legal issues and it won't match your brand)",
-      "Analyzing competitors who are also struggling (only study consistent advertisers)",
-      "Judging ads too quickly (need 1000+ impressions for real data)",
-      "Ignoring the offer—great ads can't save a bad product or price",
-      "Not testing multiple hooks against the same product",
-      "Giving up after one failed batch instead of iterating"
+      "Copying ads word-for-word",
+      "Studying losing competitors",
+      "Testing across platforms blindly",
+      "Judging ads too fast",
+      "Scaling CTR without conversions",
+      "Ignoring offer strength",
+      "Quitting after one batch"
     ],
-    expected_outcome: "You'll have 1–2 ad creatives that consistently generate positive ROI, built on patterns proven by competitors who spent thousands testing before you.",
+    expected_outcome: "You walk away with 1–2 ads built on proven demand, lower learning costs, repeatable ad pattern intelligence, and a system you can rerun every time you launch something new.",
     tool_refs: [
       { slug: "ad-copy-analyzer", name: "Ad Copy Analyzer" },
-      { slug: "ai-thumbnail-coach", name: "Thumbnail Coach" }
+      { slug: "image-prompt-generator", name: "Image Prompt Generator" }
     ],
     seo: {
       title: "Copy Competitor Ads That Work — Complete Workflow | VCM Suite",
