@@ -1,0 +1,139 @@
+Good catch — this isn’t a “design taste” issue, it’s a content-structure → renderer mismatch.
+Right now your outline is semantic (headings, bullets, spacing), but your webpage is rendering it as compressed inline text blocks.
+Here’s the straight diagnosis and fix.
+What’s Actually Going Wrong
+Your Google Doc outline relies on:
+Line breaks
+Bullet spacing
+Visual breathing room
+But your webpage is likely doing one (or more) of these:
+Rendering everything inside a single <p>
+Stripping line breaks (\n)
+Using a tight line-height
+Not spacing lists and headings
+Inlining bullet points instead of real <ul><li>
+Result:
+👉 Everything collapses into a dense paragraph = “jumbled”.
+This is not a content problem.
+It’s a markup + CSS problem.
+The Correct Mental Model (Important)
+Your outline is meant to be rendered as:
+Headings = visual anchors
+Bullets = scan points
+Sections = cards / blocks
+Right now your renderer treats it like plain text.
+You need to upgrade from:
+“text rendering”
+to
+“structured content rendering”
+The Fix (In Order of Impact)
+✅ 1. Use Proper HTML Structure (Non-Negotiable)
+Make sure your content is rendered as real elements, not injected text.
+Bad (common mistake):
+<p>
+Extract Winning Patterns
+Do not copy.
+Analyze:
+• Opening hook type
+• Emotional framing
+• Structure
+</p>
+Correct:
+<section class="workflow-step">
+  <h3>4. Extract Winning Patterns</h3>
+
+  <p class="rule">Do not copy.</p>
+
+  <p><strong>Analyze:</strong></p>
+  <ul>
+    <li>Opening hook type (shock, pain, contrast, authority)</li>
+    <li>Emotional framing (fear, relief, aspiration)</li>
+    <li>Structure (problem → proof → payoff)</li>
+    <li>Visual style (UGC, demo, lifestyle, before/after)</li>
+  </ul>
+
+  <p><strong>Use:</strong> Your Ad Copy Analyzer Tool…</p>
+
+  <p class="output">
+    <strong>Output:</strong> 5 rewritten hooks + angles
+  </p>
+</section>
+If you’re currently injecting this via dangerouslySetInnerHTML or markdown → text → <p>, this is the root cause.
+✅ 2. Add Vertical Rhythm in CSS (This Is Why It Feels “Jumbled”)
+Right now your spacing is too tight.
+Add intentional breathing room:
+.workflow-step {
+  padding: 24px;
+}
+
+.workflow-step h3 {
+  margin-bottom: 12px;
+}
+
+.workflow-step p {
+  margin: 8px 0 12px;
+  line-height: 1.6;
+}
+
+.workflow-step ul {
+  margin: 12px 0 16px;
+  padding-left: 20px;
+}
+
+.workflow-step li {
+  margin-bottom: 8px;
+}
+This alone will make it match your doc visually.
+✅ 3. Do NOT Inline Bullet Points
+If your bullets are coming from something like:
+"Analyze: • Opening hook type • Emotional framing • Structure"
+That’s why it’s collapsing.
+Instead store structured data:
+analyze: [
+  "Opening hook type (shock, pain, contrast, authority)",
+  "Emotional framing (fear, relief, aspiration)",
+  "Structure (problem → proof → payoff)",
+  "Visual style (UGC, demo, lifestyle, before/after)"
+]
+Then render with <ul>.
+This matters because:
+CSS can’t space inline bullets properly
+Accessibility breaks
+Mobile collapses badly
+✅ 4. Increase Line Height (Quiet Killer)
+Check if you have something like:
+line-height: 1.2;
+That’s crushing your content.
+For instructional workflows, use:
+line-height: 1.6–1.75;
+This alone improves scannability massively.
+✅ 5. Optional but Strong: Card Separation Per Step
+You’re already halfway there visually.
+Add subtle separation:
+.workflow-step {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+This makes each step feel intentional, not mashed together.
+The Real Insight (This Matters for VCM)
+What you’re running into is the exact reason:
+CMS objects must preserve structure, not just text
+Your workflow content is procedural, not editorial.
+That means:
+Steps
+Rules
+Outputs
+Tools
+Those must be first-class fields, not paragraphs.
+You’re already thinking this way conceptually — your renderer just needs to respect it.
+Blunt Summary
+Why it’s jumbled:
+You’re rendering structured thinking as unstructured text
+How to fix it:
+Real HTML elements (h3, ul, li, p)
+Vertical spacing via CSS
+No inline bullets
+Higher line-height
+Step-level containers
+Once you do this, your webpage will match the outline exactly — and feel premium instead of cramped.
