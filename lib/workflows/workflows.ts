@@ -110,51 +110,25 @@ export const workflows: Workflow[] = [
     steps: [
       {
         title: "Identify a Truly Profitable Competitor",
-        instruction: `Find one brand in your niche that:
-• Has been running ads 3+ months
-• Is advertising the same product category
-• Is running ads on the same platform you plan to use
-
-Rule: Consistency = profit. Short bursts = experiments or failure.`,
+        instruction: "Find one brand in your niche that:\n\n• Has been running ads 3+ months\n• Is advertising the same product category\n• Is running ads on the same platform you plan to use\n\nRule: Consistency = profit. Short bursts = experiments or failure.",
         output: "1 confirmed profitable competitor",
         time_estimate: "1 hour"
       },
       {
         title: "Deconstruct the Offer (Not the Ad)",
-        instruction: `Before touching creative, answer:
-• What pain are they solving?
-• What outcome is promised?
-• How is risk reduced? (trial, guarantee, framing)
-• What makes this feel urgent or necessary?
-
-If your offer is weaker than theirs, the ad will fail.`,
+        instruction: "Before touching creative, answer:\n\n• What pain are they solving?\n• What outcome is promised?\n• How is risk reduced? (trial, guarantee, framing)\n• What makes this feel urgent or necessary?\n\nIf your offer is weaker than theirs, the ad will fail.",
         output: "A strengthened or re-framed offer that can compete",
         time_estimate: "2 hours"
       },
       {
         title: "Collect Their Longest-Running Ads",
-        instruction: `Use Facebook Ad Library and TikTok Creative Center.
-
-Find:
-• Ads running the longest
-• Ads with multiple variations
-• Ads reused across campaigns
-
-Save: Screenshots, on-screen text, hook language, and call-to-action phrasing.`,
+        instruction: "Use Facebook Ad Library and TikTok Creative Center.\n\nFind:\n• Ads running the longest\n• Ads with multiple variations\n• Ads reused across campaigns\n\nSave: Screenshots, on-screen text, hook language, and call-to-action phrasing.",
         output: "5–10 proven ad examples",
         time_estimate: "2 hours"
       },
       {
         title: "Extract Winning Patterns",
-        instruction: `Do not copy.
-
-Analyze:
-• Opening hook type (shock, pain, contrast, authority)
-• Emotional framing (fear, relief, aspiration)
-• Structure (problem → proof → payoff)
-• Visual style (UGC, demo, lifestyle, before/after)
-
-Use your Ad Copy Analyzer Tool to translate patterns into your brand voice.`,
+        instruction: "Do not copy.\n\nAnalyze:\n• Opening hook type (shock, pain, contrast, authority)\n• Emotional framing (fear, relief, aspiration)\n• Structure (problem → proof → payoff)\n• Visual style (UGC, demo, lifestyle, before/after)\n\nUse your Ad Copy Analyzer Tool to translate patterns into your brand voice.",
         output: "5 rewritten hooks + angles tailored to your offer",
         time_estimate: "3 hours",
         tool_slug: "ad-copy-analyzer",
@@ -162,12 +136,7 @@ Use your Ad Copy Analyzer Tool to translate patterns into your brand voice.`,
       },
       {
         title: "Generate Visual Prompts (Pattern-Matched)",
-        instruction: `Use your Image Prompt Generator Tool to:
-• Describe the style and composition
-• Preserve the pattern, not the asset
-• Generate variation automatically
-
-Rule: Same structure, different execution.`,
+        instruction: "Use your Image Prompt Generator Tool to:\n\n• Describe the style and composition\n• Preserve the pattern, not the asset\n• Generate variation automatically\n\nRule: Same structure, different execution.",
         output: "5 image prompts ready for generation",
         time_estimate: "2 hours",
         tool_slug: "image-to-prompt",
@@ -175,40 +144,19 @@ Rule: Same structure, different execution.`,
       },
       {
         title: "Create Your Ad Creatives",
-        instruction: `Generate images using:
-• ChatGPT (DALL·E)
-• Gemini
-• Grok
-• Or any image LLM you trust
-
-Make small variations: Change background, change subject, change emotion.
-Do not over-iterate.`,
+        instruction: "Generate images using:\n\n• ChatGPT (DALL·E)\n• Gemini\n• Grok\n• Or any image LLM you trust\n\nMake small variations: Change background, change subject, change emotion.\n\nDo not over-iterate.",
         output: "5 ad creatives ready to launch",
         time_estimate: "3 hours"
       },
       {
         title: "Launch Controlled Tests",
-        instruction: `Launch each creative at $3–$20/day with:
-• Same audience
-• Same offer
-• Same landing page
-
-Let ads run 3 days minimum or 1,000+ impressions.`,
+        instruction: "Launch each creative at $3–$20/day with:\n\n• Same audience\n• Same offer\n• Same landing page\n\nLet ads run 3 days minimum or 1,000+ impressions.",
         output: "Clean initial performance data",
         time_estimate: "3 days"
       },
       {
         title: "Decide With Real Signals",
-        instruction: `Use metrics correctly:
-• CTR → creative filter
-• CPC + downstream action → scale signal
-
-Rules:
-• Kill ads under 1% CTR
-• Iterate 1–2% CTR
-• Scale ads that maintain CTR while CPC drops or stays stable
-
-Never scale clickbait.`,
+        instruction: "Use metrics correctly:\n\n• CTR → creative filter\n• CPC + downstream action → scale signal\n\nRules:\n• Kill ads under 1% CTR\n• Iterate 1–2% CTR\n• Scale ads that maintain CTR while CPC drops or stays stable\n\nNever scale clickbait.",
         output: "1–2 scalable ad creatives",
         time_estimate: "1 week"
       }
