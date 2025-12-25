@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CheckCircle2, Lock, ExternalLink } from "lucide-react";
 import { WorkflowStep } from "@/lib/workflows/types";
+import { parseInstruction } from "@/lib/workflows/instructionParser";
 
 interface ToolInfo {
   name: string;
@@ -21,6 +22,8 @@ export default function WorkflowStepCard({ step, stepNumber, toolsInfo }: Workfl
   const isToolAvailable = toolInfo?.available ?? false;
   const toolName = toolInfo?.name ?? step.tool_label;
 
+  const instructionSegments = parseInstruction(step.instruction);
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
       <div className="flex items-start gap-4">
@@ -29,12 +32,30 @@ export default function WorkflowStepCard({ step, stepNumber, toolsInfo }: Workfl
         </div>
         
         <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">
             {step.title}
           </h3>
           
-          <div className="text-gray-600 mb-4 whitespace-pre-line">
-            {step.instruction}
+          <div className="text-gray-600 mb-4 space-y-3">
+            {instructionSegments.map((segment, index) => {
+              if (segment.type === 'paragraph') {
+                return (
+                  <p key={index} className="leading-relaxed">
+                    {segment.text}
+                  </p>
+                );
+              } else {
+                return (
+                  <ul key={index} className="list-disc list-outside ml-5 space-y-1.5">
+                    {segment.items.map((item, itemIndex) => (
+                      <li key={itemIndex} className="leading-relaxed">
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                );
+              }
+            })}
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-sm">
