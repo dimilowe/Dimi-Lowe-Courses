@@ -1,0 +1,97 @@
+Yes — that plan is basically correct. But I’m going to tighten it, because there are two places people screw this up:
+They create a second webhook path / second Stripe “mode” and everything gets inconsistent.
+They “ALTER TABLE” blindly and break existing entitlement logic.
+Here’s the clean way to finish this with what you already have.
+Decision: reuse existing Stripe routes, don’t add a parallel Stripe system
+You already have:
+/api/checkout (creates sessions for CMS products)
+/api/webhooks/stripe (handles checkout.session.completed)
+So you should extend what exists instead of creating /api/stripe/* unless there’s a hard reason not to.
+What this means
+Keep /api/checkout as the single entrypoint for Checkout Session creation
+Add a mode like checkoutType: "cloud_subscription" vs "cms_product"
+Keep /api/webhooks/stripe as the single webhook
+Add subscription events + entitlement provisioning to it
+This prevents “Stripe drift.”
+Your actual build checklist (the real plan)
+0) Stripe dashboard setup (do this once)
+Create 1 product + 3 recurring prices.
+Env vars you’ll set:
+STRIPE_SECRET_KEY
+STRIPE_WEBHOOK_SECRET
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+NEXT_PUBLIC_APP_URL
+And price IDs:
+STRIPE_PRICE_STARTER
+STRIPE_PRICE_BASIC
+STRIPE_PRICE_PRO
+Don’t create 10 products. Don’t create 30 prices.
+1) Database: extend cloud_entitlements safely
+You said cloud_entitlements exists but missing Stripe columns. Good.
+Add these columns if missing:
+stripe_customer_id text
+stripe_subscription_id text unique
+current_period_end timestamptz
+status text default 'active' (only if you don’t already have status)
+updated_at timestamptz default now()
+Add indexes:
+(user_id, cloud_id)
+unique on stripe_subscription_id
+Important: do not rename existing columns. Only add.
+2) Checkout session creation (extend /api/checkout)
+Add support for cloud subs:
+Request body:
+{ "type": "cloud", "cloudId": "ai_video", "tier": "basic" }
+Server does:
+Validate cloudId is one of the 10
+Validate tier is one of starter/basic/pro
+Map tier → priceId
+Create Stripe Checkout Session in mode: "subscription"
+Attach metadata in two places:
+metadata: { user_id, cloud_id, tier, type: "cloud" }
+subscription_data: { metadata: { user_id, cloud_id, tier, type: "cloud" } }
+Return { url }
+This keeps your CMS checkout and cloud checkout unified under one route.
+3) Webhook: extend /api/webhooks/stripe
+Right now it handles checkout.session.completed for CMS products. Keep that logic, but branch by metadata.
+Must handle these events
+checkout.session.completed
+if it’s type=cloud: retrieve subscription, upsert entitlement row
+if it’s cms purchase: run existing behavior
+customer.subscription.updated
+update status + current_period_end by stripe_subscription_id
+customer.subscription.deleted
+set status=canceled
+Provisioning logic (cloud)
+When completed:
+Extract metadata (session first; fallback to subscription metadata)
+Get subscription.id, customer.id, current_period_end
+Upsert into cloud_entitlements:
+status = 'active'
+tier = basic
+cloud_id = ai_video
+store Stripe IDs and period end
+This is the “source of truth” layer.
+4) Pricing page wiring
+Your UI already does plan + cloud selection.
+When user clicks Subscribe:
+call /api/checkout with { type:"cloud", cloudId, tier }
+redirect to returned Stripe URL
+show success/canceled banners using query params
+Disable Subscribe until both selected (you already have that).
+5) Entitlement check helper
+Implement:
+getCloudEntitlement(userId, cloudId) → returns tier/status/period_end
+userHasPro(userId, cloudId) etc
+This becomes your gating layer for tools in that cloud.
+What Replit told you that I agree with
+cloud_entitlements exists ✅
+Stripe code exists ✅
+env vars missing ✅
+webhook + checkout exist ✅
+need subscription lifecycle events ✅
+So yes: you’re aligned.
+What I don’t want you to do
+Don’t create a second set of routes like /api/stripe/* unless /api/checkout is genuinely messy beyond saving.
+Don’t create 30 Stripe objects.
+Don’t store “cloud selection” only in your app and not in Stripe metadata (you’ll lose attribution if webhook runs without your DB context).

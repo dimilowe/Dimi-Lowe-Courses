@@ -1,0 +1,91 @@
+Here’s the exact Replit instruction to finish it (paste this)
+You are working in my Next.js + TypeScript app. Stripe is already integrated.
+
+CURRENT STATE (confirmed):
+- Webhook route exists at /api/webhooks/stripe and already handles checkout.session.completed for CMS products.
+- Checkout route exists at /api/checkout and creates Stripe Checkout sessions for CMS products.
+- cloud_entitlements table exists but is missing Stripe subscription tracking columns.
+- Stripe env vars are not set yet.
+
+GOAL:
+Add Stripe subscriptions for “Clouds” using a metadata-driven entitlement model:
+- 1 Stripe product: “VCM Cloud Subscription”
+- 3 monthly recurring prices: Starter ($9.99), Basic ($29), Pro ($59)
+- User selects: tier + one cloud (10 cloud options)
+- We DO NOT create 30 Stripe products/prices
+- We pass cloud_id + tier + user_id via Stripe metadata
+- Webhook provisions/updates entitlements in cloud_entitlements
+
+REQUIREMENTS:
+1) ENV VARS
+Implement usage of:
+- STRIPE_SECRET_KEY
+- STRIPE_WEBHOOK_SECRET
+- NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+- NEXT_PUBLIC_APP_URL
+- STRIPE_PRICE_STARTER
+- STRIPE_PRICE_BASIC
+- STRIPE_PRICE_PRO
+
+2) DATABASE MIGRATION
+Safely ALTER cloud_entitlements to add missing columns (only if absent):
+- stripe_customer_id TEXT
+- stripe_subscription_id TEXT UNIQUE
+- current_period_end TIMESTAMPTZ
+- status TEXT (if not already present)
+- updated_at TIMESTAMPTZ default now()
+Add index on (user_id, cloud_id) if missing.
+Do not break existing columns or existing logic.
+
+3) CHECKOUT: EXTEND EXISTING /api/checkout
+Add support for body:
+{ type: "cloud", cloudId: string, tier: "starter"|"basic"|"pro" }
+
+- Validate cloudId is one of the 10 allowed clouds.
+- Map tier -> priceId using STRIPE_PRICE_* env vars.
+- Create Stripe Checkout Session in subscription mode.
+- success_url = `${NEXT_PUBLIC_APP_URL}/pricing?success=1`
+- cancel_url  = `${NEXT_PUBLIC_APP_URL}/pricing?canceled=1`
+- Include BOTH:
+  session.metadata = { type:"cloud", user_id, cloud_id, tier }
+  subscription_data.metadata = { type:"cloud", user_id, cloud_id, tier }
+- Return { url } to client.
+
+Keep existing CMS checkout behavior intact.
+
+4) WEBHOOK: EXTEND EXISTING /api/webhooks/stripe
+Keep current CMS logic. Add subscription lifecycle handling:
+
+Handle events:
+- checkout.session.completed
+  - If session.metadata.type === "cloud":
+    - Retrieve the subscription from Stripe if needed.
+    - Read metadata from session (fallback to subscription metadata).
+    - Upsert row in cloud_entitlements for (user_id, cloud_id):
+      tier, status="active", stripe_customer_id, stripe_subscription_id, current_period_end
+  - Else run existing CMS completion logic.
+
+- customer.subscription.updated
+  - Update cloud_entitlements row by stripe_subscription_id:
+    status, current_period_end
+
+- customer.subscription.deleted
+  - Update cloud_entitlements row by stripe_subscription_id:
+    status="canceled"
+
+Webhook must verify signature using STRIPE_WEBHOOK_SECRET and use raw body parsing.
+
+5) PRICING PAGE
+Wire the Subscribe button to call /api/checkout with { type:"cloud", cloudId, tier } and redirect to returned url.
+Disable subscribe until both tier + cloud selected.
+
+6) HELPER
+Create a small helper to fetch entitlement:
+getUserCloudEntitlement(userId, cloudId) -> returns tier/status/current_period_end
+
+DELIVERABLES:
+- Migration SQL (or migration script) that is safe to run multiple times
+- Updated /api/checkout implementation
+- Updated /api/webhooks/stripe implementation
+- Pricing page wired to subscription checkout
+- Minimal logging and clear comments
