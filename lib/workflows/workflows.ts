@@ -139,7 +139,7 @@ export const workflows: Workflow[] = [
         instruction: "Describe the style and composition, preserve the pattern (not the asset), and generate variation automatically. Rule: Same structure, different execution.",
         output: "5 image prompts ready for generation",
         time_estimate: "2 hours",
-        tool_slug: "free-image-prompt-generator",
+        tool_slug: "image-to-prompt",
         tool_label: "Generate prompts"
       },
       {
@@ -173,7 +173,7 @@ export const workflows: Workflow[] = [
     expected_outcome: "You walk away with 1–2 ads built on proven demand, lower learning costs, repeatable ad pattern intelligence, and a system you can rerun every time you launch something new.",
     tool_refs: [
       { slug: "ad-copy-analyzer", name: "Ad Copy Analyzer" },
-      { slug: "free-image-prompt-generator", name: "Image to Prompt Generator" }
+      { slug: "image-to-prompt", name: "Image to Prompt Generator" }
     ],
     seo: {
       title: "Copy Competitor Ads That Work — Complete Workflow | VCM Suite",
