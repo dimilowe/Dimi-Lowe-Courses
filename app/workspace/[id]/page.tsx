@@ -6,6 +6,8 @@ import { UserSessionData, userSessionOptions } from '@/lib/user-session';
 import { query } from '@/lib/db';
 import WorkspaceItemClient from './WorkspaceItemClient';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Workspace Item | VCM Suite',
 };

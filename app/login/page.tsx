@@ -4,6 +4,8 @@ import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/LoginForm";
 
+export const dynamic = 'force-dynamic';
+
 export default async function LoginPage() {
   const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);
   

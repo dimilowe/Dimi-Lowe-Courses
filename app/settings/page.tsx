@@ -7,6 +7,8 @@ import { PasswordChangeForm } from "@/components/PasswordChangeForm";
 import { EmailChangeForm } from "@/components/EmailChangeForm";
 import { query } from "@/lib/db";
 
+export const dynamic = 'force-dynamic';
+
 export default async function SettingsPage() {
   const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);
   

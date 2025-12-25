@@ -5,6 +5,8 @@ import { cookies } from 'next/headers';
 import { UserSessionData, userSessionOptions } from '@/lib/user-session';
 import WorkspaceClient from './WorkspaceClient';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Workspace | VCM Suite',
   description: 'Your saved outputs across all tools and clouds',

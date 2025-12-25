@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { CLOUDS, type CloudConfig } from "@/lib/clouds";
 import { CLOUD_THEMES, type CloudId } from "@/lib/cloudTheme";
@@ -76,7 +76,7 @@ function getCloudIcon(slug: string) {
   return theme?.icon;
 }
 
-export default function PricingPage() {
+function PricingPageContent() {
   const searchParams = useSearchParams();
   const [tier, setTier] = useState<string | null>(null);
   const [cloud, setCloud] = useState<string | null>(null);
@@ -279,5 +279,17 @@ export default function PricingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+      </div>
+    }>
+      <PricingPageContent />
+    </Suspense>
   );
 }

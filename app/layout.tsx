@@ -9,6 +9,8 @@ import { AppProvider } from "@/components/providers/AppProvider";
 import { getCurrentUserWithTier } from "@/lib/pricing/getCurrentUserWithTier";
 import type { UserTier } from "@/lib/pricing/types";
 
+export const dynamic = 'force-dynamic';
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
