@@ -33,9 +33,9 @@ export default function WorkflowStepCard({ step, stepNumber, toolsInfo }: Workfl
             {step.title}
           </h3>
           
-          <p className="text-gray-600 mb-4">
+          <div className="text-gray-600 mb-4 whitespace-pre-line">
             {step.instruction}
-          </p>
+          </div>
 
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <div className="flex items-center gap-1.5 text-green-600">
