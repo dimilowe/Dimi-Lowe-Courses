@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Clock, ArrowRight, Lock, ExternalLink } from "lucide-react";
+import { CheckCircle2, Lock, ExternalLink } from "lucide-react";
 import { WorkflowStep } from "@/lib/workflows/types";
 
 interface ToolInfo {
@@ -43,13 +43,6 @@ export default function WorkflowStepCard({ step, stepNumber, toolsInfo }: Workfl
               <span className="font-medium">Output:</span>
               <span className="text-gray-600">{step.output}</span>
             </div>
-
-            {step.time_estimate && (
-              <div className="flex items-center gap-1.5 text-gray-500">
-                <Clock className="h-4 w-4" />
-                <span>{step.time_estimate}</span>
-              </div>
-            )}
           </div>
 
           {hasMainTool && (
