@@ -1,0 +1,219 @@
+You are Replit. Build a new VCM Suite tool using the existing “Universal Tool Template (cms block template - universal)” pattern and styling. You MUST adapt the provided template into a new page + client component, and wire a real server pipeline.
+
+TOOL
+- Name: VCM Audio Key + Scale Detector
+- Path: /tools/audio-key-detector
+- Category/Cloud: Music Cloud
+- Pricing: 100% free for now (no Pro gating)
+- Purpose: Upload an audio file and detect:
+  1) Dominant key (e.g., A minor)
+  2) Scale type (major/minor + optional mode guess)
+  3) Confidence score
+  4) Key changes / modulations over time (simple, practical segmentation)
+- Positioning: Part of the “Prep Stack”:
+  - BPM Finder (planned)
+  - Key + Scale Detector (this tool)
+  - Audio → MIDI Converter (already built)
+  This is a workflow cluster.
+
+CRITICAL: KEEP IT TINY
+This should be a lightweight build:
+- Use chroma-based key detection (fast)
+- Optional segmentation for modulations (still cheap)
+- No deep ML required
+
+REUSE EXISTING INFRA
+You already have a working audio normalization + guardrails stack from /tools/audio-to-midi.
+Reuse:
+- file upload handling
+- 25MB max
+- ffprobe duration check (10 min max)
+- per-IP in-memory lock with TTL
+- 90s timeout (this tool will finish far faster)
+- temp cleanup
+- ffmpeg normalize to mono 22050Hz WAV
+
+Do NOT duplicate helpers. Import the same functions you used for audio-to-midi.
+
+SUPPORTED INPUT FORMATS
+- mp3, wav, m4a, flac, ogg
+
+OUTPUTS
+Return JSON + a downloadable “analysis.json” (optional but recommended).
+API response:
+{
+  key: string,                // e.g. "A"
+  scale: "major" | "minor",   // plus optional "mode" string
+  keyLabel: string,           // e.g. "A minor"
+  confidence: number,         // 0..1
+  altCandidates: Array<{ keyLabel: string, confidence: number }>, // top 5
+  modulations: Array<{ startSec: number, endSec: number, keyLabel: string, confidence: number }>,
+  analysisUrl?: string,       // downloadable JSON file
+  meta: { durationSec: number, processingMs: number, format: string }
+}
+
+KEY DETECTION ALGORITHM (DO THIS)
+Use librosa chroma features + a standard key profile correlation.
+
+1) Load normalized mono WAV (22050Hz).
+2) Compute chroma:
+   - chroma = librosa.feature.chroma_cqt(y=y, sr=sr) OR chroma_stft
+3) Aggregate into a pitch class energy vector:
+   - pc = chroma.mean(axis=1)  // 12 bins
+4) Compare against Krumhansl-Schmuckler key profiles (major/minor templates)
+   - For each of 12 tonics:
+     - rotate template
+     - compute correlation score (e.g., cosine similarity)
+   - Choose best major/minor as dominant key.
+5) Confidence:
+   - softmax over top scores OR (best - second_best) normalized
+   - Output 0..1
+6) Alternate candidates:
+   - return top 5 keyLabels with normalized confidences
+
+MODULATIONS (SIMPLE, USEFUL)
+Detect key changes by windowed analysis:
+- window size: 8s
+- hop: 4s
+For each window:
+- compute chroma mean and key correlation
+- create segment list by merging adjacent windows if same keyLabel and confidence >= 0.45
+- discard tiny segments < 6s unless confidence >= 0.65
+Return modulations segments.
+
+NOTE: This does not need to be perfect. It needs to be practical.
+
+EDGE CASE HANDLING
+- If confidence is low (<0.35), display: “Low confidence — try isolating the instrument or using a cleaner excerpt.”
+- If audio is percussive/no pitch content, confidence will be low. That’s okay.
+
+IMPLEMENTATION DETAILS
+
+A) FILES
+Create:
+- /app/tools/audio-key-detector/page.tsx
+- /app/tools/audio-key-detector/AudioKeyDetectorClient.tsx
+- /app/api/audio-key-detector/route.ts
+- /python/audio_key_detector_worker.py
+
+(Yes, use a Python worker like the others so you reuse the same environment, and keep the key detection stable and deterministic.)
+
+B) API
+/app/api/audio-key-detector/route.ts must:
+- Parse multipart upload
+- Enforce 25MB max
+- Temp write
+- ffprobe duration <= 600s
+- Normalize with ffmpeg to mono 22050Hz WAV
+- Acquire per-IP lock
+- Spawn python worker with timeout (keep 30s but okay to use 90s consistent)
+- Capture stdout JSON
+- Save analysis JSON to your public file system to generate analysisUrl
+- Return JSON response
+- Cleanup temps and release lock
+
+C) PYTHON WORKER
+/python/audio_key_detector_worker.py must:
+Inputs:
+--input <normalized_wav>
+--out <output_dir>
+
+Outputs:
+- analysis.json (write in out dir)
+- print JSON to stdout:
+{
+  "key": "A",
+  "scale": "minor",
+  "keyLabel": "A minor",
+  "confidence": 0.72,
+  "altCandidates": [...],
+  "modulations": [...]
+}
+
+Dependencies:
+- librosa
+- numpy
+If librosa already exists from prior tools, reuse it.
+If not, add it to requirements, but keep dependencies minimal.
+
+Key profiles (hardcode these):
+Major profile (Krumhansl):
+[6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
+Minor profile:
+[6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
+
+Use cosine similarity between pc vector and rotated template.
+
+D) CLIENT UI
+AudioKeyDetectorClient.tsx:
+- Dropzone + file picker
+- CTA: “Detect Key”
+- Progress: Uploading → Analyzing → Done
+- Results card:
+  - Big keyLabel (e.g., “A minor”)
+  - Confidence meter (0–100%)
+  - Top candidates list (top 5)
+  - Modulations timeline list (segments with timestamps)
+  - Download analysis JSON button (analysisUrl)
+- “Prep Stack” callout:
+  - Link (or mention) Audio → MIDI tool
+  - Link (or mention) BPM Finder (planned)
+- Attribution + privacy line (match reality)
+
+E) PAGE TEMPLATE ADAPTATION
+Use the given Universal Tool Template structure and convert it to this tool.
+
+Metadata keywords should include:
+- audio key detector
+- song key finder
+- key and scale detector
+- detect key of a song
+- key finder online
+- audio to key
+- key detection
+- major or minor detector
+- free key detector
+
+Pain-first intro section:
+“You found a beat. You found a sample. You have no clue what key it’s in. This tool tells you in seconds.”
+
+Honest limitations:
+- Complex harmony can confuse key detection
+- Modulations are “best-effort”
+- Works best on tonal audio (not drums/noise)
+- Short clips reduce confidence
+
+JSON-LD
+- SoftwareApplication: “VCM Audio Key + Scale Detector”, price 0
+- FAQPage: 10–12 questions
+
+FAQ IDEAS (USE THESE)
+1) How do I find the key of a song?
+2) Can this detect major vs minor?
+3) How accurate is key detection?
+4) Why does it show low confidence?
+5) Can it detect key changes (modulations)?
+6) What audio works best?
+7) Does it work on vocals-only?
+8) Does it work on full mixes?
+9) What file types are supported?
+10) Do you store my audio?
+11) How do I use this with BPM Finder?
+12) How do I use this with Audio → MIDI?
+
+SYSTEM INTEGRATION (MUST DO)
+- Add tool to tools database table
+- Add to global_urls table
+- Ensure ExploreMoreTools can surface it
+- Category: Music Cloud
+- Tags: “music”, “key”, “scale”, “producer”, “bpm”, “midi”
+
+DELIVERABLES CHECKLIST
+- /tools/audio-key-detector page renders with Universal Tool Template style
+- Upload works and returns dominant key + confidence
+- Shows top candidates + modulations list
+- Guardrails enforced (25MB, 10min, 1 job/IP, timeout)
+- Tool registered in tools + global_urls + ExploreMoreTools
+- No login required, free.
+
+NOW IMPLEMENT IT.

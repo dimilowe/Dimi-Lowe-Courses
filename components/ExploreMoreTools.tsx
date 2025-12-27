@@ -29,6 +29,7 @@ const tools = [
   { name: "Vocal Doubler", href: "/tools/vocal-doubler" },
   { name: "Audio to MIDI", href: "/tools/audio-to-midi" },
   { name: "Vocal Melody Extractor", href: "/tools/vocal-melody-extractor" },
+  { name: "Audio Key Detector", href: "/tools/audio-key-detector" },
   { name: "BuyLens", href: "/shopping/buylens" },
   { name: "Ideas Hub", href: "/ideas" },
   { name: "VCM Answers", href: "/answers" },
