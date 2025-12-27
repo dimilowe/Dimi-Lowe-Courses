@@ -1,0 +1,68 @@
+What to tell Replit to do next (tighten the plan)
+1) Discovery must be deterministic in v1 (no “web search” dependency)
+Replit should not invent a Search API or add paid integrations.
+Do this:
+Use a curated domain allowlist per market:
+resale: ebay.com, grailed.com, poshmark.com, depop.com, stockx.com, goat.com
+retail: bestbuy.com, walmart.com, target.com, + brand/manufacturer domains only when user specifies a brand
+Generate search URLs for each allowlisted domain using simple query params when possible (or site search endpoints if public).
+Visit only the search result page + top 1–2 product pages (within caps).
+Do NOT:
+Crawl category trees
+Follow endless pagination
+Attempt “find more like this”
+Call Google/Bing unless the repo already has it wired
+This keeps cost predictable and avoids “scraper” behavior.
+2) Extraction must prioritize structured data first
+If the tool tries to regex prices from random DOM everywhere, it’ll break constantly.
+Extraction order must be:
+JSON-LD Product/Offer (best)
+OpenGraph meta (backup)
+Minimal heuristics (last resort)
+Also enforce:
+If price is missing, label as “price not publicly visible” and keep moving.
+Don’t fight the site.
+3) Robots + anti-bot detection must be explicit (and logged)
+Replit must implement:
+robots.txt allow check per domain
+Detect likely “blocked” pages (captcha/interstitial) and stop.
+Statuses must be stored in buylens_sources:
+ok / robots_blocked / captcha / paywall / timeout / error
+4) Lens behavior must be transparent (trust feature)
+If user says “cheapest”, you sort by total.
+Must show:
+“Sorted by total price (item + shipping)” when shipping-total toggle is ON
+If shipping unknown, show “shipping unknown” and sort by price only
+No silent changes.
+5) Gating behavior must be correct for a heavy tool
+The page can be public/indexable if you want, but:
+Running requires auth + entitlement
+If no entitlement:
+show paywall component immediately
+disable the run action
+Paste this to Replit as an instruction update
+Good plan. Tighten these MVP constraints so we don’t drift:
+
+1) Discovery v1 is deterministic (NO paid search / NO new search APIs).
+   Use curated domain allowlists per market and generate public search URLs per domain.
+   Visit only search results + top 1–2 product pages per domain within caps.
+   No deep crawling, no category expansion, no pagination loops.
+
+2) Extraction order is strict:
+   JSON-LD Product/Offer → OpenGraph → minimal heuristics.
+   If price/shipping not public, label as unknown and move on. Don’t fight the site.
+
+3) Implement and log robots + anti-bot explicitly:
+   robots.txt must be checked per domain and enforced.
+   Detect captcha/interstitial and stop; record status in buylens_sources.
+
+4) Lens transparency:
+   If optimization=cheapest and shipping-total toggle ON, sort by total_usd and display “Sorted by total (item + shipping)”.
+   If shipping unknown, label it and sort by price_usd.
+
+5) Gating:
+   Tool is Shopping Cloud Pro. If not entitled, show paywall and disable runs.
+
+Proceed with implementation under these constraints.
+If you want to be extra ruthless (and you should), add one more line:
+“If a site blocks us, we do not retry. We skip and report.”
