@@ -1,0 +1,285 @@
+FULL REPLIT PROMPT — BUILD “VCM BPM Finder” (client-side, accurate BPM detection)
+
+You are inside the VCM Suite Next.js App Router codebase. Implement a new tool page: “VCM BPM Finder”.
+This tool’s ONLY job is to estimate the BPM of an uploaded audio file as accurately as possible (client-side).
+NO “next tool” suggestions. NO linking to Vocal Delay. NO upsells. Keep it pure and utility-first.
+
+DO NOT WRITE A PLAN.
+CREATE/EDIT FILES AND WIRE IT INTO THE SYSTEM (registry + global urls + DB tools table) AND ENSURE IT RUNS.
+
+========================================
+1) TOOL IDENTITY
+========================================
+Tool slug: bpm-finder
+Canonical URL: /tools/bpm-finder
+Tool name: VCM BPM Finder
+
+Core promise:
+Upload any audio and get the most likely BPM + alternate BPM interpretations (half/double-time).
+Also show a confidence label (High/Medium/Low).
+
+========================================
+2) REQUIRED FILES TO CREATE
+========================================
+Create these files:
+
+A) Page:
+- app/tools/bpm-finder/page.tsx
+
+B) Client:
+- app/tools/bpm-finder/BpmFinderClient.tsx
+
+C) BPM analysis module:
+- lib/audio/bpm.ts
+
+D) Optional audio helpers if you already have patterns:
+- lib/audio/audioFile.ts (read/decode helpers)
+(If you already have similar helpers from Vocal Delay, reuse them. Do not duplicate code unnecessarily.)
+
+========================================
+3) SEO METADATA (page.tsx)
+========================================
+Use Universal Tool Template layout with hero + tool + keyword sections + feature grid + FAQ + ExploreMoreTools.
+
+Set metadata:
+
+title:
+"Free BPM Finder Online | Accurate Tempo Detector for Any Audio | VCM BPM Finder"
+
+description:
+"Free BPM finder and tempo detector. Upload audio (WAV/MP3/M4A) and get the most likely BPM plus half-time and double-time options with confidence scoring. No login required. Processed entirely in your browser."
+
+keywords (include):
+- bpm finder
+- tempo detector
+- bpm detector
+- find bpm of a song
+- bpm analyzer
+- bpm finder online
+- tempo finder
+- detect tempo
+- music bpm finder
+- audio bpm detection
+- bpm for vocals
+- bpm for instrumentals
+- bpm for beats
+- metronome bpm finder
+
+openGraph:
+title: "Free BPM Finder Online"
+description: "Upload audio and get accurate BPM estimates plus alternate tempos. No login required."
+type: "website"
+
+IMPORTANT:
+Do NOT include fake aggregateRating. Only include ratings if you have real data.
+Do NOT mention competitors by name in claims.
+
+========================================
+4) JSON-LD SCHEMAS (page.tsx)
+========================================
+Add two scripts:
+A) SoftwareApplication JSON-LD:
+- name: "VCM BPM Finder"
+- applicationCategory: "MultimediaApplication"
+- operatingSystem: "Web"
+- offers price 0
+
+B) FAQPage JSON-LD:
+10 questions minimum (see FAQ content section below).
+
+========================================
+5) UI REQUIREMENTS (BpmFinderClient.tsx)
+========================================
+The UI must be clean and minimal.
+
+Required UI:
+- File upload input (accept audio/*, plus explicitly allow wav/mp3/m4a)
+- After upload show:
+  - filename
+  - duration (seconds)
+  - sample rate (if available)
+- Button: “Analyze BPM” (auto-analyze is OK, but button is safer)
+- While analyzing: show spinner + status text
+
+Results card MUST show:
+1) Primary BPM (big number)
+2) Confidence label: High / Medium / Low
+3) Alternate BPMs:
+   - Half-time candidate (primary/2 rounded) if plausible
+   - Double-time candidate (primary*2) if plausible
+   - Also list top 3 detected candidates with “strength” bars (simple)
+4) Explanation line (no suggestions):
+   - “Some audio can be interpreted at half or double tempo. Try the options above if the primary BPM feels off.”
+
+Controls:
+- “Reset” button
+
+DO NOT:
+- Suggest other tools
+- Link to vocal delay
+- Upsell anything
+
+========================================
+6) BPM DETECTION REQUIREMENTS (lib/audio/bpm.ts)
+========================================
+Implement BPM detection using deterministic signal processing (no AI, no external APIs).
+
+Must be fast and reasonably accurate.
+Approach (implement exactly this style):
+
+A) Decode audio to AudioBuffer
+B) Convert to mono Float32Array
+   - average L/R if stereo
+C) Downsample for speed (target sampleRate ≈ 11025 or 16000)
+D) Build onset/energy envelope:
+   - frameSize ~ 1024 (after downsample)
+   - hopSize ~ 512
+   - for each frame compute RMS energy
+   - compute positive energy flux: max(0, rms[i] - rms[i-1])
+   - smooth with a short moving average window (e.g., 4–8 frames)
+E) Autocorrelation (or peak-period detection) on the onset envelope:
+   - Compute correlation for lag range that corresponds to 60–200 BPM by default
+   - Convert lag -> BPM = 60 * envelopeSampleRate / lag
+F) Peak picking:
+   - Find top peaks (at least 5)
+   - Merge near-duplicates (within 1–2 BPM)
+   - Return sorted candidates with scores
+
+G) Normalize and choose primary BPM:
+   - Choose the highest score BPM after normalization
+   - If primary BPM < 60, consider doubling into range
+   - If primary BPM > 200, consider halving into range
+   - Return primary plus alt candidates
+
+H) Confidence:
+   - High: topScore / secondScore >= 1.35 and topScore absolute above threshold
+   - Medium: ratio 1.15–1.35
+   - Low: ratio < 1.15 OR very low absolute scores
+   Implement this deterministically and return { label, ratio, scores }.
+
+Output type:
+export type BpmCandidate = { bpm: number; score: number; };
+export type BpmResult = {
+  primaryBpm: number;
+  confidence: "High" | "Medium" | "Low";
+  candidates: BpmCandidate[]; // sorted desc, unique-ish
+  halfTime?: number;
+  doubleTime?: number;
+  debug?: { ratio: number; envelopeRate: number; };
+};
+
+Export function:
+export async function detectBpmFromArrayBuffer(arrayBuffer: ArrayBuffer): Promise<BpmResult>
+
+Performance rules:
+- If audio is very long, analyze only the first N seconds (default 90s) to keep it quick.
+- If duration < 8s, set confidence Low automatically.
+
+========================================
+7) PAGE CONTENT (page.tsx) — UNIVERSAL TEMPLATE STYLE
+========================================
+Match the overall structure of your Thumbnail Coach page, but adapted to BPM Finder:
+
+Hero:
+- Badge: “Free Online BPM Finder”
+- H1: “VCM BPM Finder”
+- Subtitle: “Upload audio and get the most likely BPM plus half-time and double-time options.”
+
+Tool:
+- <BpmFinderClient />
+
+Sections (keep them lean but keyword-rich):
+SECTION 1: Keyword intro:
+- Explain BPM, why it matters for producers/DJs/vocals/beats
+- Explain half/double-time ambiguity (important!)
+
+SECTION 2: How it works:
+- “We analyze rhythmic energy and detect repeating beat intervals.”
+
+SECTION 3: Feature grid:
+Example features (use 6–8):
+- Accurate BPM Detection
+- Alternate Tempo Options
+- Confidence Scoring
+- Works on Beats / Songs / Vocals
+- Fast In-Browser Processing
+- Privacy-First (No Uploads Stored)
+- WAV/MP3/M4A Support
+- Mobile-Friendly UI
+
+SECTION 4: Honest limitations:
+- “Vocal-only audio may be more ambiguous”
+- “Live recordings can be noisy”
+- “Short clips reduce confidence”
+
+FAQ accordion + FAQ JSON-LD:
+At least 10 Q/A pairs, including:
+- What is BPM?
+- How accurate is this BPM finder?
+- Why do I see half-time and double-time BPMs?
+- Does this work on vocals only?
+- What file types are supported?
+- Do you store my audio?
+- Why does the BPM sometimes feel wrong?
+- How do I use BPM in a DAW?
+- What BPM range is supported?
+- Can I analyze short clips?
+
+Footer note:
+- “Processed entirely in-browser. No audio is stored.”
+
+ExploreMoreTools:
+- <ExploreMoreTools currentTool="/tools/bpm-finder" />
+
+========================================
+8) SYSTEM WIRING (MANDATORY)
+========================================
+Special note requirement: Add the tool to:
+- Tool registry
+- Global URLs table
+- Database tools table
+
+Do all of the following:
+
+A) Tool Registry
+Find the central tool registry file (where tools appear in navigation/explore/search).
+Add entry:
+- slug: "bpm-finder"
+- title: "VCM BPM Finder"
+- href: "/tools/bpm-finder"
+- description: "Upload audio and get accurate BPM with confidence + alternate tempos."
+- category/cloud tags: pick your audio/music category (Creation Cloud / Music Cloud) using your existing taxonomy
+- isIndexed: true
+
+B) Global URLs table
+Find the global_urls table or URL registry.
+Insert canonical entry for:
+- path: "/tools/bpm-finder"
+- type: "tool"
+- slug: "bpm-finder"
+
+C) Database tools table
+Insert row for bpm-finder into the DB tools table (same schema/pattern as other tools).
+If you use seeds, add it to seed script.
+If you use migrations, create a migration that inserts this row in an idempotent way.
+
+IMPORTANT:
+Do not invent table/column names. Follow the existing schema in the project.
+
+========================================
+9) ACCEPTANCE TESTS (VERIFY)
+========================================
+After implementation, verify:
+
+1) Upload MP3 and WAV both work (decode succeeds)
+2) Tool outputs primary BPM + at least 3 candidates
+3) Confidence label changes depending on clarity (e.g., drums => higher, short vocal clip => low)
+4) Alternates show when plausible (half/double-time)
+5) No cross-tool suggestions anywhere on the page
+6) Tool appears in nav/explore (registry + global urls + DB row worked)
+
+========================================
+IMPLEMENT NOW
+========================================
+Create the files, wire everything, ensure it builds, and ensure /tools/bpm-finder loads.
+If your repo already has a shared audio decode helper from the Vocal Delay tool, reuse it (same decoding logic, same browser support), but keep BPM detection isolated in lib/audio/bpm.ts so it can be reused by future vocal tools without pulling in UI code.
