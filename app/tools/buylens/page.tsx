@@ -271,7 +271,7 @@ export default async function BuyLensPage() {
           </div>
         </section>
 
-        <ExploreMoreTools currentTool="/shopping/buylens" />
+        <ExploreMoreTools currentTool="/tools/buylens" />
 
         <div className="mt-12 text-center text-sm text-gray-500">
           <p>
@@ -281,8 +281,8 @@ export default async function BuyLensPage() {
               View pricing
             </Link>
             {" | "}
-            <Link href="/shopping" className="text-orange-600 hover:text-orange-700">
-              Shopping Cloud
+            <Link href="/tools" className="text-orange-600 hover:text-orange-700">
+              All Tools
             </Link>
           </p>
         </div>

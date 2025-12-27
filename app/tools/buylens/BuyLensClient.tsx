@@ -91,7 +91,7 @@ export default function BuyLensClient({ isEntitled }: BuyLensClientProps) {
   const fetchPastRuns = async () => {
     setLoadingPastRuns(true);
     try {
-      const res = await fetch("/api/shopping/buylens/runs");
+      const res = await fetch("/api/buylens/runs");
       const data = await res.json();
       if (data.runs) {
         setPastRuns(data.runs);
@@ -128,7 +128,7 @@ export default function BuyLensClient({ isEntitled }: BuyLensClientProps) {
     }, 3000);
 
     try {
-      const res = await fetch("/api/shopping/buylens/run", {
+      const res = await fetch("/api/buylens/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
