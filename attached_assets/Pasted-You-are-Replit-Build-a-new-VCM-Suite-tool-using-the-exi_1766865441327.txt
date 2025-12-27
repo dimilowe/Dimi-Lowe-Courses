@@ -1,0 +1,173 @@
+You are Replit. Build a new VCM Suite tool using the existing “Universal Tool Template (cms block template - universal)” pattern.
+
+TOOL NAME
+- Product name: VCM Audio → MIDI Converter
+- Slug/path: /tools/audio-to-midi
+- Primary purpose: Upload an audio file and get a downloadable MIDI transcription (with pitch bends) powered by Spotify’s open-source Basic Pitch.
+- Pricing: 100% free for now (full capability). Do NOT add Pro gating yet.
+- Add abuse guardrails only (size/length/concurrency). Keep UX frictionless.
+
+HARD REQUIREMENTS
+1) Use the existing Next.js App Router page template structure you already use for tools (same styling patterns, ExploreMoreTools, etc).
+2) Implement server-side transcription using Basic Pitch (Python). Do not fake it. Real MIDI output.
+3) Provide downloads for:
+   - MIDI (.mid) ALWAYS
+   - Notes CSV (.csv) ALSO (free for now)
+   - Optional: Sonified MIDI WAV (.wav) (free for now)
+4) Include JSON-LD for SoftwareApplication + FAQPage.
+5) Add the tool to:
+   - tool registry
+   - global_urls table
+   - database tools table
+6) Add a short attribution line in UI: “Powered by Spotify Basic Pitch (Apache-2.0).”
+7) Do NOT require login.
+8) Add “honest limitations” section (best on one instrument at a time; vocals may need cleanup; polyphonic is imperfect; etc.)
+
+ARCHITECTURE CHOICE (DO THIS)
+- Implement Basic Pitch in a small Python worker inside the same repo.
+- Next.js API route writes the upload to disk, calls the python worker via child_process, waits, then returns file URLs for downloads.
+- Add ffmpeg-based normalization step (convert to mono wav) BEFORE running Basic Pitch for reliability.
+
+ABUSE GUARDRAILS (DO THIS)
+- Max upload size: 25MB
+- Max duration: 10 minutes (enforced server-side via ffprobe)
+- One job at a time per IP (in-memory lock with TTL is fine)
+- Add timeout: 90s per job; if exceeded, return friendly error.
+
+FILES TO CREATE / MODIFY
+
+A) PAGE
+Create:
+- /app/tools/audio-to-midi/page.tsx
+- /app/tools/audio-to-midi/AudioToMidiClient.tsx
+
+Use the Universal Tool Template layout: hero, tool component, keyword intro, features, how it works, comparisons (optional), limitations, FAQs, internal links.
+
+B) API
+Create:
+- /app/api/audio-to-midi/route.ts  (POST upload → returns { midiUrl, notesUrl, wavUrl, meta })
+
+C) SERVER HELPERS
+Create:
+- /server/lib/audio/ffmpeg.ts (helpers to call ffmpeg/ffprobe safely)
+- /server/lib/audio/ipRateLimit.ts (simple lock per IP)
+- /server/lib/files/saveOutput.ts (move outputs to public files system you already use)
+(If you already have equivalents, reuse them—don’t duplicate.)
+
+D) PYTHON WORKER
+Create a python folder:
+- /python/audio_to_midi_worker.py
+- /python/requirements.txt
+
+Python script responsibilities:
+- Input: path to normalized wav, output dir
+- Run Basic Pitch predict_and_save to generate:
+  - MIDI
+  - Notes CSV
+  - Sonified WAV
+- Print a small JSON line to stdout with output filenames.
+
+requirements.txt must include:
+- basic-pitch
+- numpy
+- librosa
+- soundfile
+
+If Basic Pitch needs extra deps in your environment, add them.
+
+E) SYSTEM / ENV
+- Ensure ffmpeg exists in the Replit environment. If not, install/add it in whatever way this repo supports (nix, apt, or replit config). Same for ffprobe.
+
+F) DB / REGISTRY
+- Add tool row to tools table (whatever schema your project uses).
+- Add global_urls entry for /tools/audio-to-midi with canonical, title, isIndexed true.
+- Ensure ExploreMoreTools picks it up.
+- Add tags: Music Cloud / Creation Cloud (choose the most appropriate existing taxonomy you already use).
+
+IMPLEMENTATION DETAILS
+
+1) UI: AudioToMidiClient.tsx
+- File dropzone + browse
+- Accept: .mp3 .wav .m4a .flac .ogg
+- Show selected file name, size
+- Button: “Convert to MIDI”
+- Progress state:
+  - Uploading…
+  - Transcribing…
+  - Done
+- On success: show download buttons for MIDI / Notes CSV / Sonified WAV + quick “next steps” (import to DAW, quantize, etc.)
+- Show meta: detected duration, sample rate, processing time.
+
+2) API: /api/audio-to-midi (POST)
+- Parse multipart form upload
+- Save to temp
+- Use ffprobe to get duration; reject if > 600 seconds
+- Normalize: ffmpeg to wav mono 22050Hz (Basic Pitch resamples anyway, but normalize for fewer surprises)
+- Acquire per-IP lock; reject if already processing
+- Call python worker:
+  python3 python/audio_to_midi_worker.py --input <normalized.wav> --out <temp_out_dir>
+- Worker returns JSON with produced file names
+- Move files to your public file serving mechanism (whatever /api/files system you use)
+- Return URLs
+
+3) Errors
+Return clean, human messages:
+- “File too large”
+- “Audio too long (max 10 minutes)”
+- “Another conversion is running—try again in a minute”
+- “Conversion timed out—try a shorter clip”
+Log full error server-side.
+
+4) SEO Content
+Make metadata keyword-rich around:
+- audio to midi
+- mp3 to midi
+- vocal to midi
+- guitar to midi
+- basic pitch
+- music transcription
+- free audio midi converter
+- pitch to midi
+- polyphonic transcription
+
+Add an “Alternatives” paragraph mentioning:
+- Melodyne (paid)
+- Ableton Convert Melody to MIDI (DAW-bound)
+- “Our tool is web-based and free; accuracy varies.”
+
+5) JSON-LD
+- SoftwareApplication name: “VCM Audio to MIDI Converter”
+- Offers: price 0
+- Add FAQPage with 10–12 questions.
+
+FAQ IDEAS (USE THESE)
+- What is audio to MIDI?
+- Can I convert MP3 to MIDI for free?
+- Does it work for vocals?
+- Does it work for chords / polyphonic instruments?
+- Why is my MIDI messy?
+- What file types are supported?
+- Is my audio stored?
+- How accurate is it?
+- How do I import MIDI into Ableton/FL Studio/Logic?
+- What’s the best way to get cleaner results?
+- Does it detect key/BPM? (Answer: not directly; link to BPM Finder tool if it exists)
+
+COPY / TEXT POLICY
+- Keep it direct, creator-focused, “no fluff.”
+- Include a pain-first intro: “You have an idea in audio, but you can’t get it into MIDI fast.”
+- No exaggerated claims (“perfect,” “100% accurate”). Be honest.
+
+PRIVACY
+- Process files transiently; delete temp inputs after completion.
+- In UI: “We don’t store your uploads. Files are deleted after processing.” (If you do store outputs for download, be explicit: store outputs for X time; otherwise delete after session.)
+
+DELIVERABLES CHECKLIST (MUST PASS)
+- Visiting /tools/audio-to-midi renders the full page with the tool UI.
+- Uploading a short mp3 returns a MIDI download that opens in a DAW.
+- Notes CSV and Sonified WAV download works.
+- Tool is listed in ExploreMoreTools and registry tables updated.
+- No auth required.
+- Proper error handling and guardrails.
+
+NOW IMPLEMENT IT.

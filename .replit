@@ -1,11 +1,11 @@
-modules = ["nodejs-20", "postgresql-16"]
+modules = ["nodejs-20", "postgresql-16", "python-3.11"]
 [agent]
 expertMode = true
 integrations = ["javascript_stripe:1.0.0", "javascript_database:1.0.0", "javascript_object_storage:1.0.0", "javascript_openai_ai_integrations:1.0.0"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["ffmpeg", "yt-dlp"]
+packages = ["ffmpeg", "ffmpeg-full", "libsndfile", "yt-dlp"]
 
 [workflows]
 runButton = "Project"
