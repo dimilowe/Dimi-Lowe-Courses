@@ -28,6 +28,7 @@ const tools = [
   { name: "BPM Finder", href: "/tools/bpm-finder" },
   { name: "Vocal Doubler", href: "/tools/vocal-doubler" },
   { name: "Audio to MIDI", href: "/tools/audio-to-midi" },
+  { name: "Vocal Melody Extractor", href: "/tools/vocal-melody-extractor" },
   { name: "BuyLens", href: "/shopping/buylens" },
   { name: "Ideas Hub", href: "/ideas" },
   { name: "VCM Answers", href: "/answers" },

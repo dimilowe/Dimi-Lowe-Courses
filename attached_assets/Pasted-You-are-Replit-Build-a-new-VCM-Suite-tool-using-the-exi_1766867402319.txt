@@ -1,0 +1,238 @@
+You are Replit. Build a new VCM Suite tool using the existing “Universal Tool Template (cms block template - universal)” pattern and styling. You MUST adapt the provided template into a new page + client component, and wire a real server pipeline using Spotify Basic Pitch outputs (already working in /tools/audio-to-midi).
+
+GOAL
+Build tool #1 from the Basic Pitch expansion list:
+
+✅ VCM Vocal Melody Extractor (lead melody only)
+Path: /tools/vocal-melody-extractor
+
+This tool is NOT “full audio to MIDI.” It extracts a CLEAN, MONOPHONIC vocal melody guide from an audio file (best-effort), using Basic Pitch outputs + deterministic post-processing. No login. 100% free for now.
+
+REUSE EXISTING WORK
+You already have a working Basic Pitch pipeline at:
+- Page: /tools/audio-to-midi
+- API: /api/audio-to-midi
+- Python worker: whatever you created for audio-to-midi
+- ffmpeg normalization, ffprobe duration checks, per-IP lock, timeout, temp cleanup, file output URLs.
+
+You MUST reuse as much of that as possible. Do NOT rewrite the whole stack. Keep this a minimal, safe delta.
+
+OUTPUTS (ALL FREE)
+Return 4 downloadable files:
+1) melody.mid (monophonic lead line)
+2) melody_notes.csv (clean monophonic note events)
+3) pitch_curve.csv (time_s, frequency_hz, midi_note_float, confidence)
+4) melody_preview.wav (sonified WAV preview of melody MIDI)
+
+ABUSE GUARDRAILS (SAME AS AUDIO-TO-MIDI)
+- Max upload: 25MB
+- Max duration: 10 minutes (ffprobe)
+- 1 job per IP at a time (in-memory lock with TTL)
+- 90s timeout
+- Temp files cleaned up even on errors/timeouts
+- Friendly errors
+
+ATTRIBUTION + PRIVACY
+- UI attribution line: “Powered by Spotify Basic Pitch (Apache-2.0).”
+- Privacy notice must match reality. If outputs are stored to support downloads, state retention window (e.g., “deleted after X hours”) OR actually delete them.
+
+IMPLEMENTATION PLAN (DO IT)
+
+A) ROUTING / FILES
+Create:
+- /app/tools/vocal-melody-extractor/page.tsx
+- /app/tools/vocal-melody-extractor/VocalMelodyExtractorClient.tsx
+- /app/api/vocal-melody-extractor/route.ts
+- /python/vocal_melody_worker.py
+
+Reuse or import existing helpers used by audio-to-midi:
+- ffprobe/ffmpeg helper
+- temp file helper
+- ip lock helper
+- file output publishing (the same thing that yields /api/files/* URLs)
+
+B) PAGE TEMPLATE ADAPTATION
+Use the provided Universal Tool Template structure. Replace everything thumbnail-related with vocal melody extraction content.
+
+The page must include:
+- Metadata (title/description/keywords) focused on:
+  "vocal melody extractor", "vocals to midi", "singing to midi", "melody to midi", "acapella to midi", "pitch to midi", "free vocal midi converter", "basic pitch"
+- JSON-LD:
+  - SoftwareApplication: name “VCM Vocal Melody Extractor”, price 0
+  - FAQPage: 10–12 questions (provided below)
+- Hero section: pill + title + subtitle
+- Tool component: <VocalMelodyExtractorClient />
+- Keyword-rich intro section (pain-first, direct)
+- Example “before/after” style section (no real images required; can be cards describing outcomes)
+- “How it works” section (basic pitch → select lead line → clean → export)
+- Features grid (download MIDI/CSV/pitch curve/wav preview)
+- Honest limitations section (single instrument best; vocal-forward mix preferred; pitch bends may be simplified; noisy mixes can confuse)
+- Comparison table (Melodyne, DAW features, etc) – keep honest
+- FAQ accordion using `faqs` array
+- <ExploreMoreTools currentTool="/tools/vocal-melody-extractor" />
+- Footer note with attribution + privacy retention truth
+
+C) CLIENT COMPONENT (UI)
+VocalMelodyExtractorClient.tsx must:
+- Dropzone + file picker
+- Accept: .mp3, .wav, .m4a, .flac, .ogg
+- Show selected file info
+- CTA: “Extract Melody”
+- Progress states:
+  - Uploading…
+  - Transcribing…
+  - Cleaning…
+  - Done
+- On success, show 4 download buttons:
+  - Download Melody MIDI
+  - Download Clean Notes CSV
+  - Download Pitch Curve CSV
+  - Download Preview WAV
+- Show meta:
+  - duration
+  - processing time
+  - (optional) confidence summary
+- “Next steps” box:
+  - Import melody MIDI to your DAW
+  - Use it as a guide for synth/lead
+  - Generate harmonies
+  - Use as pitch reference for tuning
+- Error UI: clean and human.
+
+The client POSTs to:
+POST /api/vocal-melody-extractor
+multipart/form-data with `file`
+
+API response JSON:
+{
+  midiUrl: string,
+  notesUrl: string,
+  pitchUrl: string,
+  wavUrl: string,
+  meta: {
+    durationSec: number,
+    processingMs: number,
+    format: string
+  }
+}
+
+D) API ROUTE
+/app/api/vocal-melody-extractor/route.ts must:
+1) Parse multipart upload
+2) Enforce max file size 25MB
+3) Save to temp
+4) Run ffprobe, enforce duration <= 600s
+5) Normalize with ffmpeg to mono 22050Hz WAV (reuse your existing helper)
+6) Acquire per-IP lock; if locked -> 429 with friendly message
+7) Spawn python worker with timeout 90s
+8) Worker returns JSON via stdout with output filenames
+9) Move outputs into your public file serving system (same as audio-to-midi) and generate URLs
+10) Cleanup temp
+11) Return JSON with URLs + meta
+
+E) PYTHON WORKER (CRITICAL)
+Implement /python/vocal_melody_worker.py that:
+- Input args:
+  --input <path_to_normalized_wav>
+  --out <output_dir>
+- Runs Basic Pitch inference (use the same runtime strategy you used for audio-to-midi; ONNX is fine)
+- Produces a monophonic melody line using deterministic post-processing from Basic Pitch note events
+- Writes:
+  - melody.mid
+  - melody_notes.csv
+  - pitch_curve.csv
+  - melody_preview.wav (render from melody.mid)
+- Prints one JSON line to stdout with exact filenames:
+  {"midi":"melody.mid","notes":"melody_notes.csv","pitch":"pitch_curve.csv","wav":"melody_preview.wav"}
+
+MELODY POST-PROCESSING ALGORITHM (DO THIS EXACTLY)
+Inputs: note_events from Basic Pitch with (start_time, end_time, pitch_midi, amplitude/confidence if present)
+
+Step 1: Filter by plausible vocal range (soft bias, not hard cut)
+- Preferred range: 80Hz–1100Hz (approx E2–C#6)
+- Convert pitch_midi to Hz and downweight outside range.
+
+Step 2: Remove obvious junk notes
+- Drop notes with duration < 0.06s
+- Drop notes with extremely low confidence/amplitude if field exists
+
+Step 3: Select monophonic “active note” over time
+Use time slicing at 20ms frames:
+- For each frame, find all notes active at that time.
+- If none, output silence for that frame.
+- If multiple, score each candidate:
+  base = confidence_or_amplitude (if missing, use 1.0)
+  jump_penalty = abs(candidate_pitch - prev_pitch) (prev_pitch from last chosen frame) * 0.15
+  short_penalty = 0.25 if candidate_note_duration < 0.12 else 0
+  range_penalty = 0.25 if outside preferred vocal range else 0
+  score = base - jump_penalty - short_penalty - range_penalty
+Pick candidate with max score.
+Add hysteresis:
+- If current active note is still present and the best candidate is only better by < 0.10 score, keep current.
+
+Step 4: Convert framewise chosen pitch to note events
+- Merge consecutive frames with same pitch into events
+- Merge if gap < 0.06s and pitch equal
+- Drop final events < 0.08s
+
+Step 5: Write melody_notes.csv
+Columns:
+start_time_s,end_time_s,midi_note,frequency_hz,confidence
+
+Step 6: Write pitch_curve.csv
+For each 20ms frame:
+time_s,frequency_hz,midi_note_float,confidence
+If using only discrete pitch, midi_note_float can equal midi_note.
+
+Step 7: Create melody.mid
+- One track monophonic
+- Preserve timing precisely
+- If pitch bends available from model_output, you MAY include; otherwise omit (acceptable).
+- Ensure MIDI imports cleanly in DAWs.
+
+Step 8: Sonify to melody_preview.wav
+- Use the same approach as your existing pipeline (Basic Pitch already can sonify, but it may sonify full output; here you must sonify the melody.mid).
+- If you already have a MIDI-to-WAV render helper, reuse it.
+- If not, use a lightweight method available in your environment (keep it simple; don’t add heavy synth deps).
+- If sonification is too complex to do reliably, fall back to NOT generating wav and return wavUrl as empty string — but try hard to support it since audio-to-midi already does.
+
+DEPENDENCIES
+Use your existing /python/requirements.txt. Add only what you must.
+Do NOT introduce TensorFlow unless required. Prefer the same ONNX approach you already shipped.
+
+SEO + COPY (PAIN-FIRST, NO FLUFF)
+Include a section that starts like:
+“You sang a melody you don’t want to lose. But turning that vocal into MIDI is slow and annoying. This tool pulls out the lead melody so you can drop it into your DAW in seconds.”
+
+FAQS (USE THESE 12)
+1) What is a vocal melody extractor?
+2) Can I convert singing to MIDI for free?
+3) What audio works best for melody extraction?
+4) Can I use it on a full song with instruments?
+5) Why does the MIDI sound messy or wrong?
+6) Does this support pitch bends and slides?
+7) How accurate is it?
+8) How do I import the MIDI into Ableton/Logic/FL Studio?
+9) Do you store my uploaded audio?
+10) What’s the difference between this and Audio → MIDI Converter?
+11) How can I get cleaner results?
+12) What file types are supported?
+
+SYSTEM INTEGRATION (MUST DO)
+- Insert into tools registry / tools table with:
+  slug: "vocal-melody-extractor"
+  path: "/tools/vocal-melody-extractor"
+  name: "VCM Vocal Melody Extractor"
+  cloud/category: Music Cloud
+  isActive/isPublished true (match your existing schema)
+- Insert into global_urls with canonical path and SEO fields
+- Ensure ExploreMoreTools includes it (whatever query it uses must surface this tool)
+
+DONE CONDITION
+- Page renders
+- Upload works
+- Returns 4 downloads (at least MIDI+notes+pitch; WAV ideally)
+- Guardrails enforced
+- Tool is discoverable through registry + ExploreMoreTools
+
+NOW IMPLEMENT IT.
