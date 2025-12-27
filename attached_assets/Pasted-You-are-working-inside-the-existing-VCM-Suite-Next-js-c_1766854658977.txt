@@ -1,0 +1,295 @@
+You are working inside the existing VCM Suite Next.js codebase.
+
+We are building a NEW TOOL inside Shopping Cloud:
+Name: BuyLens
+Type: Bespoke heavy tool (NOT an engine, NOT a platform app)
+Route: /shopping/buylens
+Gating: Shopping Cloud subscription required (Pro tier or your highest tier – match existing entitlement patterns)
+Goal: Turn a natural-language shopping intent into a short, ranked list of real options found on the PUBLIC web, with tradeoff explanations, while staying fully legal and polite.
+
+IMPORTANT: Use the provided “Universal Tool Template (cms block template - universal)” structure for the page layout and SEO sections. This tool should feel like your other tools: Hero → Tool client component → SEO-rich content sections → examples → features → FAQ → ExploreMoreTools → footer note.
+
+SPECIAL NOTE (MANDATORY):
+1) Add the tool to the Tool Registry
+2) Add the URL to the global urls table
+3) Add the tool to the database tools table
+Follow the existing conventions in the repo for these three items. Do not skip them.
+
+========================================================
+LEGAL / SAFETY CONSTRAINTS (NON-NEGOTIABLE)
+========================================================
+This tool must be “public web observation”, not hostile scraping.
+
+Must implement:
+- Public web only. Never attempt login, paywall, cart, checkout, account pages, or user-specific content.
+- No CAPTCHA or anti-bot bypass. If blocked, record status and stop.
+- Respect robots.txt for each domain visited. If disallowed, skip and record robots_blocked.
+- Hard caps per run:
+  - maxDomains: 6
+  - maxPagesTotal: 18
+  - maxPagesPerDomain: 3
+  - perPageTimeoutMs: 12000
+  - runTimeoutMs: 60000
+- User-Agent must be explicit and polite:
+  BuyLensBot/1.0 (+https://vcmsuite.com; contact: support@vcmsuite.com)
+- Do NOT store raw HTML. Only store extracted fields.
+- Do NOT reproduce long product descriptions verbatim. Facts only + our own summarization.
+
+========================================================
+MVP USER EXPERIENCE
+========================================================
+Page: /shopping/buylens
+
+Hero:
+- Badge: “Shopping Cloud • Pro Tool” (or equivalent)
+- Title: BuyLens
+- Subtitle: “See every real option. Understand the tradeoffs. Buy with confidence.”
+
+Tool UI (client component):
+- One main input: “What are you thinking about buying?”
+- Advanced (collapsed) options:
+  - Max budget ($)
+  - Market: Retail / Resale / Both
+  - Condition: Any / New / Used
+  - Include shipping in total (default ON)
+- Run button: “Run BuyLens”
+- Results list (ranked 5–10 items)
+- Sources scanned list with per-domain status
+- Past runs (last 10) at bottom
+
+Gating:
+- If user lacks Shopping Cloud Pro entitlement: show existing paywall component and do not allow running.
+- If logged out: follow existing auth flow patterns.
+
+========================================================
+DATA MODEL (DB TABLES)
+========================================================
+Add migrations using the project’s ORM (Drizzle or existing approach).
+
+Create tables:
+
+1) buylens_runs
+- id (uuid / text id consistent with codebase)
+- user_id
+- query_text
+- intent_json (json)
+- status: success | partial | failed
+- created_at
+- duration_ms
+- pages_visited
+- domains_visited
+
+2) buylens_sources
+- id
+- run_id (FK)
+- domain
+- url
+- status: ok | robots_blocked | captcha | paywall | timeout | error
+- error_message (nullable)
+- visited_at
+
+3) buylens_results
+- id
+- run_id (FK)
+- rank (int)
+- title
+- url
+- domain
+- price_usd (nullable)
+- shipping_usd (nullable)
+- total_usd (nullable)
+- condition (new|used|unknown nullable)
+- seller (nullable)
+- key_specs (json nullable)
+- confidence (float)
+- why (text nullable)
+- tradeoff (text nullable)
+
+Indexes:
+- buylens_runs(user_id, created_at desc)
+- buylens_results(run_id, rank)
+
+========================================================
+SERVER PIPELINE (BESPOKE, CLEAN MODULES)
+========================================================
+Create a server lib folder:
+- /server/lib/buylens/
+
+Modules:
+1) intent.ts
+Parse user query into:
+
+type BuyLensIntent = {
+  product_query: string;
+  optimization: "cheapest" | "best_value" | "best_quality" | "fastest_shipping" | "unknown";
+  market: "retail" | "resale" | "both";
+  max_budget_usd?: number;
+  condition?: "any" | "new" | "used";
+  must_include_shipping_total: boolean;
+  keywords_include?: string[];
+  keywords_exclude?: string[];
+};
+
+Rules:
+- “cheapest” => optimization=cheapest
+- “best”, “top”, “recommend” => best_value unless quality is explicit
+- “reseller”, “used”, “stockx”, “goat”, “ebay”, “grailed”, “poshmark”, “depop” => market=resale
+- default market=both
+Use the app’s existing LLM utility if present; if not, implement a simple deterministic parser first, then optionally enhance with LLM if keys exist.
+
+2) robots.ts
+- Fetch https://domain/robots.txt
+- Determine if our UA is allowed to fetch target path
+- Cache per domain for the run
+- If disallowed => robots_blocked
+
+3) discover.ts
+MVP source discovery:
+- Based on market, build a curated candidate domain list:
+  retail: amazon (only if safe), bestbuy, walmart, target, manufacturer sites when obvious
+  resale: ebay, stockx, goat, grailed, poshmark, depop (only where public pages exist)
+- Generate a SMALL list of search URLs per domain using their public search query patterns (do not require auth).
+- Do not add paid search APIs unless already present in repo + env. Keep it simple.
+
+4) crawl.ts
+Use Playwright (preferred). If Playwright is already used elsewhere, reuse that setup.
+- Must set UA
+- Must enforce timeouts and caps
+- Must stop on captcha/bot block indicators and record as captcha
+- Must never proceed to login/checkout paths (detect via URL patterns: /login, /signin, /checkout, /cart, etc. and skip)
+
+5) extract.ts
+Extraction strategy:
+- Try JSON-LD Product/Offer first
+- Then OpenGraph
+- Then DOM heuristics for price/shipping
+Return RawListing:
+
+type RawListing = {
+  url: string;
+  domain: string;
+  title?: string;
+  price_usd?: number;
+  shipping_usd?: number;
+  total_usd?: number;
+  condition?: "new" | "used" | "unknown";
+  seller?: string;
+  currency?: string;
+  key_specs?: string[];
+  confidence: number; // 0..1
+  notes?: string;
+};
+
+No raw HTML storage.
+
+6) normalize.ts
+- Convert currency if obvious; if not, leave undefined
+- total_usd = price + shipping if both known and must_include_shipping_total
+- Respect max_budget_usd if provided
+
+7) rank.ts
+- cheapest => sort by total_usd else price_usd; stable tiebreaker by confidence DESC
+- best_value => confidence DESC then total_usd ASC
+- fastest_shipping => prefer known shipping_usd low; else stable by total_usd
+Return 5–10 results.
+
+8) explain.ts (optional but recommended)
+Use LLM if available to generate:
+- why (1 sentence)
+- tradeoff (1 sentence)
+No fluff. Must be grounded in extracted fields.
+
+========================================================
+API ROUTES
+========================================================
+Create:
+POST /api/shopping/buylens/run
+- Auth required
+- Entitlement required
+- Create run row, execute pipeline, store sources/results, return payload:
+  { runId, status, intent, results: [...], sources: [...] }
+
+GET /api/shopping/buylens/runs
+- Last 10 runs summary for the user
+
+GET /api/shopping/buylens/runs/:id
+- Full run detail
+
+Abuse limits:
+- Reject queryText > 300 chars
+- Per user: max 10 runs/day (store counts based on buylens_runs today)
+
+========================================================
+PAGE IMPLEMENTATION USING UNIVERSAL TOOL TEMPLATE
+========================================================
+Create page file following the exact structure pattern in the template:
+
+- Import Metadata, Link, ExploreMoreTools
+- Add metadata with strong keywords (shopping comparison, price checker, best value finder, etc.)
+- Add SoftwareApplication JSON-LD
+- Add FAQPage JSON-LD
+- Hero section styled similarly (badge + H1 + subtitle)
+- Render the tool client component: <BuyLensClient />
+
+After the tool, add SEO sections similar to the template but tailored to BuyLens:
+1) Keyword-rich intro: explain BuyLens (public web, compares options, reduces regret)
+2) Example “runs” previews (use static mock items – do not imply real-time)
+3) “How BuyLens works” section: explain lens via prompt, ranking logic, shipping totals, etc.
+4) Features grid
+5) Comparison table: BuyLens vs “Google Shopping” vs “Marketplace results” (neutral, no slander)
+6) FAQ section (10–12 questions)
+7) ExploreMoreTools currentTool should match this tool path
+8) Footer note: “Public web only. We don’t store scraped pages.”
+
+IMPORTANT: Since this is Cloud-gated, tune SEO copy carefully:
+- Page can be indexable, but the actual run requires login + entitlement.
+- Ensure the “Tool” component can show a locked state gracefully when not entitled.
+
+========================================================
+BUY LENS CLIENT COMPONENT
+========================================================
+Create:
+- /app/shopping/buylens/BuyLensClient.tsx (or match existing folder conventions)
+
+Client behavior:
+- Shows input + advanced controls
+- On submit calls POST /api/shopping/buylens/run
+- Shows loading state with progress text (ex: “Scanning sources…”, “Extracting prices…”, “Ranking options…”)
+- Renders:
+  - Ranked results cards
+  - Sources scanned table
+  - Past runs list (calls GET /api/shopping/buylens/runs)
+
+Paywall:
+- If API returns entitlement error, show paywall CTA.
+
+========================================================
+REGISTRY + URLS + DB TOOLS TABLE (MANDATORY)
+========================================================
+You MUST:
+1) Add BuyLens to the tool registry used by VCM Suite (whatever file or table your app uses to list tools).
+2) Add /shopping/buylens to the global urls table.
+3) Add a row to the database tools table for BuyLens.
+
+Follow existing conventions exactly:
+- tool slug naming
+- cloud assignment = Shopping Cloud
+- gating tier flag
+- nav grouping
+- canonical URL
+
+If there are existing helpers for these inserts/migrations, use them. If they are hardcoded seed files, update them. Do not leave the tool inaccessible from navigation.
+
+========================================================
+ACCEPTANCE CRITERIA
+========================================================
+- /shopping/buylens renders with Universal Tool Template layout
+- If not entitled, locked state + paywall displayed
+- If entitled, running a query returns ranked results + sources list
+- robots.txt is respected and recorded
+- hard caps enforced
+- no raw HTML stored
+- past runs appear
+- tool appears in registry/nav and URL registry and tools DB table
+
+Start implementing now. Do not ask questions unless you are blocked by missing established conventions in this repo; infer from patterns.
