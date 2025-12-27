@@ -27,6 +27,7 @@ const tools = [
   { name: "Vocal Delay", href: "/tools/vocal-delay" },
   { name: "BPM Finder", href: "/tools/bpm-finder" },
   { name: "Vocal Doubler", href: "/tools/vocal-doubler" },
+  { name: "Audio to MIDI", href: "/tools/audio-to-midi" },
   { name: "BuyLens", href: "/shopping/buylens" },
   { name: "Ideas Hub", href: "/ideas" },
   { name: "VCM Answers", href: "/answers" },
