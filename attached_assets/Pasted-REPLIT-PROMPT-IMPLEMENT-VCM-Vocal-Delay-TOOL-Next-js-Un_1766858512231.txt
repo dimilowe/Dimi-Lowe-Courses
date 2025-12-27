@@ -1,0 +1,249 @@
+REPLIT PROMPT — IMPLEMENT “VCM Vocal Delay” TOOL (Next.js + Universal Tool Template)
+
+You are inside the VCM Suite codebase (Next.js App Router). Implement a new tool page and client: VCM Vocal Delay.
+This is a web-based vocal delay “plugin” using WebAudio for realtime preview + OfflineAudioContext for WAV export.
+No server-side audio processing. No audio storage. Everything happens client-side.
+
+DO NOT OUTPUT A PLAN.
+DO THE IMPLEMENTATION: create/modify files, wire registry + global URLs + DB tools table entry, and ensure it runs.
+
+========================================
+1) TOOL IDENTITY + ROUTES
+========================================
+Tool slug: vocal-delay
+Canonical URL: /tools/vocal-delay
+
+Create:
+- app/tools/vocal-delay/page.tsx
+- app/tools/vocal-delay/VocalDelayClient.tsx
+- lib/audio/vocalDelayEngine.ts
+- lib/audio/wav.ts
+
+Use the Universal Tool Template style (hero + tool + sections + FAQ + ExploreMoreTools).
+Follow the same patterns used by your existing tools (like ai-thumbnail-coach).
+
+========================================
+2) SEO METADATA + JSON-LD
+========================================
+In page.tsx, export metadata:
+
+Title:
+"Free Vocal Delay Plugin Online (1/4, 1/8, 1/16 + Ping Pong) | VCM Vocal Delay"
+
+Description:
+"Free online vocal delay effect. Upload vocals, sync delay to BPM (1/4, 1/8, 1/16), add ping-pong stereo bounce, feedback, and mix. Preview instantly and export WAV. No login required."
+
+Keywords: include:
+- vocal delay online
+- delay plugin online
+- ping pong delay vocals
+- slapback delay vocal
+- 1/8 delay vocal
+- 1/16 delay vocal
+- bpm synced delay
+- free vocal effects
+- h delay alternative
+- waves h delay alternative
+
+Add JSON-LD:
+A) SoftwareApplication schema
+B) FAQPage schema (8–12 items)
+IMPORTANT: do NOT claim affiliation with Waves. Add a simple disclaimer line in the page body: “Not affiliated with Waves.”
+
+========================================
+3) UI REQUIREMENTS (VocalDelayClient)
+========================================
+VocalDelayClient must provide:
+
+File upload:
+- accept .wav, .mp3, .m4a (whatever your browser decode supports)
+- after load: show filename + duration + sample rate (if available)
+
+Controls:
+- BPM input (number) clamp 40–240 (default 120)
+- Division dropdown: 1/4, 1/8, 1/16 (default 1/8)
+- Feedback slider (0–0.95, default 0.35)
+- Mix slider (0–1, default 0.25)
+- Ping-pong toggle (default ON)
+- Reset button: restores defaults
+- Preview controls: Play / Pause / Stop
+- Export WAV button: generates .wav download via OfflineAudioContext
+
+UX guardrails:
+- Disable Play/Export until file is loaded
+- Show “Rendering…” while exporting
+- Show computed delay time in ms (read-only label) for clarity
+- Smoothly update params during playback (no clicks)
+
+Styling:
+- Tailwind, clean modern look consistent with other tools.
+- Keep it fast; no heavy dependencies.
+
+========================================
+4) AUDIO ENGINE REQUIREMENTS (vocalDelayEngine.ts)
+========================================
+Implement a class that builds the node graph and exposes setters:
+
+- setTempo(bpm, division)
+- setFeedback(value)
+- setMix(value)
+- setPingPong(enabled)
+- connectInput(node)
+- connectOutput(node) OR expose input/output GainNodes
+
+MUST implement real ping-pong:
+Two delay nodes (L/R) with cross-feedback when pingPong = true.
+When pingPong = false, switch to self-feedback per channel (no bounce).
+
+Delay time mapping:
+quarter_ms = 60000 / bpm
+multipliers:
+- 1/4 => 1.0
+- 1/8 => 0.5
+- 1/16 => 0.25
+delaySeconds = (quarter_ms * multiplier) / 1000
+
+Mix:
+Equal-power crossfade:
+dry = cos(x * pi/2)
+wet = sin(x * pi/2)
+
+Smoothing:
+Use setTargetAtTime for:
+- delayTime
+- gain changes
+timeConstant ~ 0.01
+
+Limits:
+- bpm clamp 40–240
+- feedback clamp 0–0.95 ALWAYS
+
+Node graph (realtime):
+input -> dryGain -> masterGain -> destination
+input -> delayL
+input -> delayR
+
+Output:
+delayL -> merger left
+delayR -> merger right
+merger -> wetGain -> masterGain
+
+Feedback routing:
+If pingPong ON:
+delayL -> fbL -> delayR
+delayR -> fbR -> delayL
+self loops off
+
+If pingPong OFF:
+delayL -> selfLoopL -> delayL
+delayR -> selfLoopR -> delayR
+cross loops off
+
+Implement switching by keeping both loop routes connected but controlling loop gains:
+- cross loop gains: fbL/fbR
+- self loop gains: selfLoopL/selfLoopR
+When pingPong ON: cross = feedback, self = 0
+When pingPong OFF: cross = 0, self = feedback
+
+========================================
+5) OFFLINE RENDER EXPORT (in client)
+========================================
+Export MUST use OfflineAudioContext for glitch-free output:
+
+Steps:
+1) Read uploaded file ArrayBuffer
+2) Decode in a normal AudioContext OR OfflineAudioContext decodeAudioData
+3) Create OfflineAudioContext with 2 channels:
+   length = inputBuffer.length + tailFrames
+   sampleRate = inputBuffer.sampleRate
+
+Tail seconds:
+delaySeconds = computed from BPM/division
+tailSeconds = clamp between 1.0 and 6.0:
+tailSeconds = min(6.0, max(1.0, delaySeconds * 8))
+tailFrames = ceil(tailSeconds * sampleRate)
+
+4) Rebuild the SAME engine graph inside OfflineAudioContext
+5) Render and get renderedBuffer
+6) Encode WAV (16-bit PCM) client-side using lib/audio/wav.ts
+7) Trigger download: "vcm-vocal-delay.wav"
+
+Important:
+- Rendered output must include tail ring-out.
+- Mix/feedback/pingPong must match current settings.
+
+========================================
+6) WAV ENCODER (lib/audio/wav.ts)
+========================================
+Implement a minimal WAV encoder:
+- Input: AudioBuffer (stereo)
+- Output: Blob('audio/wav')
+- 16-bit PCM
+- Interleave channels, RIFF/WAVE header
+
+No external libraries.
+
+========================================
+7) PAGE CONTENT (USE UNIVERSAL TOOL TEMPLATE STYLE)
+========================================
+In page.tsx mirror the structure of the given template:
+- Hero badge: “Free Online Vocal Delay”
+- H1: “VCM Vocal Delay”
+- Subtitle: “Upload vocals, sync delay to BPM, choose 1/4, 1/8, or 1/16, toggle ping-pong, export WAV.”
+
+Include:
+A) Keyword-rich intro section
+B) “How it works” section (BPM sync, divisions, feedback, ping-pong)
+C) Feature grid (6–8 features)
+D) Simple comparison table: “VCM Vocal Delay vs Traditional Plugins” (general—no competitor claims)
+E) FAQ accordion (reuse FAQ array + FAQPage JSON-LD)
+F) ExploreMoreTools currentTool="/tools/vocal-delay"
+G) Footer note: audio not stored
+
+========================================
+8) ADD TOOL TO REGISTRIES + DATABASE
+========================================
+SPECIAL NOTE REQUIREMENT: MUST add to tool registry + global URLs table + DB tools table.
+
+Do ALL of the following:
+
+A) Tool Registry
+Find where existing tools are registered for navigation/search (a tools registry file).
+Add:
+- slug: "vocal-delay"
+- title: "VCM Vocal Delay"
+- href: "/tools/vocal-delay"
+- description: short
+- cloud/category tags (Creation Cloud or Music Cloud — pick whichever your system uses for audio effects)
+- isIndexed: true
+
+B) Global URLs table
+Find your global_urls table or URL registry service.
+Add canonical entry for:
+- "/tools/vocal-delay"
+- type "tool"
+- slug "vocal-delay"
+
+C) Database tools table
+Insert a row for this tool in your tools DB table (same structure as other tools).
+If you have seeds, add it to the seed script.
+If you use migrations, create a migration that inserts this row (idempotent if possible).
+
+Make sure this tool appears wherever your system lists tools.
+
+========================================
+9) ACCEPTANCE TESTS (RUN THEM)
+========================================
+After implementing, verify:
+
+1) Upload WAV, press Play => audible delay.
+2) While playing, change division 1/8 -> 1/16 => smooth change, no clicks.
+3) Feedback max 0.95 => long repeats, no runaway infinite feedback.
+4) PingPong ON => repeats bounce L/R.
+5) PingPong OFF => repeats do not bounce.
+6) Export => downloads WAV; tail is included and matches preview settings.
+
+========================================
+IMPLEMENT NOW
+========================================
+Create the files, wire everything, ensure lint/build passes, and ensure the tool is reachable at /tools/vocal-delay.

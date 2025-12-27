@@ -1,0 +1,70 @@
+I have the detailed specifications. IMPLEMENT THE TOOL — do not respond with a plan.
+
+This is a fully client-side audio processing tool using the WebAudio API.
+
+ARCHITECTURE (CREATE THESE FILES)
+
+- Engine: lib/audio/vocalDelayEngine.ts  
+  Builds the WebAudio node graph with true ping-pong stereo delay
+- WAV Encoder: lib/audio/wav.ts  
+  Client-side 16-bit PCM WAV encoder
+- Client: app/tools/vocal-delay/VocalDelayClient.tsx  
+  UI with file upload, controls, realtime preview, and export
+- Page: app/tools/vocal-delay/page.tsx  
+  Universal Tool Template page with metadata, JSON-LD, FAQ, sections
+
+KEY DSP REQUIREMENTS (MUST MATCH EXACTLY)
+
+- Real ping-pong:
+  - When enabled: L delay feeds R, R feeds L (cross-feedback)
+  - When disabled: self-feedback per channel (no bounce)
+- Delay time:
+  delaySeconds = (60000 / BPM) × division_multiplier / 1000
+  - 1/4 = 1.0
+  - 1/8 = 0.5
+  - 1/16 = 0.25
+- Mix:
+  Equal-power crossfade
+  - dry = cos(x × π/2)
+  - wet = sin(x × π/2)
+- Smoothing:
+  Use setTargetAtTime with 0.01s time constant
+- Limits:
+  BPM clamped 40–240
+  Feedback clamped 0.0–0.95
+
+OFFLINE EXPORT (REQUIRED)
+
+- Use OfflineAudioContext
+- Tail length:
+  tailSeconds = min(6, max(1, delaySeconds × 8))
+- Rebuild the SAME engine graph in the offline context
+- Render full tail and export WAV using wav.ts
+
+PAGE + UI REQUIREMENTS
+
+- Controls:
+  BPM, division (1/4, 1/8, 1/16), feedback, mix, ping-pong toggle
+- Defaults:
+  BPM 120, division 1/8, feedback 0.35, mix 0.25, ping-pong ON
+- Disable preview/export until audio is loaded
+- Smooth live parameter updates during playback
+- Add disclaimer: “Not affiliated with Waves.”
+
+REGISTRY + DATABASE (MANDATORY)
+
+- Add tool to tool registry (slug: vocal-delay, href: /tools/vocal-delay)
+- Add canonical entry to global URLs table
+- Insert row into database tools table
+  (same schema used by other tools)
+
+ACCEPTANCE TESTS (VERIFY)
+
+1. Audio plays with audible delay
+2. Switching 1/8 → 1/16 during playback is smooth
+3. Feedback at 0.95 does not run away
+4. Ping-pong ON audibly bounces L/R
+5. Ping-pong OFF does not bounce
+6. Exported WAV matches preview and includes tail
+
+IMPLEMENT NOW.

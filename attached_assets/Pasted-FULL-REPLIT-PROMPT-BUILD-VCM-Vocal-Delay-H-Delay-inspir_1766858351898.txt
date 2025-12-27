@@ -1,0 +1,247 @@
+FULL REPLIT PROMPT — BUILD: “VCM Vocal Delay” (H-Delay-inspired web vocal delay microtool)
+(Use Universal Tool Template page format + client component + API routes + tool registry + global urls + DB table)
+
+GOAL
+Build a production-ready VCM Suite tool page:
+- Tool name: VCM Vocal Delay (web-based vocal delay “plugin”)
+- Core features: BPM-synced note divisions (1/4, 1/8, 1/16), Feedback, Mix, Ping-Pong toggle
+- Audio input: upload a vocal (mp3/wav/m4a), preview processed result in-browser
+- Export: download processed audio (WAV recommended; MP3 optional if you already support it)
+- No user audio storage: process in memory; delete temp file immediately if server-render needed
+- Tool page uses the same Universal Tool Template page structure (hero + tool + keyword SEO sections + FAQ + ExploreMoreTools)
+- Add tool to: Tool Registry, Global URLs table, and database tools table (special note requirement)
+
+NON-NEGOTIABLES
+1) Use WebAudio for realtime preview processing in the browser.
+2) Export should render offline (AudioBuffer render) to avoid recording glitches.
+3) Guardrails:
+   - BPM clamp 40–240
+   - Feedback clamp 0.0–0.95
+   - Smooth parameter changes to prevent clicks
+4) Ping-pong implementation MUST be real ping-pong:
+   - two delays (L/R) with cross-feedback when pingPong = true
+   - when pingPong = false, switch to self-feedback per channel (mono-ish repeats)
+5) No copying Waves UI/branding. “Inspired by the workflow” only.
+
+DELIVERABLES
+A) New route/page:
+- /app/tools/vocal-delay/page.tsx (or your existing tools route pattern)
+- Uses Metadata, JSON-LD (SoftwareApplication), FAQPage schema, and ExploreMoreTools
+- Renders <VocalDelayClient />
+
+B) New client component:
+- /app/tools/vocal-delay/VocalDelayClient.tsx
+- UI: upload file, waveform/preview panel (optional), controls:
+  - BPM number input + (optional) Tap button
+  - Time division dropdown: 1/4, 1/8, 1/16
+  - Feedback slider (0–95%)
+  - Mix slider (0–100%)
+  - Ping-pong toggle
+  - Preview Play/Pause
+  - Export button
+- Show “Processing…” states
+- Display current computed delay ms for clarity (optional)
+
+C) WebAudio engine module:
+- /lib/audio/vocalDelayEngine.ts (or /components/tools/vocal-delay/engine.ts)
+- Exports a class like VocalDelayEngine that builds the node graph and exposes setters:
+  setTempo(bpm, division)
+  setFeedback(value)
+  setMix(value)
+  setPingPong(enabled)
+- Includes offline render function:
+  renderProcessedAudio(arrayBuffer, settings) -> Blob (WAV)
+
+D) API routes (optional but recommended):
+If your export is done fully client-side, you can skip server routes.
+But if you want consistent WAV encoding server-side:
+- /app/api/tools/vocal-delay/encode/route.ts
+  - Accept raw float PCM or an AudioBuffer-like payload (careful with payload size)
+  - Prefer client-side WAV encoding to keep it simple.
+Recommendation: Do WAV encoding in client to avoid huge payloads.
+
+E) Tool registry + global URLs + DB:
+- Add tool to tool registry object/list used by navigation/search
+- Add global URL entry
+- Insert into database tools table
+
+DATABASE REQUIREMENT
+If your DB already has a tools table:
+- Ensure a row exists for slug = “vocal-delay”
+- Fields: slug, title, description, category/cloud tags, isIndexed true, status “live” or “beta”, created_at
+If you use Drizzle:
+- Add a migration if needed, but prefer using existing schema and just insert a row in seed.
+Also add to global_urls (or equivalent) with canonical path /tools/vocal-delay.
+
+SEO REQUIREMENTS
+Use keyword-rich metadata similar to the thumbnail tool, but for vocal delay:
+
+Title:
+“Free Vocal Delay Plugin Online (1/4, 1/8, 1/16 + Ping Pong) | VCM Vocal Delay”
+
+Description:
+“Free online vocal delay effect. Upload vocals, sync delay to BPM (1/4, 1/8, 1/16), add ping-pong stereo bounce, feedback, and mix. Preview instantly and export WAV. No login required.”
+
+Keywords include:
+- vocal delay online
+- delay plugin online
+- ping pong delay vocals
+- slapback delay vocal
+- 1/8 delay vocal
+- 1/16 delay vocal
+- bpm synced delay
+- free vocal effects
+- h delay alternative
+- waves h delay alternative (allowed as keyword, but do not claim affiliation)
+
+JSON-LD
+SoftwareApplication:
+name: VCM Vocal Delay
+price: 0
+category: MultimediaApplication
+operatingSystem: Web
+
+FAQ
+Include 8–12 FAQs:
+- What is ping pong delay?
+- What BPM should I use?
+- What’s the difference between 1/4, 1/8, 1/16?
+- How do I make slapback?
+- Why does feedback cause runaway?
+- Is my audio stored?
+- What file types are supported?
+- Can I export wet-only?
+
+PAGE LAYOUT (MATCH THE TEMPLATE STYLE)
+- Hero section with badge “Free Online Vocal Delay”
+- The tool (VocalDelayClient)
+- Keyword-rich intro section
+- “How it works” sections
+- Presets/examples section (static cards; optional)
+- Feature grid
+- Comparison table vs “plugins” (do not name competitors aggressively; keep it general)
+- FAQ accordion
+- ExploreMoreTools currentTool="/tools/vocal-delay"
+- Footer note: audio not stored
+
+ENGINE DETAILS (IMPLEMENT EXACTLY)
+
+1) Delay time mapping:
+quarter_ms = 60000 / bpm
+division multipliers:
+- 1/4 => 1.0
+- 1/8 => 0.5
+- 1/16 => 0.25
+delaySeconds = (quarter_ms * multiplier) / 1000
+
+2) Node graph:
+input -> dryGain -> masterGain -> destination
+input -> delayL
+input -> delayR
+
+PingPong ON:
+delayL -> fbL -> delayR
+delayR -> fbR -> delayL
+delayL -> merger left
+delayR -> merger right
+merger -> wetGain -> masterGain
+
+PingPong OFF:
+Use self loops:
+delayL -> selfLoopL -> delayL
+delayR -> selfLoopR -> delayR
+Set cross-feedback gains to 0; selfLoop gains to feedback
+Output still stereo (L delay to L, R delay to R), but repeats are not bouncing.
+
+3) Mix:
+Use equal-power crossfade:
+dry = cos(x*pi/2)
+wet = sin(x*pi/2)
+
+4) Smoothing:
+Use setTargetAtTime for delayTime and gains with timeConstant 0.01
+
+5) Limits:
+feedback <= 0.95 always
+bpm 40–240
+
+EXPORT
+- Offline render recommended:
+  - decode uploaded file into AudioBuffer
+  - create OfflineAudioContext with 2 channels, same sampleRate, length = buffer.length + tail
+  - tail length: allow delay ring-out based on feedback:
+    tailSeconds = min(6.0, max(1.0, delaySeconds * 8))
+  - run same graph in OfflineAudioContext
+  - render to AudioBuffer
+  - encode WAV in client (write a small wav encoder function)
+
+WAV ENCODER
+Implement a simple 16-bit PCM WAV encoder in TS:
+- interleave channels
+- write RIFF/WAVE header
+- convert float [-1,1] to int16
+
+UI/UX DETAILS
+- When file loaded: show duration, sample rate
+- Disable export until file loaded
+- Preview toggles:
+  - For realtime preview, play audio through WebAudio graph:
+    Use AudioContext + AudioBufferSourceNode, connect to engine input.
+  - If user changes settings mid-play, update engine params live.
+- Provide a “Reset” button to defaults:
+  bpm 120, division 1/8, feedback 0.35, mix 0.25, pingPong true
+
+PROJECT FILES TO CREATE/EDIT
+
+1) Page:
+- app/tools/vocal-delay/page.tsx
+  - metadata, jsonLd, faqJsonLd, sections
+  - import VocalDelayClient
+  - import ExploreMoreTools
+
+2) Client:
+- app/tools/vocal-delay/VocalDelayClient.tsx
+
+3) Engine:
+- lib/audio/vocalDelayEngine.ts
+
+4) Optional helpers:
+- lib/audio/wav.ts (wav encoder)
+- lib/audio/file.ts (read file to array buffer)
+
+5) Registry updates:
+- Add tool definition to your Tool Registry file (where tools are listed for nav/search)
+  - slug: "vocal-delay"
+  - title: "VCM Vocal Delay"
+  - href: "/tools/vocal-delay"
+  - cloud: "Creation" or "Music" depending on your taxonomy
+  - icon: something audio-ish
+
+6) Global URLs table update:
+- Add canonical:
+  path: "/tools/vocal-delay"
+  type: "tool"
+  slug: "vocal-delay"
+
+7) Database tools table update:
+- Insert row for vocal-delay
+- If you maintain seeds: add it to seed script
+- If you maintain migrations only: add a one-time migration or admin insert route, whichever is your convention
+
+DEFAULT CONTENT FOR PAGE (WRITE IT)
+- Headline: “Free Online Vocal Delay (BPM-Synced + Ping Pong)”
+- Subhead: “Upload vocals, choose 1/4, 1/8, or 1/16, dial feedback + mix, toggle ping-pong, export WAV.”
+- Include a small disclaimer: “Not affiliated with Waves.”
+
+ACCEPTANCE TESTS
+1) Upload a WAV, hit play: you hear delay.
+2) Change division from 1/8 to 1/16 while playing: delay time shifts smoothly without clicks.
+3) Feedback at 0.95: no runaway infinite loop, but long repeats.
+4) PingPong ON: repeats bounce left/right audibly.
+5) PingPong OFF: repeats stay in place (no bounce).
+6) Export renders a WAV that matches preview settings and includes tail.
+
+NOW IMPLEMENT
+Do not give me a plan. Create the files and edits directly.
+Use TypeScript. Use existing project conventions for routes/components.
+Keep the UI clean with Tailwind like the template.
