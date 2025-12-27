@@ -22,9 +22,6 @@ def sonify_midi_to_wav(notes, output_path: str, duration: float, sample_rate: in
     Create a simple sonification of the detected notes as a WAV file.
     Uses sine waves for each note with pitch.
     """
-    from midiutil import MIDIFile
-    import subprocess
-    
     samples = int(duration * sample_rate)
     audio = np.zeros(samples, dtype=np.float32)
     
