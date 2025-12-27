@@ -26,6 +26,7 @@ const tools = [
   { name: "Name Combiner", href: "/tools/name-combiner" },
   { name: "Vocal Delay", href: "/tools/vocal-delay" },
   { name: "BPM Finder", href: "/tools/bpm-finder" },
+  { name: "Vocal Doubler", href: "/tools/vocal-doubler" },
   { name: "BuyLens", href: "/shopping/buylens" },
   { name: "Ideas Hub", href: "/ideas" },
   { name: "VCM Answers", href: "/answers" },

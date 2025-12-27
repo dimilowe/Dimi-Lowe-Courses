@@ -1,0 +1,192 @@
+You are Replit AI Agent working inside the VCM Suite Next.js codebase.
+
+GOAL
+Build a new tool page: **VCM Vocal Doubler** — a web-based “tape-style ADT doubler” for vocals (inspired by classic artificial double tracking behavior) using Web Audio API + AudioWorklet. This is NOT a clone of any commercial plugin. It’s an original implementation of the effect class: modulated delay (varispeed-ish), wow/flutter drift, optional saturation, stereo divergence, and a low-latency mode.
+
+HARD RULES
+- Do NOT use any third-party plugin brand names, Abbey Road, Beatles, Waves, Reel ADT, etc. anywhere in UI/SEO.
+- No false “modeled tape machines” claims. Say “tape-style” and “classic ADT-inspired” only.
+- Privacy: do not upload/store user audio. Process client-side only in-memory. Export happens locally via offline render in-browser.
+- Keep this stable: parameter smoothing, guardrails on ranges, and a CPU-safe default.
+- Must integrate VCM Suite patterns: Universal Tool Template layout style, ExploreMoreTools, tool registry, global_urls, and DB tools table.
+
+TECH APPROACH
+Client-only audio processing:
+- Use Web Audio API and an AudioWorkletProcessor for the effect.
+- Signal path:
+  input (file or mic) -> dry path
+  input -> doubler worklet (modulated delay + wow/flutter + optional saturation + stereo) -> wet path
+  mix dry/wet -> output -> destination + recorder/export
+
+Effect design (practical ADT-style):
+- Base delay (ms) with modulation around it (bounded).
+- “Varispeed” modulation = combination of:
+  - slow random walk (wander)
+  - faster flutter sine/noise
+  - optional tempo-synced LFO
+- Stereo: independent L/R modulation seeds and pan controls.
+- Optional saturation: gentle waveshaper with tone control (pre/post lowpass).
+- Low-latency mode: disables pitchy modulation; keeps delay-only + subtle width (less authentic but playable).
+
+FILES TO CREATE
+1) Page:
+- /app/tools/vocal-doubler/page.tsx  (or match your existing routing convention)
+2) Client:
+- /app/tools/vocal-doubler/VocalDoublerClient.tsx
+3) DSP worklet:
+- /public/audio-worklets/vocalDoublerWorklet.js
+4) Helper utilities:
+- /lib/audio/useAudioWorklet.ts  (if you don’t already have a shared helper)
+- /lib/audio/offlineRenderDoubler.ts (offline render + WAV export)
+- /lib/audio/wav.ts (WAV encoding helper) if not present
+
+If your repo already has audio helpers, reuse them instead of duplicating.
+
+DATABASE + REGISTRY UPDATES (REQUIRED)
+- Add tool row to DB tools table.
+- Add entry to global_urls.
+- Add to tool registry / navigation so it appears in ExploreMoreTools and internal discovery.
+
+TOOL IDENTITY
+Slug: /tools/vocal-doubler
+Name: "VCM Vocal Doubler"
+Category/Cloud tag: Video/Music creation (choose the best match in your system). If you have “Music & Performance Cloud” or “Creation Cloud” tag it there.
+
+MONETIZATION / ENTITLEMENTS (LIGHT)
+- Free: upload + play + basic controls + export up to 30 seconds
+- Pro (cloud entitlement): unlimited export length, HQ mode (offline render oversampling), presets save/load
+If your entitlement system exists, wire it. If not, implement a simple UI paywall stub that checks `cloud_entitlements` like other tools.
+
+UI REQUIREMENTS (CLIENT)
+Hero:
+- Title, subheadline, 3 bullet benefits.
+Tool block:
+- Input mode tabs: “Upload WAV/MP3” and “Use Microphone”
+- Transport: Play/Pause, Stop, Seek bar, Time readout
+- Output gain meter (simple)
+Controls (with safe ranges + smoothing):
+- Mix (0–100%)
+- Width (0–150%)
+- Base Delay (5–40ms)
+- Range (0–25ms)  // modulation depth
+- Wow (0–1)       // slow drift amount
+- Flutter (0–1)   // faster modulation amount
+- Varispeed Mode: Manual / LFO / Sync / Random
+  - Manual Rate (0–1) slider
+  - LFO Rate (0.05–6 Hz)
+  - Sync: 1/8, 1/4, 1/2, 1 bar (compute rate from BPM)
+  - Random: intensity slider
+- Saturation Drive (0–1) + Tone (lowpass 6k–18k)
+- Deck Pan: A pan (-100..100), B pan (-100..100)
+- Phase invert button for wet
+- Low Latency toggle
+
+Export:
+- “Export Processed WAV” button
+- If Free tier: enforce 30s cap and show upgrade CTA.
+- If Pro: render full duration.
+- Export uses OfflineAudioContext to re-render with the worklet logic (or a mirrored offline algorithm) then encodes WAV.
+
+Performance:
+- Provide a “Quality” toggle (Eco/Standard/HQ). HQ only for Pro.
+- Eco reduces modulation complexity and disables saturation oversampling.
+
+DSP WORKLET REQUIREMENTS
+Implement a stereo delay line with fractional delay:
+- Sample rate: from context
+- Max delay buffer: e.g., 200ms
+- Delay time per-sample = baseDelay + modSignal (clamped)
+- Interpolation: linear is acceptable for MVP, but avoid clicks via smoothing.
+- Use one-pole smoothing on parameters:
+  smooth = smooth + a*(target-smooth), with a ~ 0.001–0.01 depending on param.
+
+Mod signal:
+- wander: random walk updated every N samples (e.g., every 256 samples), bounded [-1,1]
+- flutter: sine + small noise
+- combine: mod = rangeMs * (wow*wander + flutter*sin + randomNoise*small)
+- independent L/R seeds for width
+- For sync mode: convert BPM to Hz: hz = bpm/60 * multiplier
+
+Saturation:
+- waveshaper curve: tanh-ish approximation
+- pre-gain = 1 + drive*X
+- post lowpass controlled by tone
+- Keep it subtle by default.
+
+Latency behavior:
+- In low-latency mode, set baseDelay minimum to 5ms and range <= 5ms, disable wander/pitchy modulation.
+
+SEO + CONTENT (UNIVERSAL TOOL TEMPLATE STYLE)
+Create page.tsx using the user’s template structure:
+- export metadata with keyword-rich title/description/keywords.
+- JSON-LD: SoftwareApplication + FAQPage.
+- Sections:
+  1) Keyword-rich intro: what a vocal doubler is, what tape-style ADT does, why modulated delay sounds more alive than static doubling.
+  2) “How it works” explanation (non-technical but accurate).
+  3) Example presets cards (not using brand names): Tight Double, Wide Chorusy, Dreamy Drift, Slap Thickener.
+  4) Feature grid (8 items).
+  5) Honest limitations section: browser CPU, latency, best input types, headphones recommended.
+  6) Comparison table: VCM Vocal Doubler vs “basic delay doubler” vs “chorus”
+     (Do NOT name competitors.)
+  7) FAQ (10–12 Qs).
+  8) ExploreMoreTools component.
+- Add footer note: “Audio processed locally. Nothing uploaded.”
+
+COPY REQUIREMENTS
+- Direct, no fluff, creator-friendly.
+- Avoid false claims.
+- Emphasize: “Upload a vocal, dial in width + drift, export.”
+
+FAQ IDEAS (use 12)
+- What is a vocal doubler?
+- What’s the difference between a doubler and chorus?
+- What is ADT-style doubling?
+- What delay time should I use for vocals?
+- How do I make doubles wider without sounding phasey?
+- Why does modulation make it sound more human?
+- Does this work on instruments too?
+- Can I use it live?
+- Why is there latency?
+- What audio formats are supported?
+- Is my audio uploaded or stored?
+- How do I export the processed vocal?
+
+IMPLEMENTATION STEPS (DO THEM)
+1) Add registry + DB entries:
+   - Insert tools row (name, slug, description, category, isIndexed=true, etc.)
+   - Insert global_urls entry for /tools/vocal-doubler
+   - Ensure ExploreMoreTools can discover it.
+2) Build /tools/vocal-doubler page with Universal Tool Template sections + JSON-LD.
+3) Build VocalDoublerClient:
+   - UI controls, audio context init, load worklet, connect graph
+   - file upload decodeAudioData
+   - mic capture via getUserMedia
+   - transport + progress bar
+   - parameter updates to worklet via port messages
+4) Build worklet JS:
+   - AudioWorkletProcessor with stereo processing
+   - delay buffer and modulation
+   - smoothing and clamping
+5) Build export:
+   - OfflineAudioContext render using the same worklet OR mirrored offline algorithm
+   - WAV encode and trigger download
+6) Add guardrails + error states:
+   - show “Safari limitations” warning if needed
+   - handle permission errors for mic
+   - handle large file size limits gracefully
+
+EDGE CASES / QA
+- Verify no clicks when moving sliders.
+- Verify mix=0 is dry only, mix=100 is wet only.
+- Verify width=0 collapses to mono-ish wet.
+- Verify phase invert works.
+- Verify low-latency mode reduces CPU and avoids warble.
+- Verify export matches what is heard (as close as feasible).
+
+DELIVERABLES
+- New tool page is live at /tools/vocal-doubler
+- Works in Chrome + Safari (best-effort; show warning if worklet unsupported)
+- Tool registered in tools table + global_urls + internal navigation.
+- No server storage, no uploads.
+
+NOW BUILD IT.
