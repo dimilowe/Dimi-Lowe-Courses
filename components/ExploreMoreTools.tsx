@@ -24,6 +24,7 @@ const tools = [
   { name: "Online Notepad", href: "/tools/online-notepad" },
   { name: "Prediction Center", href: "/tools/prediction-center" },
   { name: "Name Combiner", href: "/tools/name-combiner" },
+  { name: "BuyLens", href: "/shopping/buylens" },
   { name: "Ideas Hub", href: "/ideas" },
   { name: "VCM Answers", href: "/answers" },
 ];
