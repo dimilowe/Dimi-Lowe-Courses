@@ -26,6 +26,8 @@ import {
   Cloud,
   X,
   Star,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { CLOUDS, type CloudSlug } from "@/lib/clouds";
@@ -118,6 +120,8 @@ function ContentManagerInner() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingCloudTags, setEditingCloudTags] = useState<{ slug: string; tags: CloudSlug[] } | null>(null);
   const [savingCloudTags, setSavingCloudTags] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ slug: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
@@ -195,6 +199,30 @@ function ContentManagerInner() {
       }
     } catch (error) {
       console.error("Failed to update tool featured status:", error);
+    }
+  };
+
+  const deleteTool = async (slug: string) => {
+    setIsDeleting(true);
+    try {
+      const res = await fetch("/api/admin/tools/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug }),
+        credentials: "include",
+      });
+      if (res.ok) {
+        setTools((prev) => prev.filter((t) => t.slug !== slug));
+        setDeleteConfirm(null);
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to delete tool");
+      }
+    } catch (error) {
+      console.error("Failed to delete tool:", error);
+      alert("Failed to delete tool");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -426,6 +454,45 @@ function ContentManagerInner() {
         onClose={() => setShowImportModal(false)}
         onImportComplete={() => loadData()}
       />
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Tool</h3>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to delete <strong>&quot;{deleteConfirm.name}&quot;</strong>? 
+              This will hide it from the site but can be restored later.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteConfirm(null)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => deleteTool(deleteConfirm.slug)}
+                disabled={isDeleting}
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div>
@@ -663,11 +730,21 @@ function ContentManagerInner() {
                           </button>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <Link href={`/tools/${tool.slug}`} target="_blank">
-                            <Button variant="ghost" size="sm">
-                              <ExternalLink className="w-4 h-4" />
+                          <div className="flex items-center justify-center gap-1">
+                            <Link href={`/tools/${tool.slug}`} target="_blank">
+                              <Button variant="ghost" size="sm">
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteConfirm({ slug: tool.slug, name: tool.name })}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </Button>
-                          </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}

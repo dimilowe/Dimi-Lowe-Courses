@@ -138,7 +138,7 @@ export async function getToolBySlug(
 ): Promise<ToolRecord | null> {
   const includeDrafts = options?.includeDrafts ?? true;
   
-  let sql = `SELECT * FROM tools WHERE slug = $1`;
+  let sql = `SELECT * FROM tools WHERE slug = $1 AND deleted_at IS NULL`;
   if (!includeDrafts) {
     sql += ` AND status = 'published'`;
   }
@@ -149,7 +149,7 @@ export async function getToolBySlug(
 }
 
 export async function listTools(filters: ToolFilters = {}): Promise<ToolRecord[]> {
-  const conditions: string[] = [];
+  const conditions: string[] = ['deleted_at IS NULL'];
   const params: any[] = [];
   let paramIndex = 1;
 
