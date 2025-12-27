@@ -1,0 +1,269 @@
+You are Replit. Build the next VCM Suite tool using the existing “Universal Tool Template (cms block template - universal)” pattern and styling. You MUST adapt the provided template into a new page + client component and wire a real server pipeline.
+
+TOOL
+- Name: VCM Chord Progression Finder (Harmony & Chord Inference)
+- Path: /tools/chord-progression-finder
+- Category/Cloud: Music Cloud
+- Pricing: 100% free for now (no Pro gating)
+- Purpose: Upload audio, infer chord labels over time (Cmaj, Am7, Dm7, G7, etc.) using the note events you already generate from Spotify Basic Pitch.
+- Positioning: This turns Basic Pitch into a “music understanding layer,” not just transcription.
+- Companion tools: Audio → MIDI Converter (/tools/audio-to-midi), Audio Key Detector (/tools/audio-key-detector), BPM Finder (planned)
+- No login required.
+
+CORE IDEA (DERIVED, NOT NATIVE)
+Basic Pitch does NOT output chords, but you already get:
+- note events (pitch, start, end, velocity)
+- timing
+We will:
+- cluster notes into windows
+- convert pitch → pitch class sets
+- score against chord templates
+- emit a chord timeline
+
+OUTPUTS
+Return JSON + downloadable files:
+1) chord_timeline.json (required)
+2) chord_timeline.csv (required)
+3) optional chord_track.mid (recommended; “block chords” per segment)
+API response must look like:
+{
+  chords: Array<{
+    startSec: number,
+    endSec: number,
+    chordLabel: string,          // e.g. "Am7"
+    root: string,                // e.g. "A"
+    quality: string,             // e.g. "min7" | "maj" | "dom7" | ...
+    confidence: number,          // 0..1
+    notes: string[],             // pitch classes present, e.g. ["A","C","E","G"]
+  }>,
+  altCandidates?: Array<{
+    startSec: number,
+    endSec: number,
+    candidates: Array<{ chordLabel: string, confidence: number }>
+  }>,
+  files: {
+    jsonUrl: string,
+    csvUrl: string,
+    midiUrl?: string
+  },
+  meta: { durationSec: number, processingMs: number, format: string }
+}
+
+ABUSE GUARDRAILS (MUST MATCH YOUR STACK)
+Reuse the exact same infra already built in /tools/audio-to-midi:
+- 25MB max file size
+- 10 minute max duration (ffprobe)
+- one job per IP at a time (in-memory lock w/ TTL)
+- 90 second processing timeout
+- temp cleanup
+
+IMPORTANT: Do NOT duplicate helpers. Import and reuse the existing upload + ffprobe + ffmpeg normalize + lock + timeout + cleanup utilities already used by audio-to-midi.
+
+SUPPORTED INPUT FORMATS
+- mp3, wav, m4a, flac, ogg
+
+PIPELINE OVERVIEW (DO THIS)
+We want chords from note events, not directly from raw audio.
+Steps:
+1) Upload audio
+2) Normalize with ffmpeg → mono 22050Hz wav (reuse your same normalization)
+3) Run Basic Pitch transcription (reuse your existing python worker logic OR call the same worker and consume its note events)
+   - If your existing audio-to-midi pipeline already outputs notes.csv or JSON note events, reuse that path.
+4) Chord inference from note events
+5) Emit chord timeline JSON/CSV (+ optional MIDI chord track)
+6) Return download URLs
+
+FILES TO CREATE
+Create:
+- /app/tools/chord-progression-finder/page.tsx
+- /app/tools/chord-progression-finder/ChordProgressionFinderClient.tsx
+- /app/api/chord-progression-finder/route.ts
+- /python/chord_progression_worker.py
+
+REUSE BASIC PITCH
+Do NOT re-implement Basic Pitch again.
+Either:
+A) Import and call the exact same Python transcription function used by audio-to-midi, then run chord inference inside the same python worker, OR
+B) Call your existing Basic Pitch worker and read its notes output, then do chord inference in a second python worker.
+Prefer A (single worker, fewer moving parts).
+
+CHORD INFERENCE ALGORITHM (PRACTICAL, NOT A RESEARCH PROJECT)
+Work from note events.
+
+Inputs: list of notes:
+- start_time_s
+- end_time_s
+- midi_pitch (0-127)
+- velocity (optional)
+
+1) Build analysis windows:
+- windowSec = 2.0
+- hopSec = 1.0
+(These settings produce usable chord changes without being too jittery.)
+
+2) For each window:
+- collect “active notes” where note overlaps window by at least 0.2s
+- weight each note by overlap duration (and optionally velocity)
+- convert pitches to pitch classes (0..11) and aggregate weights into 12-bin vector pc[12]
+
+3) Candidate chord templates (start simple, high-leverage):
+Triads:
+- maj: 0,4,7
+- min: 0,3,7
+- dim: 0,3,6
+- aug: 0,4,8
+Sevenths:
+- maj7: 0,4,7,11
+- min7: 0,3,7,10
+- dom7: 0,4,7,10
+- m7b5: 0,3,6,10
+Suspended:
+- sus2: 0,2,7
+- sus4: 0,5,7
+Optional add-ons if easy:
+- add9: 0,4,7,2 (or 14 mod 12)
+- 6: 0,4,7,9 (maj6) and 0,3,7,9 (min6)
+
+4) Score each root (12) + quality template:
+- rotate template to the root
+- compute score:
+  - template_present = sum(pc[n] for n in chord_tones)
+  - template_missing_penalty = small penalty if pc for chord tones are weak
+  - non_chord_penalty = penalty for strong pc bins not in chord tones (to reduce “everything is Cmaj7”)
+A robust and simple scoring function:
+score = (sum(pc[tone]) / (sum(pc)+1e-9)) - 0.35*(sum(pc[non_tones])/(sum(pc)+1e-9))
+Then clamp 0..1.
+
+5) Choose best chord per window.
+Compute confidence:
+- bestScore vs secondBest:
+  confidence = sigmoid((best - second)*8)
+Also damp confidence if total energy is too low (not enough pitched notes).
+
+6) Smooth into segments:
+- Merge consecutive windows if same chordLabel AND confidence >= 0.45
+- If chordLabel flips for 1 window then returns, treat as noise and merge (simple hysteresis)
+- Drop segments shorter than 1.5s unless confidence >= 0.7
+
+7) Output chords as segments:
+{startSec, endSec, chordLabel, confidence, notes:[...pitch names]}
+
+8) Optional: MIDI chord track
+Create a MIDI file where each chord segment is rendered as block chord notes (root position) in a fixed octave:
+- root around C3–B3 range
+- triad/seventh as simultaneous notes at segment start, note-off at segment end
+This makes it easy to drag into a DAW.
+
+EDGE CASES / HONEST LIMITATIONS (MUST DISPLAY)
+- Full mixes with bass + melody + pads can confuse chord inference
+- Inversions may be labeled as the “root chord” even if bass implies slash chords (we’re not doing slash chords yet)
+- Very short clips = unstable results
+- Drums/no pitched content = low confidence
+- Complex jazz harmony = best-effort
+
+CLIENT UI REQUIREMENTS
+ChordProgressionFinderClient.tsx must include:
+- Dropzone + file picker
+- CTA: “Find Chords”
+- Progress states: Uploading → Transcribing Notes → Inferring Chords → Done
+- Results:
+  - Big “Chord Progression” header
+  - Timeline list:
+    - timestamp range (mm:ss - mm:ss)
+    - chordLabel (e.g. “Dm7”)
+    - confidence bar
+  - Top candidates per segment (optional toggle)
+  - Download buttons:
+    - chord_timeline.json
+    - chord_timeline.csv
+    - chord_track.mid (if generated)
+- “Workflow Cluster” callout (Prep Stack):
+  - Link to /tools/audio-to-midi
+  - Link to /tools/audio-key-detector
+  - Mention BPM Finder as coming soon
+
+PAGE TEMPLATE ADAPTATION (SEO + PAIN-FIRST)
+Adapt the provided Universal Tool Template into:
+- Hero:
+  - Badge: “Free Chord Progression Finder”
+  - H1: “Chord Progression Finder (From Any Audio)”
+  - Subhead: “Upload a song and get a chord timeline you can recreate in your DAW.”
+- Keyword-rich intro section:
+  - chord progression finder
+  - chord detector
+  - find chords of a song
+  - audio to chords
+  - chord recognition
+  - chords from audio
+- Sections:
+  - How it works (notes → windows → chord templates)
+  - Best use cases (songwriters, producers, education, remix pipelines)
+  - Honest limitations
+  - Alternatives comparison table (generic, don’t name competitors unless you already do elsewhere)
+
+JSON-LD REQUIRED
+- SoftwareApplication (price 0)
+- FAQPage (10–12 questions)
+
+FAQ IDEAS (USE THESE)
+1) How do I find the chords of a song?
+2) Can this detect chord progressions automatically?
+3) How accurate is chord detection?
+4) Does it work on vocals-only?
+5) Does it work on full mixes?
+6) Can it detect seventh chords (Am7, G7)?
+7) Why is confidence low?
+8) Can I export chords to MIDI?
+9) What audio formats are supported?
+10) Do you store my audio?
+11) How do I use this with Audio → MIDI?
+12) How do I use this with Key + Scale detector?
+
+API ROUTE
+/app/api/chord-progression-finder/route.ts:
+- multipart upload
+- enforce guardrails (reuse helpers)
+- normalize audio
+- run python worker with timeout
+- write outputs to a public download location
+- return JSON
+
+PYTHON WORKER
+/python/chord_progression_worker.py:
+Inputs:
+--input <normalized_wav>
+--out <output_dir>
+Process:
+1) Run Basic Pitch to get note events (reuse your established invocation)
+2) Build chord timeline with the algorithm above
+3) Write:
+- chord_timeline.json
+- chord_timeline.csv
+- chord_track.mid (optional but recommended)
+4) print final JSON summary to stdout with file names and chord segments
+
+Dependencies:
+- numpy
+- basic_pitch (already in your environment)
+- mido (or pretty_midi) for MIDI writing
+Prefer mido (lighter).
+If mido isn’t installed but pretty_midi is, use what’s already present. Keep deps minimal.
+
+SYSTEM INTEGRATION (MUST DO)
+- Add tool to tools database table
+- Add to global_urls table
+- Ensure ExploreMoreTools can surface it
+- Category: Music Cloud
+- Tags: “music”, “chords”, “harmony”, “songwriting”, “producer”, “midi”, “education”
+
+DELIVERABLES CHECKLIST
+- /tools/chord-progression-finder page renders with Universal Tool Template style
+- Upload works end-to-end
+- Chord timeline displayed with timestamps + confidence
+- JSON + CSV download works
+- Optional MIDI chord track download works
+- Guardrails enforced (25MB, 10min, 1 job/IP, timeout)
+- Registered in tools + global_urls + ExploreMoreTools
+- Free, no login required
+
+NOW IMPLEMENT IT.
