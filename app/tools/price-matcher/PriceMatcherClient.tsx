@@ -1,7 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, ExternalLink, Loader2, AlertCircle, CheckCircle, TrendingDown, TrendingUp, Minus } from 'lucide-react';
+import { Search, ExternalLink, Loader2, AlertCircle, CheckCircle, TrendingDown, TrendingUp, Minus, ChevronDown, ChevronUp, Store, Info } from 'lucide-react';
+
+const SUPPORTED_STORES = {
+  'Major Retailers': ['Amazon', 'Walmart', 'Target', 'Best Buy', 'Costco', 'eBay'],
+  'Home & Hardware': ['Lowes', 'Home Depot', 'Wayfair', 'Overstock'],
+  'Electronics': ['Newegg', 'B&H Photo', 'Adorama'],
+  'Fashion & Beauty': ['Zappos', 'Kohl\'s', 'Macy\'s', 'Nordstrom', 'Etsy', 'Sephora', 'Ulta'],
+};
 
 interface PriceResult {
   title: string;
@@ -36,6 +43,7 @@ export default function PriceMatcherClient() {
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<SearchResults | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [showStores, setShowStores] = useState(false);
 
   const handleSearch = async () => {
     if (!url.trim()) {
@@ -144,9 +152,44 @@ export default function PriceMatcherClient() {
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all text-gray-900"
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           />
-          <p className="mt-1.5 text-xs text-gray-500">
-            Supported: Amazon, Walmart, Target, Best Buy, Costco, Lowes, Home Depot, eBay, Newegg, and more
-          </p>
+          <button
+            type="button"
+            onClick={() => setShowStores(!showStores)}
+            className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 font-medium transition-colors"
+          >
+            <Store className="w-3.5 h-3.5" />
+            View all 20 supported stores
+            {showStores ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+          
+          {showStores && (
+            <div className="mt-3 p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4">
+              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-800">
+                  <strong>Important:</strong> Only links from <em>retailers</em> work - not brand websites. 
+                  For example, use an Amazon or Zappos link for Timberland boots, not timberland.com. 
+                  Brand sites (Nike.com, Apple.com, etc.) don't work because they only sell their own products.
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {Object.entries(SUPPORTED_STORES).map(([category, stores]) => (
+                  <div key={category}>
+                    <h4 className="text-xs font-semibold text-gray-700 mb-2">{category}</h4>
+                    <ul className="space-y-1">
+                      {stores.map((store) => (
+                        <li key={store} className="text-xs text-gray-600 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+                          {store}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {error && (
