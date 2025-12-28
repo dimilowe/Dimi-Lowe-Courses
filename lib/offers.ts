@@ -39,13 +39,13 @@ const CLOUD_OFFER_MAP: Record<
     { cloudId: 'creation', tier: 'pro' },
     { cloudId: 'video', tier: 'pro' },
     { cloudId: 'writing', tier: 'pro' },
-    { cloudId: 'file', tier: 'pro' },
-    { cloudId: 'monetization', tier: 'pro' },
     { cloudId: 'intelligence', tier: 'pro' },
     { cloudId: 'music', tier: 'pro' },
     { cloudId: 'growth', tier: 'pro' },
     { cloudId: 'shopping', tier: 'pro' },
     { cloudId: 'advertising', tier: 'pro' },
+    { cloudId: 'gaming', tier: 'pro' },
+    { cloudId: 'ecommerce', tier: 'pro' },
   ],
 };
 
