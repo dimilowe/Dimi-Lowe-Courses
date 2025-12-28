@@ -1,10 +1,19 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { CLOUDS, type CloudConfig } from "@/lib/clouds";
 import { CLOUD_THEMES, type CloudId } from "@/lib/cloudTheme";
-import { Check, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Check, Loader2, CheckCircle, XCircle, LogIn } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 type Tier = {
   id: "starter" | "basic" | "pro" | "global_pro";
@@ -93,13 +102,38 @@ function getCloudIcon(slug: string) {
 
 function PricingPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [tier, setTier] = useState<string | null>(null);
   const [cloud, setCloud] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const isGlobalPro = tier === "global_pro";
   const ready = isGlobalPro || (tier && cloud);
+
+  useEffect(() => {
+    fetch('/api/auth/session', {
+      method: 'GET',
+      credentials: 'include',
+    })
+      .then((res) => {
+        if (!res.ok) {
+          setIsLoggedIn(false);
+          return null;
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (data) {
+          setIsLoggedIn(data.isLoggedIn === true);
+        }
+      })
+      .catch(() => {
+        setIsLoggedIn(false);
+      });
+  }, []);
 
   useEffect(() => {
     if (searchParams.get("success") === "1") {
@@ -107,10 +141,44 @@ function PricingPageContent() {
     } else if (searchParams.get("canceled") === "1") {
       setMessage({ type: "error", text: "Checkout was canceled. You can try again when ready." });
     }
+    
+    const planParam = searchParams.get("plan");
+    const cloudParam = searchParams.get("cloud");
+    if (planParam && TIERS.some(t => t.id === planParam)) {
+      setTier(planParam);
+    }
+    if (cloudParam && CLOUDS.some(c => c.slug === cloudParam)) {
+      setCloud(cloudParam);
+    }
   }, [searchParams]);
+
+  const buildLoginRedirect = () => {
+    let redirectUrl = "/pricing";
+    const params = new URLSearchParams();
+    if (tier) params.set("plan", tier);
+    if (cloud && !isGlobalPro) params.set("cloud", cloud);
+    if (params.toString()) {
+      redirectUrl += "?" + params.toString();
+    }
+    return `/login?next=${encodeURIComponent(redirectUrl)}`;
+  };
+
+  const handleSignIn = () => {
+    setShowAuthModal(false);
+    router.push(buildLoginRedirect());
+  };
 
   const handleSubscribe = async () => {
     if (!ready) return;
+
+    if (isLoggedIn === null) {
+      return;
+    }
+
+    if (isLoggedIn === false) {
+      setShowAuthModal(true);
+      return;
+    }
 
     setIsLoading(true);
     setMessage(null);
@@ -145,18 +213,10 @@ function PricingPageContent() {
     } catch (error: any) {
       console.error("Checkout error:", error);
       const errorMessage = error instanceof Error ? error.message : "Something went wrong. Please try again.";
-      
-      if (errorMessage.includes("sign in") || errorMessage.includes("signed in")) {
-        setMessage({ 
-          type: "error", 
-          text: "Please sign in to subscribe to a cloud plan." 
-        });
-      } else {
-        setMessage({ 
-          type: "error", 
-          text: errorMessage 
-        });
-      }
+      setMessage({ 
+        type: "error", 
+        text: errorMessage 
+      });
       setIsLoading(false);
     }
   };
@@ -287,18 +347,40 @@ function PricingPageContent() {
 
           <button
             onClick={handleSubscribe}
-            disabled={!ready || isLoading}
+            disabled={!ready || isLoading || isLoggedIn === null}
             className={`px-6 py-3 rounded-xl font-semibold transition flex items-center gap-2 ${
-              ready && !isLoading
+              ready && !isLoading && isLoggedIn !== null
                 ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white hover:opacity-90 shadow-md"
                 : "bg-zinc-200 text-zinc-400 cursor-not-allowed"
             }`}
           >
-            {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isLoading ? "Redirecting..." : "Subscribe"}
+            {(isLoading || isLoggedIn === null) && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isLoading ? "Redirecting..." : isLoggedIn === null ? "Loading..." : "Subscribe"}
           </button>
         </div>
       </div>
+
+      <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogIn className="w-5 h-5" />
+              Sign in required
+            </DialogTitle>
+            <DialogDescription>
+              You must be signed in to start a subscription.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowAuthModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSignIn} className="bg-gradient-to-r from-purple-500 to-violet-600 hover:opacity-90">
+              Sign in
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

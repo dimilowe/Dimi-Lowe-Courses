@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,8 @@ export function LoginForm({ prefillEmail }: LoginFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextUrl = searchParams.get('next');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,8 +55,11 @@ export function LoginForm({ prefillEmail }: LoginFormProps) {
           });
         }
         
-        // Force full page reload to update navbar state
-        window.location.href = '/dashboard';
+        let redirectTo = '/dashboard';
+        if (nextUrl && nextUrl.startsWith('/') && !nextUrl.startsWith('//')) {
+          redirectTo = nextUrl;
+        }
+        window.location.href = redirectTo;
       } else {
         setError(data.error || 'Login failed');
       }
