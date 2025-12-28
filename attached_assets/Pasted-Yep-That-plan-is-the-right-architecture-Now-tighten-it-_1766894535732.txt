@@ -1,0 +1,68 @@
+Yep. That plan is the right architecture. Now tighten it so it ships cleanly and doesn’t create edge-case ghosts.
+Tightened task list (what Replit should actually do)
+0) Migration: create cloud_entitlement_grants
+Columns (minimum):
+id UUID PK
+user_id UUID (FK if you have users table)
+cloud_id TEXT
+tier TEXT
+status TEXT (active|trial|canceled|past_due|incomplete etc — match what you already use)
+stripe_customer_id TEXT
+stripe_subscription_id TEXT
+current_period_end TIMESTAMP (nullable)
+created_at, updated_at
+Constraints / indexes (important):
+CHECK cloud_id uses the same allowed set as cloud_entitlements (including gaming/ecommerce)
+UNIQUE(stripe_subscription_id, cloud_id) ← prevents duplicate grants for the same cloud within the same subscription
+indexes on (user_id), (stripe_subscription_id), (user_id, cloud_id)
+1) Recompute function (single source of truth)
+Add a function like:
+recomputeEffectiveEntitlements(userId: string)
+or better, scoped:
+recomputeEffectiveEntitlement(userId, cloudId)
+It should:
+Select active/trial grants for that user (and optionally not expired if current_period_end is in past)
+For each cloud_id, pick the max tier by TIER_ORDER
+Upsert into cloud_entitlements using UNIQUE (user_id, cloud_id)
+Set tier, status='active', and set stripe_subscription_id to the “winning” subscription id (optional but useful)
+If no active grants exist for a cloud, set status to canceled or delete the row (pick one; I recommend setting status='canceled' to keep history)
+Guardrail: never let recompute downgrade if there’s still an active grant at a higher tier.
+2) Webhook changes (write grants, then recompute)
+In app/api/webhooks/stripe/route.ts:
+Replace direct calls to upsertCloudEntitlement() with upsertCloudEntitlementGrant()
+After processing a checkout/session update/cancel:
+recompute for the affected user (or affected clouds only)
+Cases:
+checkout.session.completed:
+if type=cloud → one grant for that cloud
+if type=global → grants for all public clouds
+recompute
+customer.subscription.updated:
+update grant statuses + current_period_end
+recompute
+customer.subscription.deleted:
+mark grants canceled where stripe_subscription_id = $1
+recompute for that user
+3) Checkout route
+app/api/checkout/route.ts can stay mostly as-is. The checkout session metadata is still fine.
+Just ensure metadata has enough to grant:
+user_id, type, tier, plus either cloud_id or offer_id
+4) Read paths: no changes (ideally)
+hasAccess() continues to read cloud_entitlements. That’s the whole point.
+5) Backfill (optional, but you can do now)
+Even with 0 subscribers, do a small safety backfill routine:
+For any existing cloud_entitlements rows with source='stripe' and a stripe_subscription_id, create a corresponding grant row if missing.
+Run once.
+This prevents surprises if you tested checkout earlier.
+6) Tests you must run
+Buy single-cloud Pro → entitlement exists
+Buy Global Pro → grants created (10), entitlements remain correct
+Cancel Global → entitlements fall back to single where applicable
+Cancel single → global still holds
+Expire period end → entitlements drop only when all grants expire/cancel
+One key choice: do we ever delete from cloud_entitlements?
+Don’t delete. Just set status='canceled' when no active grants remain. Keeps UI stable and avoids “missing row” bugs.
+Paste-this “final” instruction to Replit (ready to ship)
+If you want to just hand Replit the tight version:
+Build cloud_entitlement_grants as the Stripe write-target (one row per subscription×cloud). Webhook writes/updates/cancels grants, then recomputes effective entitlements into cloud_entitlements (one row per user×cloud) as the max tier among active/trial grants. Keep UNIQUE(user_id,cloud_id) on cloud_entitlements. Add UNIQUE(stripe_subscription_id,cloud_id) on grants. Keep hasAccess() reading cloud_entitlements unchanged. Ensure cancel/update logic recomputes correctly and doesn’t wipe out access from other active subscriptions.
+That’s it. If Replit follows this precisely, you’ll have coexistence solved permanently without making entitlements a multi-row swamp.

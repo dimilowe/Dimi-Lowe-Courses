@@ -38,7 +38,7 @@ async function getUserByEmail(email: string): Promise<{ id: number } | null> {
   return result.rows[0] || null;
 }
 
-async function upsertCloudEntitlement(params: {
+async function upsertCloudEntitlementGrant(params: {
   userId: number;
   cloudId: string;
   tier: string;
@@ -50,41 +50,117 @@ async function upsertCloudEntitlement(params: {
   const { userId, cloudId, tier, status, stripeCustomerId, stripeSubscriptionId, currentPeriodEnd } = params;
 
   await query(
-    `INSERT INTO cloud_entitlements 
-       (user_id, cloud_id, tier, source, status, stripe_customer_id, stripe_subscription_id, current_period_end, valid_from, updated_at)
-     VALUES ($1, $2, $3, 'stripe', $4, $5, $6, $7, NOW(), NOW())
-     ON CONFLICT (user_id, cloud_id) 
+    `INSERT INTO cloud_entitlement_grants 
+       (user_id, cloud_id, tier, status, stripe_customer_id, stripe_subscription_id, current_period_end, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+     ON CONFLICT (stripe_subscription_id, cloud_id) 
      DO UPDATE SET
        tier = EXCLUDED.tier,
        status = EXCLUDED.status,
        stripe_customer_id = EXCLUDED.stripe_customer_id,
-       stripe_subscription_id = EXCLUDED.stripe_subscription_id,
        current_period_end = EXCLUDED.current_period_end,
        updated_at = NOW()`,
     [userId, cloudId, tier, status, stripeCustomerId, stripeSubscriptionId, currentPeriodEnd]
   );
 
-  console.log(`[Webhook] Upserted cloud entitlement: userId=${userId}, cloudId=${cloudId}, tier=${tier}, status=${status}`);
+  console.log(`[Webhook] Upserted grant: userId=${userId}, cloudId=${cloudId}, tier=${tier}, subscriptionId=${stripeSubscriptionId}`);
 }
 
-async function updateSubscriptionStatus(stripeSubscriptionId: string, status: string, currentPeriodEnd?: Date) {
-  if (currentPeriodEnd) {
+async function recomputeEffectiveEntitlement(userId: number, cloudId: string) {
+  const result = await query(
+    `SELECT tier, status, stripe_customer_id, stripe_subscription_id, current_period_end
+     FROM cloud_entitlement_grants
+     WHERE user_id = $1 AND cloud_id = $2 AND status IN ('active', 'trial')
+     ORDER BY 
+       CASE tier 
+         WHEN 'enterprise' THEN 4
+         WHEN 'pro' THEN 3
+         WHEN 'basic' THEN 2
+         WHEN 'starter' THEN 1
+         ELSE 0
+       END DESC
+     LIMIT 1`,
+    [userId, cloudId]
+  );
+
+  if (result.rows.length === 0) {
     await query(
       `UPDATE cloud_entitlements 
-       SET status = $1, current_period_end = $2, updated_at = NOW()
-       WHERE stripe_subscription_id = $3`,
-      [status, currentPeriodEnd, stripeSubscriptionId]
+       SET status = 'canceled', updated_at = NOW()
+       WHERE user_id = $1 AND cloud_id = $2`,
+      [userId, cloudId]
     );
-  } else {
-    await query(
-      `UPDATE cloud_entitlements 
-       SET status = $1, updated_at = NOW()
-       WHERE stripe_subscription_id = $2`,
-      [status, stripeSubscriptionId]
-    );
+    console.log(`[Webhook] Recompute: No active grants for userId=${userId}, cloudId=${cloudId} - set to canceled`);
+    return;
   }
 
-  console.log(`[Webhook] Updated subscription ${stripeSubscriptionId} to status=${status}`);
+  const winner = result.rows[0];
+
+  await query(
+    `INSERT INTO cloud_entitlements 
+       (user_id, cloud_id, tier, source, status, stripe_customer_id, stripe_subscription_id, current_period_end, valid_from, updated_at)
+     VALUES ($1, $2, $3, 'stripe', 'active', $4, $5, $6, NOW(), NOW())
+     ON CONFLICT (user_id, cloud_id) 
+     DO UPDATE SET
+       tier = EXCLUDED.tier,
+       status = 'active',
+       stripe_customer_id = EXCLUDED.stripe_customer_id,
+       stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+       current_period_end = EXCLUDED.current_period_end,
+       updated_at = NOW()`,
+    [userId, cloudId, winner.tier, winner.stripe_customer_id, winner.stripe_subscription_id, winner.current_period_end]
+  );
+
+  console.log(`[Webhook] Recompute: userId=${userId}, cloudId=${cloudId} -> tier=${winner.tier} from subscription=${winner.stripe_subscription_id}`);
+}
+
+async function recomputeAllCloudsForUser(userId: number) {
+  const result = await query(
+    `SELECT DISTINCT cloud_id FROM cloud_entitlement_grants WHERE user_id = $1`,
+    [userId]
+  );
+  
+  for (const row of result.rows) {
+    await recomputeEffectiveEntitlement(userId, row.cloud_id);
+  }
+}
+
+async function updateGrantsAndRecompute(stripeSubscriptionId: string, status: string, currentPeriodEnd?: Date) {
+  const updateResult = currentPeriodEnd 
+    ? await query(
+        `UPDATE cloud_entitlement_grants 
+         SET status = $1, current_period_end = $2, updated_at = NOW()
+         WHERE stripe_subscription_id = $3
+         RETURNING user_id, cloud_id`,
+        [status, currentPeriodEnd, stripeSubscriptionId]
+      )
+    : await query(
+        `UPDATE cloud_entitlement_grants 
+         SET status = $1, updated_at = NOW()
+         WHERE stripe_subscription_id = $2
+         RETURNING user_id, cloud_id`,
+        [status, stripeSubscriptionId]
+      );
+
+  console.log(`[Webhook] Updated ${updateResult.rows.length} grants for subscription ${stripeSubscriptionId} to status=${status}`);
+
+  const affectedUsers = new Set<number>();
+  const affectedClouds = new Map<number, Set<string>>();
+
+  for (const row of updateResult.rows) {
+    affectedUsers.add(row.user_id);
+    if (!affectedClouds.has(row.user_id)) {
+      affectedClouds.set(row.user_id, new Set());
+    }
+    affectedClouds.get(row.user_id)!.add(row.cloud_id);
+  }
+
+  for (const userId of affectedUsers) {
+    const clouds = affectedClouds.get(userId)!;
+    for (const cloudId of clouds) {
+      await recomputeEffectiveEntitlement(userId, cloudId);
+    }
+  }
 }
 
 async function handleCloudCheckoutCompleted(
@@ -129,7 +205,7 @@ async function handleCloudCheckoutCompleted(
 
   const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
 
-  await upsertCloudEntitlement({
+  await upsertCloudEntitlementGrant({
     userId: finalUserId,
     cloudId: finalCloudId,
     tier: finalTier,
@@ -138,6 +214,8 @@ async function handleCloudCheckoutCompleted(
     stripeSubscriptionId: subscription.id,
     currentPeriodEnd,
   });
+
+  await recomputeEffectiveEntitlement(finalUserId, finalCloudId);
 }
 
 async function handleGlobalProCheckoutCompleted(
@@ -173,7 +251,7 @@ async function handleGlobalProCheckoutCompleted(
   const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
 
   for (const cloudId of PUBLIC_CLOUD_IDS) {
-    await upsertCloudEntitlement({
+    await upsertCloudEntitlementGrant({
       userId: finalUserId,
       cloudId,
       tier: 'pro',
@@ -182,6 +260,7 @@ async function handleGlobalProCheckoutCompleted(
       stripeSubscriptionId: subscription.id,
       currentPeriodEnd,
     });
+    await recomputeEffectiveEntitlement(finalUserId, cloudId);
   }
 
   console.log(`[Webhook] Granted Global Pro access to ${PUBLIC_CLOUD_IDS.length} clouds for userId=${finalUserId}, subscriptionId=${subscription.id}`);
@@ -243,12 +322,12 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     status = "active";
   }
 
-  await updateSubscriptionStatus(stripeSubscriptionId, status, currentPeriodEnd);
+  await updateGrantsAndRecompute(stripeSubscriptionId, status, currentPeriodEnd);
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const stripeSubscriptionId = subscription.id;
-  await updateSubscriptionStatus(stripeSubscriptionId, "canceled");
+  await updateGrantsAndRecompute(stripeSubscriptionId, "canceled");
 }
 
 export async function POST(request: NextRequest) {
