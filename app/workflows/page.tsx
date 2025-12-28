@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Zap, Search, X } from "lucide-react";
 import { getWorkflows, getAllOutcomeTags } from "@/lib/workflows/workflows";
 import WorkflowCard from "@/components/workflows/WorkflowCard";
+import MonetizationBar from "@/components/MonetizationBar";
 
 export default function WorkflowsPage() {
   const workflows = getWorkflows();
@@ -122,6 +123,8 @@ export default function WorkflowsPage() {
           </div>
         )}
       </div>
+
+      <MonetizationBar />
     </main>
   );
 }
