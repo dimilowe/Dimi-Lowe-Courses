@@ -1,0 +1,42 @@
+Step 0 plan is almost right — but fix one thing: don’t include 12 clouds in Global Pro.
+Global Pro should include all public clouds, not deprecated ones. Right now public = 10 (original 10 minus file/monetization + plus gaming/ecommerce). That’s 10, not 12.
+If you include file + monetization, you just re-introduce the very clouds you worked to deprecate.
+So: constraint update includes them (fine), but Global Pro mapping should NOT grant them.
+Step 0: DB migration (final, correct)
+✅ Do this first.
+Migration SQL (exact)
+ALTER TABLE cloud_entitlements
+  DROP CONSTRAINT cloud_entitlements_cloud_id_check;
+
+ALTER TABLE cloud_entitlements
+  ADD CONSTRAINT cloud_entitlements_cloud_id_check
+  CHECK (
+    cloud_id = ANY (
+      ARRAY[
+        'creation','video','writing','file','monetization',
+        'intelligence','music','growth','shopping','advertising',
+        'gaming','ecommerce'
+      ]::text[]
+    )
+  );
+Add a quick verification query right after migration
+-- should succeed
+INSERT INTO cloud_entitlements (user_id, cloud_id, tier, source, status, valid_from, updated_at)
+VALUES ('00000000-0000-0000-0000-000000000000', 'gaming', 'pro', 'test', 'active', NOW(), NOW())
+ON CONFLICT (user_id, cloud_id) DO NOTHING;
+
+-- clean up
+DELETE FROM cloud_entitlements
+WHERE user_id = '00000000-0000-0000-0000-000000000000' AND cloud_id = 'gaming';
+(If you don’t want test inserts in prod, do this in dev/staging only.)
+Correct the rest of the plan (one line change)
+✅ Offers map: Global Pro should include public clouds only
+Include:
+creation, video, writing, intelligence, music, growth, shopping, advertising, gaming, ecommerce
+Exclude:
+file, monetization
+You still keep them in the DB check constraint for backward compatibility with existing entitlements. That’s fine.
+Tell Replit this (short)
+“Step 0 migration looks good.”
+“But Global Pro mapping should include public clouds only, not deprecated file/monetization.”
+If Replit does that, you’ll have a Global tier that matches your current product reality and doesn’t resurrect dead clouds.
