@@ -70,8 +70,9 @@ async function recomputeEffectiveEntitlement(userId: number, cloudId: string) {
   const result = await query(
     `SELECT tier, status, stripe_customer_id, stripe_subscription_id, current_period_end
      FROM cloud_entitlement_grants
-     WHERE user_id = $1 AND cloud_id = $2 AND status IN ('active', 'trial')
+     WHERE user_id = $1 AND cloud_id = $2 AND status IN ('active', 'trial', 'past_due')
      ORDER BY 
+       CASE status WHEN 'active' THEN 2 WHEN 'trial' THEN 1 WHEN 'past_due' THEN 0 END DESC,
        CASE tier 
          WHEN 'enterprise' THEN 4
          WHEN 'pro' THEN 3
@@ -95,23 +96,24 @@ async function recomputeEffectiveEntitlement(userId: number, cloudId: string) {
   }
 
   const winner = result.rows[0];
+  const effectiveStatus = winner.status === 'trial' ? 'active' : winner.status;
 
   await query(
     `INSERT INTO cloud_entitlements 
        (user_id, cloud_id, tier, source, status, stripe_customer_id, stripe_subscription_id, current_period_end, valid_from, updated_at)
-     VALUES ($1, $2, $3, 'stripe', 'active', $4, $5, $6, NOW(), NOW())
+     VALUES ($1, $2, $3, 'stripe', $4, $5, $6, $7, NOW(), NOW())
      ON CONFLICT (user_id, cloud_id) 
      DO UPDATE SET
        tier = EXCLUDED.tier,
-       status = 'active',
+       status = EXCLUDED.status,
        stripe_customer_id = EXCLUDED.stripe_customer_id,
        stripe_subscription_id = EXCLUDED.stripe_subscription_id,
        current_period_end = EXCLUDED.current_period_end,
        updated_at = NOW()`,
-    [userId, cloudId, winner.tier, winner.stripe_customer_id, winner.stripe_subscription_id, winner.current_period_end]
+    [userId, cloudId, winner.tier, effectiveStatus, winner.stripe_customer_id, winner.stripe_subscription_id, winner.current_period_end]
   );
 
-  console.log(`[Webhook] Recompute: userId=${userId}, cloudId=${cloudId} -> tier=${winner.tier} from subscription=${winner.stripe_subscription_id}`);
+  console.log(`[Webhook] Recompute: userId=${userId}, cloudId=${cloudId} -> tier=${winner.tier}, status=${effectiveStatus} from subscription=${winner.stripe_subscription_id}`);
 }
 
 async function recomputeAllCloudsForUser(userId: number) {
