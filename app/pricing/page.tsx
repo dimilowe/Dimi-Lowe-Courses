@@ -7,7 +7,7 @@ import { CLOUD_THEMES, type CloudId } from "@/lib/cloudTheme";
 import { Check, Loader2, CheckCircle, XCircle } from "lucide-react";
 
 type Tier = {
-  id: "starter" | "basic" | "pro";
+  id: "starter" | "basic" | "pro" | "global_pro";
   name: string;
   price: string;
   description: string;
@@ -62,6 +62,21 @@ const TIERS: Tier[] = [
       "Priority processing",
     ],
   },
+  {
+    id: "global_pro",
+    name: "Global Pro",
+    price: "$195 / mo",
+    badge: "All clouds",
+    description: "Pro access to every cloud. One subscription.",
+    gradient: "from-indigo-500 to-purple-600",
+    features: [
+      "Pro tier on all 10 clouds",
+      "Full AI tools everywhere",
+      "Maximum limits",
+      "Priority processing",
+      "Best value for power users",
+    ],
+  },
 ];
 
 function getCloudGradient(slug: string): string {
@@ -83,7 +98,8 @@ function PricingPageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const ready = tier && cloud;
+  const isGlobalPro = tier === "global_pro";
+  const ready = isGlobalPro || (tier && cloud);
 
   useEffect(() => {
     if (searchParams.get("success") === "1") {
@@ -94,22 +110,25 @@ function PricingPageContent() {
   }, [searchParams]);
 
   const handleSubscribe = async () => {
-    if (!tier || !cloud) return;
+    if (!ready) return;
 
     setIsLoading(true);
     setMessage(null);
 
     try {
-      const cloudId = cloud.replace(/_/g, "-");
+      let body: Record<string, string>;
+      
+      if (isGlobalPro) {
+        body = { type: "global" };
+      } else {
+        const cloudId = cloud!.replace(/_/g, "-");
+        body = { type: "cloud", cloudId, tier: tier! };
+      }
       
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "cloud",
-          cloudId,
-          tier,
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await response.json();
@@ -173,7 +192,7 @@ function PricingPageContent() {
           <h2 className="text-2xl font-bold text-zinc-900 mb-6">
             Choose a plan
           </h2>
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-4 gap-4">
             {TIERS.map((t) => (
               <button
                 key={t.id}
@@ -215,6 +234,7 @@ function PricingPageContent() {
           </div>
         </section>
 
+        {!isGlobalPro && (
         <section className="mt-14">
           <h2 className="text-2xl font-bold text-zinc-900 mb-6">
             Choose a cloud
@@ -249,6 +269,7 @@ function PricingPageContent() {
             })}
           </div>
         </section>
+        )}
       </div>
 
       <div className="fixed bottom-0 inset-x-0 border-t border-zinc-200 bg-white/95 backdrop-blur-sm shadow-lg">
@@ -259,8 +280,8 @@ function PricingPageContent() {
               {tier ? TIERS.find(t => t.id === tier)?.name : "No plan"}
             </span>
             {" • "}
-            <span className={cloud ? "text-purple-600 font-semibold" : "text-zinc-400"}>
-              {cloud ? CLOUDS.find(c => c.slug === cloud)?.name.replace("VCM ", "").replace(" Cloud", "") : "No cloud"}
+            <span className={isGlobalPro || cloud ? "text-purple-600 font-semibold" : "text-zinc-400"}>
+              {isGlobalPro ? "All Clouds" : (cloud ? CLOUDS.find(c => c.slug === cloud)?.name.replace("VCM ", "").replace(" Cloud", "") : "No cloud")}
             </span>
           </div>
 

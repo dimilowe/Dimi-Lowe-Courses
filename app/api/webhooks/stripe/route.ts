@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { grantAccessForOffer, storePendingPurchase } from "@/lib/offers";
+import { PUBLIC_CLOUD_IDS } from "@/lib/types/cloudEntitlements";
 import Stripe from "stripe";
 
 function getStripeClient() {
@@ -52,11 +53,12 @@ async function upsertCloudEntitlement(params: {
     `INSERT INTO cloud_entitlements 
        (user_id, cloud_id, tier, source, status, stripe_customer_id, stripe_subscription_id, current_period_end, valid_from, updated_at)
      VALUES ($1, $2, $3, 'stripe', $4, $5, $6, $7, NOW(), NOW())
-     ON CONFLICT (stripe_subscription_id) 
+     ON CONFLICT (user_id, cloud_id) 
      DO UPDATE SET
        tier = EXCLUDED.tier,
        status = EXCLUDED.status,
        stripe_customer_id = EXCLUDED.stripe_customer_id,
+       stripe_subscription_id = EXCLUDED.stripe_subscription_id,
        current_period_end = EXCLUDED.current_period_end,
        updated_at = NOW()`,
     [userId, cloudId, tier, status, stripeCustomerId, stripeSubscriptionId, currentPeriodEnd]
@@ -136,6 +138,53 @@ async function handleCloudCheckoutCompleted(
     stripeSubscriptionId: subscription.id,
     currentPeriodEnd,
   });
+}
+
+async function handleGlobalProCheckoutCompleted(
+  stripe: Stripe,
+  session: Stripe.Checkout.Session
+) {
+  const metadata = session.metadata || {};
+  const userIdStr = metadata.user_id;
+  const customerEmail = session.customer_email || session.customer_details?.email;
+
+  if (!session.subscription) {
+    console.error("[Webhook] Global Pro checkout missing subscription:", session.id);
+    return;
+  }
+
+  const subscriptionResponse = await stripe.subscriptions.retrieve(session.subscription as string);
+  const subscription = subscriptionResponse as Stripe.Subscription;
+
+  let finalUserId = userIdStr ? parseInt(userIdStr, 10) : null;
+
+  if (!finalUserId && customerEmail) {
+    const user = await getUserByEmail(customerEmail);
+    if (user) {
+      finalUserId = user.id;
+    }
+  }
+
+  if (!finalUserId) {
+    console.error("[Webhook] Could not determine user for Global Pro subscription:", session.id);
+    return;
+  }
+
+  const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
+
+  for (const cloudId of PUBLIC_CLOUD_IDS) {
+    await upsertCloudEntitlement({
+      userId: finalUserId,
+      cloudId,
+      tier: 'pro',
+      status: 'active',
+      stripeCustomerId: session.customer as string | null,
+      stripeSubscriptionId: subscription.id,
+      currentPeriodEnd,
+    });
+  }
+
+  console.log(`[Webhook] Granted Global Pro access to ${PUBLIC_CLOUD_IDS.length} clouds for userId=${finalUserId}, subscriptionId=${subscription.id}`);
 }
 
 async function handleCmsCheckoutCompleted(session: Stripe.Checkout.Session) {
@@ -225,7 +274,9 @@ export async function POST(request: NextRequest) {
       const session = event.data.object as Stripe.Checkout.Session;
       const checkoutType = session.metadata?.type || session.metadata?.checkout_type;
 
-      if (checkoutType === "cloud") {
+      if (checkoutType === "global") {
+        await handleGlobalProCheckoutCompleted(stripe, session);
+      } else if (checkoutType === "cloud") {
         await handleCloudCheckoutCompleted(stripe, session);
       } else if (checkoutType === "cms" || session.metadata?.offer_key) {
         await handleCmsCheckoutCompleted(session);

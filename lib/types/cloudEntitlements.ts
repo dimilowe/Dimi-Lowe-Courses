@@ -17,6 +17,10 @@ export type CloudId = (typeof CLOUD_IDS)[number];
 
 export const DEPRECATED_CLOUD_IDS = new Set<CloudId>(['file', 'monetization']);
 
+export const PUBLIC_CLOUD_IDS: CloudId[] = CLOUD_IDS.filter(
+  (id) => !DEPRECATED_CLOUD_IDS.has(id)
+);
+
 export const ENTITLEMENT_TIERS = ['free', 'basic', 'pro', 'enterprise'] as const;
 export type EntitlementTier = (typeof ENTITLEMENT_TIERS)[number];
 

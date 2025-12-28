@@ -35,6 +35,7 @@ const TIER_PRICE_MAP: Record<string, string | undefined> = {
   starter: process.env.STRIPE_PRICE_STARTER,
   basic: process.env.STRIPE_PRICE_BASIC,
   pro: process.env.STRIPE_PRICE_PRO,
+  global_pro: process.env.STRIPE_PRICE_GLOBAL_PRO,
 };
 
 function isValidCloudId(cloudId: string): cloudId is CloudId {
@@ -202,12 +203,65 @@ async function handleCmsProductCheckout(
   return NextResponse.json({ url: session.url });
 }
 
+async function handleGlobalProCheckout(request: NextRequest) {
+  const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);
+  
+  if (!session.isLoggedIn || !session.userId) {
+    return NextResponse.json(
+      { error: "You must be signed in to subscribe. Please sign in first." },
+      { status: 401 }
+    );
+  }
+
+  const userId = session.userId;
+
+  const priceId = TIER_PRICE_MAP.global_pro;
+  if (!priceId) {
+    return NextResponse.json(
+      { error: "Stripe price not configured for Global Pro" },
+      { status: 500 }
+    );
+  }
+
+  const stripe = getStripeClient();
+  const baseUrl = getBaseUrl(request);
+
+  const metadata = {
+    type: "global",
+    tier: "pro",
+    user_id: userId,
+    offer_key: "cloud_all_pro_monthly",
+  };
+
+  const checkoutSession = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    line_items: [
+      {
+        price: priceId,
+        quantity: 1,
+      },
+    ],
+    success_url: `${baseUrl}/pricing?success=1`,
+    cancel_url: `${baseUrl}/pricing?canceled=1`,
+    metadata,
+    subscription_data: {
+      metadata,
+    },
+  });
+
+  console.log(`[Checkout] Created Global Pro subscription session: ${checkoutSession.id}, userId=${userId}`);
+
+  return NextResponse.json({ url: checkoutSession.url });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const checkoutType = body.type;
 
-    if (checkoutType === "cloud") {
+    if (checkoutType === "global") {
+      return handleGlobalProCheckout(request);
+    } else if (checkoutType === "cloud") {
       return handleCloudSubscriptionCheckout(request, body);
     } else {
       return handleCmsProductCheckout(request, body);
