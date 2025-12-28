@@ -180,8 +180,8 @@ export const CLOUD_THEMES: Record<CloudId, CloudTheme> = {
     ],
   },
   "gaming": {
-    heroBg: "from-violet-500 to-purple-600",
-    recentFilesBg: "from-violet-500 to-purple-600",
+    heroBg: "from-zinc-500 to-zinc-600",
+    recentFilesBg: "from-zinc-500 to-zinc-600",
     promptBarBg: "bg-white/10 border-white/20",
     icon: Gamepad2,
     tabs: [
@@ -192,8 +192,8 @@ export const CLOUD_THEMES: Record<CloudId, CloudTheme> = {
     ],
   },
   "ecommerce": {
-    heroBg: "from-teal-500 to-cyan-500",
-    recentFilesBg: "from-teal-500 to-cyan-500",
+    heroBg: "from-amber-500 to-yellow-500",
+    recentFilesBg: "from-amber-500 to-yellow-500",
     promptBarBg: "bg-white/10 border-white/20",
     icon: ShoppingCart,
     tabs: [

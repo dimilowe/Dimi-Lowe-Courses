@@ -34,10 +34,10 @@ import {
   Music,
   Target,
   Link2,
-  FileText,
-  ShoppingBag,
   FilePen,
-  Shirt
+  Shirt,
+  Gamepad2,
+  Store
 } from "lucide-react";
 
 interface BlogPost {
@@ -127,17 +127,17 @@ const vcmClouds = [
     gradient: "app-card-blue"
   },
   {
-    name: "Files",
-    description: "Convert & Compress",
-    icon: FileText,
-    href: "/clouds/file-data-cloud",
+    name: "Gaming",
+    description: "Stream & Create",
+    icon: Gamepad2,
+    href: "/clouds/gaming-cloud",
     gradient: "bg-gradient-to-br from-gray-400 to-gray-500"
   },
   {
-    name: "Monetize",
-    description: "Revenue Tools",
-    icon: ShoppingBag,
-    href: "/clouds/monetization-cloud",
+    name: "Ecommerce",
+    description: "Sell & Optimize",
+    icon: Store,
+    href: "/clouds/ecommerce-cloud",
     gradient: "app-card-yellow"
   },
   {
