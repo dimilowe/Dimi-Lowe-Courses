@@ -1,0 +1,97 @@
+Here’s the clean, lowest-risk move set:
+What to do
+Add: gaming, ecommerce
+Deprecate (hide): file and monetization
+Keep compatibility:
+Keep CloudId 'file' + mapping file_data -> 'file'
+Keep CloudId 'monetization' + mapping monetization -> 'monetization'
+Do not remove offer SKUs or entitlement checks
+And since you’re deleting the AI workflows anyway, we remove that entire dependency surface.
+Paste-this Replit prompt (final)
+You are working in a Next.js + TypeScript codebase with a Cloud system.
+
+Goal:
+- Add 2 new Clouds: Gaming + Ecommerce.
+- Deprecate File Cloud + Monetization Cloud from all public UI (pricing/nav/marketing), WITHOUT breaking existing entitlements or SKUs.
+
+Confirmed mappings:
+- CloudId 'file' exists; CloudSlug 'file_data' maps to 'file' (lib/cloudEntitlements.ts).
+- CloudId 'monetization' exists; CloudSlug 'monetization' maps to 'monetization' (lib/cloudEntitlements.ts line ~18).
+
+Constraints (non-negotiable):
+- DO NOT remove 'file' or 'monetization' from CLOUD_IDS in lib/types/cloudEntitlements.ts.
+- DO NOT rename CloudIds.
+- DO NOT delete entitlements rows or Stripe offer SKUs that reference cloudId 'file' or 'monetization'.
+- Deprecation means: hide from CLOUDS list + stop linking publicly + prevent new attachments where possible.
+
+Architecture:
+- Cloud IDs: lib/types/cloudEntitlements.ts (CLOUD_IDS const array, CloudId union).
+- Cloud marketing/public list: lib/clouds.ts (CLOUDS array of CloudConfig objects).
+- Themes: lib/cloudTheme.ts (CLOUD_THEMES map and any ALL_CLOUD_IDS list).
+- Slug->Id mapping: lib/cloudEntitlements.ts.
+- Tools attach via cms_objects.data->cloud_tags: CloudSlug[] (array).
+- Cloud dashboards render dynamically from CMS type='cloud_dashboard'.
+- Workflows: lib/workflows/workflows.ts.
+
+TASKS
+
+1) Workflows cleanup (first)
+- In lib/workflows/workflows.ts:
+  - Delete ALL AI-generated workflows.
+  - Keep ONLY the advertising workflow if desired; otherwise export an empty array.
+  - Ensure app does not crash when workflows list is empty (guard any UI rendering that assumes length > 0).
+
+2) Add new clouds (additive, minimal)
+A) lib/types/cloudEntitlements.ts
+- Add 'gaming' and 'ecommerce' to CLOUD_IDS.
+- Ensure CloudId union updates naturally.
+- Do not change existing entries.
+
+B) lib/cloudEntitlements.ts
+- Add slug->id mappings:
+  - gaming: 'gaming'
+  - ecommerce: 'ecommerce'
+- Keep existing mappings intact:
+  - file_data: 'file'
+  - monetization: 'monetization'
+
+C) lib/clouds.ts
+- Add CloudConfig entries to CLOUDS for Gaming + Ecommerce (slug, name, shortDescription, productSlug if used).
+- Remove File Cloud (file_data) entry from CLOUDS.
+- Remove Monetization Cloud (monetization) entry from CLOUDS.
+- IMPORTANT: This is how we hide/deprecate them publicly; do not touch CloudIds.
+
+D) lib/cloudTheme.ts
+- Add theme entries for CloudIds 'gaming' and 'ecommerce' following existing pattern.
+- Ensure theme lookup will not crash if deprecated clouds are not displayed.
+- If theme iteration uses ALL_CLOUD_IDS, ensure public nav uses CLOUDS instead (so deprecated clouds do not appear).
+- If required for safety, keep minimal themes for 'file' and 'monetization' even though they’re hidden.
+
+3) Deprecation guardrails (recommended)
+- Create a constant:
+  const DEPRECATED_CLOUD_IDS = new Set<CloudId>(['file', 'monetization']);
+  const DEPRECATED_CLOUD_SLUGS = new Set<CloudSlug>(['file_data', 'monetization']);
+- Use it to:
+  - hide deprecated clouds anywhere that lists clouds
+  - prevent new tool cloud_tags assignments to deprecated slugs (if there is an admin UI or validation layer)
+  - do NOT block existing entitlements
+
+4) CMS dashboards
+- Do NOT delete existing CMS cloud_dashboard objects for file-data or monetization.
+- Just ensure no public nav links to /clouds/file-data or /clouds/monetization.
+- Ensure /clouds/gaming and /clouds/ecommerce render:
+  - If CMS requires cloud_dashboard objects, create minimal placeholder cloud_dashboard CMS objects or document exact steps required to add them.
+
+OUTPUT
+- Minimal diffs, no refactors.
+- List all files changed and what changed.
+- Confirm:
+  - Gaming + Ecommerce appear publicly.
+  - File + Monetization are hidden from public pricing/nav/marketing.
+  - Existing 'file' and 'monetization' entitlements and SKUs still function.
+  - Workflows page/section does not crash if workflows are empty.
+One “gotcha” to tell Replit to watch for
+If any UI uses CLOUD_IDS to render clouds, it must be switched to CLOUDS. Otherwise deprecated clouds will still appear.
+So the core principle is:
+Public clouds = CLOUDS
+Compatibility clouds = CLOUD_IDS
