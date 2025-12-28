@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { CloudDashboardEngineConfig, CMSObject } from "@/lib/types/cms";
 import { getCloudTheme, resolveCloudId } from "@/lib/cloudTheme";
 import CloudDashboardLayout from "@/components/clouds/CloudDashboardLayout";
@@ -50,6 +50,16 @@ export default function CloudDashboardEngine({ cms }: CloudDashboardProps) {
   const [loadingTools, setLoadingTools] = useState(true);
   const [activeTab, setActiveTab] = useState("featured");
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
+  const [toolQuery, setToolQuery] = useState("");
+
+  const filteredTools = useMemo(() => {
+    const q = toolQuery.trim().toLowerCase();
+    if (!q) return taggedTools;
+    return taggedTools.filter((t) => {
+      const haystack = `${t.title} ${t.description} ${t.slug} ${t.segment ?? ""}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [taggedTools, toolQuery]);
 
   useEffect(() => {
     async function fetchTaggedTools() {
@@ -113,7 +123,7 @@ export default function CloudDashboardEngine({ cms }: CloudDashboardProps) {
     badge: item.badge,
   }));
 
-  const featuredToolsList: FeaturedTool[] = taggedTools.map((tool) => ({
+  const featuredToolsList: FeaturedTool[] = filteredTools.map((tool) => ({
     slug: tool.slug,
     title: tool.title,
     description: tool.description,
@@ -132,14 +142,10 @@ export default function CloudDashboardEngine({ cms }: CloudDashboardProps) {
           subtitle={hero.subtitle}
           badge={cms.data.title}
           proLabel={false}
-          showPromptBar={true}
-          mode={hero.mode || "image"}
-          primaryToolSlug={hero.primaryToolSlug}
-          cloudId={cloudSlugForApi}
-          primaryCta={{
-            label: `Start with ${hero.mode === "image" ? "an image" : hero.mode === "video" ? "a video" : "text"}`,
-            href: `/tools/${hero.primaryToolSlug}`,
-          }}
+          showSearchBar={true}
+          toolQuery={toolQuery}
+          onToolQueryChange={setToolQuery}
+          toolCount={filteredTools.length}
           icon={theme.icon}
           gradient={theme.heroBg}
         />
@@ -168,6 +174,18 @@ export default function CloudDashboardEngine({ cms }: CloudDashboardProps) {
           </div>
         ) : featuredToolsList.length > 0 ? (
           <CloudFeaturedTools tools={featuredToolsList} title="" />
+        ) : toolQuery.trim() ? (
+          <div className="text-center py-12">
+            <p className="text-zinc-500 mb-3">
+              No tools found for &quot;{toolQuery}&quot;
+            </p>
+            <button
+              onClick={() => setToolQuery("")}
+              className="text-sm font-medium text-purple-600 hover:text-purple-700"
+            >
+              Clear search
+            </button>
+          </div>
         ) : null
       }
       appRow={
