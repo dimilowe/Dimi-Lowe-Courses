@@ -1,0 +1,109 @@
+1️⃣ Cloud Engine & Registry (FOUNDATIONAL)
+I need to know how a Cloud is defined in code.
+Ask Replit to find:
+Search for:
+cloud
+CloudEngine
+engine_id
+cloud_id
+engine_registry
+cloud_registry
+I need:
+Where Cloud IDs are declared
+Whether Cloud IDs are strings, enums, or DB rows
+Whether Cloud metadata is static or database-driven
+Critical question this answers:
+Can we add a new Cloud without touching existing ones?
+2️⃣ Entitlements Schema (MOST IMPORTANT)
+This is the highest-risk area.
+Ask Replit:
+Search for:
+entitlement
+cloud_entitlement
+subscription
+tier
+plan
+access_check
+hasAccess
+I need:
+How entitlements are keyed (cloud_id + tier?)
+Whether removing a Cloud breaks active subscriptions
+Whether tools check access via Cloud or directly
+Critical question:
+Can File Cloud remain valid while being deprecated?
+3️⃣ Tool ↔ Cloud Attachment Logic
+This determines how clean migration is.
+Ask Replit:
+Search for:
+tool.cloud
+clouds:
+attached_clouds
+tool_metadata
+ToolPageWrapper
+ExploreMoreTools
+I need:
+Whether tools can belong to multiple Clouds
+Whether Cloud assignment is single or array-based
+Where Cloud → tool relationships live (DB vs config)
+Critical question:
+Can we temporarily dual-attach tools during migration?
+4️⃣ Renderer Assumptions
+We must not break UI expectations.
+Ask Replit:
+Search for:
+CloudPage
+CloudLayout
+CloudRenderer
+engine_renderer
+useCloud
+I need:
+Whether renderer assumes a fixed Cloud list
+Whether nav is auto-generated from Cloud registry
+Whether hiding a Cloud is possible without deletion
+Critical question:
+Can File Cloud be hidden without being removed?
+5️⃣ Workflow / Recommendation Graph
+This is lower risk but still important.
+Ask Replit:
+Search for:
+workflow
+recommend
+related_tools
+next_steps
+ExploreMore
+upgrade_prompt
+I need:
+Whether workflows reference Cloud IDs directly
+Whether they’re config-driven
+Whether removing a Cloud causes null references
+Critical question:
+Can workflows be updated after Cloud changes?
+6️⃣ Analytics / Tracking (Often Overlooked)
+We don’t want historical data corrupted.
+Ask Replit:
+Search for:
+analytics
+track
+event_name
+cloud_name
+cloud_id
+I need:
+Whether analytics store Cloud IDs
+Whether changing Cloud IDs would fragment metrics
+Critical question:
+Do Cloud IDs need to be immutable forever? (likely yes)
+7️⃣ Navigation / Marketing Surfaces
+This is where we hide File Cloud safely.
+Ask Replit:
+Search for:
+nav
+sidebar
+cloud_nav
+marketing
+pricing_page
+I need:
+Where Clouds are surfaced publicly
+Whether visibility is config-based
+Whether a Cloud can be marked hidden: true
+Critical question:
+Can File Cloud be demoted without deleting it?
