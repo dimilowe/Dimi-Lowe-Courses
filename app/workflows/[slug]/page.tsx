@@ -19,6 +19,8 @@ const CLOUD_LABELS: Record<CloudId, string> = {
   "growth-distribution": "Growth Cloud",
   "shopping": "Shopping Cloud",
   "advertising": "Advertising Cloud",
+  "gaming": "Gaming Cloud",
+  "ecommerce": "Ecommerce Cloud",
 };
 
 const CLOUD_BG_COLORS: Record<CloudId, string> = {
@@ -32,6 +34,8 @@ const CLOUD_BG_COLORS: Record<CloudId, string> = {
   "growth-distribution": "#f43f5e",
   "shopping": "#ec4899",
   "advertising": "#0ea5e9",
+  "gaming": "#71717a",
+  "ecommerce": "#f59e0b",
 };
 
 interface PageProps {
