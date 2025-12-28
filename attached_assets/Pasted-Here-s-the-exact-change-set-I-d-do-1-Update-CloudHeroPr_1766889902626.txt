@@ -1,0 +1,79 @@
+Here’s the exact change set I’d do.
+1) Update CloudHeroProps (add tool search props)
+In components/clouds/CloudHero.tsx:
+interface CloudHeroProps {
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  proLabel?: boolean;
+  primaryCta?: { label: string; href: string };
+  icon?: ElementType;
+  gradient?: string;
+  mode?: Mode;
+  showPromptBar?: boolean;
+  primaryToolSlug?: string;
+  cloudId?: string;
+
+  // NEW (tool filtering)
+  toolQuery?: string;
+  onToolQueryChange?: (query: string) => void;
+}
+2) Make the input controlled when these props exist
+Where the prompt/search input is rendered (your current “Describe what you want to create…” bar):
+If onToolQueryChange is provided, treat the input as tool search.
+Otherwise keep legacy behavior.
+Example wiring:
+const isToolSearch = typeof onToolQueryChange === "function";
+
+<input
+  value={isToolSearch ? (toolQuery ?? "") : promptValue}
+  onChange={(e) => {
+    const v = e.target.value;
+    if (isToolSearch) onToolQueryChange(v);
+    else setPromptValue(v);
+  }}
+  placeholder={isToolSearch ? "Search tools in this cloud…" : "Describe what you want to create…"}
+/>
+Then adjust the “enter” / generate handler:
+If tool search: Enter does nothing (or scrolls to results). Do NOT route.
+If legacy prompt router: Enter triggers handleGenerate() as it does now.
+const onSubmit = () => {
+  if (isToolSearch) return;
+  handleGenerate();
+};
+3) Lift state into CloudDashboardEngine.tsx
+Add:
+const [toolQuery, setToolQuery] = useState("");
+Filter taggedTools:
+const filteredTaggedTools = useMemo(() => {
+  const q = toolQuery.trim().toLowerCase();
+  if (!q) return taggedTools;
+
+  return taggedTools.filter((t) => {
+    const haystack = `${t.title} ${t.description} ${t.slug} ${t.segment ?? ""}`.toLowerCase();
+    return haystack.includes(q);
+  });
+}, [taggedTools, toolQuery]);
+Then build your lists from filteredTaggedTools instead of taggedTools.
+4) Pass props into CloudHero
+Update your usage:
+<CloudHero
+  ...
+  showPromptBar={true}
+  toolQuery={toolQuery}
+  onToolQueryChange={setToolQuery}
+  ...
+/>
+5) (Important) Don’t break the “prompt router” feature
+Right now, your hero bar is doing “prompt → route to a tool.” If you convert it into search, that behavior should move behind the wand button (or disappear).
+Minimum safe behavior:
+When onToolQueryChange exists, disable handleGenerate() and any auto-routing.
+Keep the wand button (if present) for the future “AI router” modal.
+6) Quick UX polish (worth it)
+In CloudDashboardEngine.tsx, if toolQuery is non-empty:
+Show a small line like: Showing X tools above the list.
+If X = 0 show “No matches” + clear button.
+Why this approach is right
+No architecture risk (pure client filtering).
+Backwards compatible (CloudHero still supports old behavior when no callback is passed).
+Keeps the mental model clean: search filters; AI routing is separate.
