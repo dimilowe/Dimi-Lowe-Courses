@@ -1,4 +1,4 @@
-import { Sparkles, Palette, Video, PenTool, FolderOpen, DollarSign, Brain, Music, TrendingUp, Shirt, Megaphone, type LucideIcon } from "lucide-react";
+import { Sparkles, Palette, Video, PenTool, FolderOpen, DollarSign, Brain, Music, TrendingUp, Shirt, Megaphone, Gamepad2, ShoppingCart, type LucideIcon } from "lucide-react";
 
 export type CloudId =
   | "creation"
@@ -10,7 +10,9 @@ export type CloudId =
   | "music-performance"
   | "growth-distribution"
   | "shopping"
-  | "advertising";
+  | "advertising"
+  | "gaming"
+  | "ecommerce";
 
 export type CloudTheme = {
   heroBg: string;
@@ -20,20 +22,35 @@ export type CloudTheme = {
   tabs: { id: string; label: string }[];
 };
 
-export const ALL_CLOUD_IDS: CloudId[] = [
+export const PUBLIC_CLOUD_IDS: CloudId[] = [
   "creation",
   "video",
   "writing-seo",
-  "file-data",
-  "monetization",
   "intelligence",
   "music-performance",
   "growth-distribution",
   "shopping",
   "advertising",
+  "gaming",
+  "ecommerce",
 ];
 
+export const DEPRECATED_THEME_IDS: CloudId[] = ["file-data", "monetization"];
+
+export const ALL_CLOUD_IDS: CloudId[] = [...PUBLIC_CLOUD_IDS, ...DEPRECATED_THEME_IDS];
+
+const ENTITLEMENT_ID_TO_THEME_ID: Record<string, CloudId> = {
+  'file': 'file-data',
+  'writing': 'writing-seo',
+  'music': 'music-performance',
+  'growth': 'growth-distribution',
+};
+
 export function resolveCloudId(cmsSlug: string): CloudId | null {
+  if (ENTITLEMENT_ID_TO_THEME_ID[cmsSlug]) {
+    return ENTITLEMENT_ID_TO_THEME_ID[cmsSlug];
+  }
+  
   const normalized = cmsSlug
     .replace(/_/g, "-")
     .replace(/-cloud$/, "");
@@ -159,6 +176,30 @@ export const CLOUD_THEMES: Record<CloudId, CloudTheme> = {
       { id: "featured", label: "Featured" },
       { id: "ad-copy", label: "Ad Copy" },
       { id: "creatives", label: "Creatives" },
+      { id: "analytics", label: "Analytics" },
+    ],
+  },
+  "gaming": {
+    heroBg: "from-violet-500 to-purple-600",
+    recentFilesBg: "from-violet-500 to-purple-600",
+    promptBarBg: "bg-white/10 border-white/20",
+    icon: Gamepad2,
+    tabs: [
+      { id: "featured", label: "Featured" },
+      { id: "streaming", label: "Streaming" },
+      { id: "content", label: "Content" },
+      { id: "community", label: "Community" },
+    ],
+  },
+  "ecommerce": {
+    heroBg: "from-teal-500 to-cyan-500",
+    recentFilesBg: "from-teal-500 to-cyan-500",
+    promptBarBg: "bg-white/10 border-white/20",
+    icon: ShoppingCart,
+    tabs: [
+      { id: "featured", label: "Featured" },
+      { id: "products", label: "Products" },
+      { id: "store", label: "Store" },
       { id: "analytics", label: "Analytics" },
     ],
   },

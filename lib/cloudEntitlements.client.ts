@@ -14,6 +14,8 @@ const CLOUD_SLUG_TO_ID: Record<CloudSlug, CloudId> = {
   growth_distribution: 'growth',
   shopping: 'shopping',
   advertising: 'advertising',
+  gaming: 'gaming',
+  ecommerce: 'ecommerce',
 };
 
 export function cloudSlugToId(slug: CloudSlug): CloudId {

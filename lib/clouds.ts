@@ -8,7 +8,11 @@ export type CloudSlug =
   | "music_performance"
   | "growth_distribution"
   | "shopping"
-  | "advertising";
+  | "advertising"
+  | "gaming"
+  | "ecommerce";
+
+export const DEPRECATED_CLOUD_SLUGS = new Set<CloudSlug>(['file_data', 'monetization']);
 
 export type CloudConfig = {
   slug: CloudSlug;
@@ -35,18 +39,6 @@ export const CLOUDS: CloudConfig[] = [
     name: "VCM AI Writing & SEO Cloud",
     shortDescription: "SEO articles, clusters, rewriters, and SERP domination.",
     productSlug: "vcm-writing-seo-cloud",
-  },
-  {
-    slug: "file_data",
-    name: "VCM File & Data Cloud",
-    shortDescription: "Files, PDFs, compression, conversion, and structured data flows.",
-    productSlug: "vcm-file-data-cloud",
-  },
-  {
-    slug: "monetization",
-    name: "VCM Creator Monetization Cloud",
-    shortDescription: "APE, OfferRail, Upsell Exchange, QR Social, and ad rails.",
-    productSlug: "vcm-monetization-cloud",
   },
   {
     slug: "intelligence",
@@ -78,10 +70,37 @@ export const CLOUDS: CloudConfig[] = [
     shortDescription: "Tools for paid reach, ads, campaign testing, funnels, optimizations, and marketing workflows.",
     productSlug: "vcm-advertising-cloud",
   },
+  {
+    slug: "gaming",
+    name: "VCM Gaming Cloud",
+    shortDescription: "Gaming content creation, streaming tools, and esports workflows.",
+    productSlug: "vcm-gaming-cloud",
+  },
+  {
+    slug: "ecommerce",
+    name: "VCM Ecommerce Cloud",
+    shortDescription: "Product listings, store optimization, and commerce workflows.",
+    productSlug: "vcm-ecommerce-cloud",
+  },
+];
+
+const DEPRECATED_CLOUD_CONFIGS: CloudConfig[] = [
+  {
+    slug: "file_data",
+    name: "VCM File & Data Cloud",
+    shortDescription: "Files, PDFs, compression, conversion, and structured data flows.",
+    productSlug: "vcm-file-data-cloud",
+  },
+  {
+    slug: "monetization",
+    name: "VCM Creator Monetization Cloud",
+    shortDescription: "APE, OfferRail, Upsell Exchange, QR Social, and ad rails.",
+    productSlug: "vcm-monetization-cloud",
+  },
 ];
 
 export const CLOUD_CONFIG_BY_SLUG: Record<CloudSlug, CloudConfig> =
-  CLOUDS.reduce((acc, cloud) => {
+  [...CLOUDS, ...DEPRECATED_CLOUD_CONFIGS].reduce((acc, cloud) => {
     acc[cloud.slug] = cloud;
     return acc;
   }, {} as Record<CloudSlug, CloudConfig>);

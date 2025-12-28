@@ -1,0 +1,58 @@
+That said, Replit’s task list is a little too generic. Here’s how to tighten it so it doesn’t accidentally cause UI/theme crashes or leak deprecated clouds somewhere.
+What’s good about Replit’s plan
+✅ Add Gaming + Ecommerce everywhere required (types, mappings, configs, themes)
+✅ Hide File + Monetization by removing them from CLOUDS (public list)
+✅ Keep them in CLOUD_IDS (compatibility for entitlements + SKUs)
+✅ Add guardrails so they don’t reappear accidentally
+That’s the correct model: public clouds vs legacy clouds.
+Two “gotchas” to explicitly add (so nothing breaks)
+1) Theme lookups / ALL_CLOUD_IDS
+If any code assumes every CloudId has a theme entry, you must either:
+keep minimal theme entries for 'file' and 'monetization', or
+add a safe fallback theme when missing.
+Otherwise you risk a runtime crash when something tries to render a badge/icon for an entitlement cloud.
+Tell Replit: “Search for any direct CLOUD_THEMES[cloudId] access without fallback.”
+2) Any UI that uses CLOUD_IDS to render public lists
+Your rule must be:
+Public list comes from CLOUDS, not CLOUD_IDS.
+Tell Replit: “Search for CLOUD_IDS.map or any iteration over CloudId list in UI components.”
+If you miss this, deprecated clouds can still appear in some dropdown, pricing table, or nav.
+The deprecation guardrails should be specific
+Have Replit add both:
+DEPRECATED_CLOUD_IDS = new Set<CloudId>(['file','monetization'])
+DEPRECATED_CLOUD_SLUGS = new Set<CloudSlug>(['file_data','monetization'])
+Then apply them in two places:
+Any public cloud selector/list → filter out deprecated IDs/slugs
+Any tool-tagging admin UI → block assigning deprecated slugs going forward
+This prevents drift.
+The “tasks” list rewritten cleanly (send this back to Replit)
+Copy/paste:
+Add new CloudIds
+Add 'gaming' + 'ecommerce' to CLOUD_IDS and ensure TS types update.
+Add slug→id mappings
+In lib/cloudEntitlements.ts, add:
+gaming: 'gaming'
+ecommerce: 'ecommerce'
+Keep:
+file_data: 'file'
+monetization: 'monetization'
+Add Cloud configs (public)
+In lib/clouds.ts, add CloudConfig entries for gaming + ecommerce.
+Remove File Cloud + Monetization Cloud entries from CLOUDS (so they disappear publicly).
+Themes
+Add themes for gaming + ecommerce.
+Ensure theme lookup does not crash for legacy cloud entitlements:
+keep minimal themes for 'file' and 'monetization' OR implement a fallback theme.
+Add deprecation guardrails
+Add DEPRECATED_CLOUD_IDS and DEPRECATED_CLOUD_SLUGS.
+Filter deprecated clouds out of any public UI cloud lists.
+Block new tool tagging with deprecated slugs in admin UI (if exists).
+Audit UI for hidden leaks
+Search for any UI iterating over CLOUD_IDS / ALL_CLOUD_IDS to render a public cloud list; switch those to CLOUDS and filter deprecated.
+Test
+New clouds appear everywhere intended.
+Old clouds not visible in pricing/nav/marketing.
+Existing entitlements for file/monetization don’t crash anything (even if not purchasable).
+Workflows page still works with only “Copy Competitor Ads.”
+My verdict
+Proceed with Replit’s approach, with the two gotchas explicitly added. That makes it clean, safe, and future-proof.

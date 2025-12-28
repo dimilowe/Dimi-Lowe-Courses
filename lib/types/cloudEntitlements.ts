@@ -9,9 +9,13 @@ export const CLOUD_IDS = [
   'growth',
   'shopping',
   'advertising',
+  'gaming',
+  'ecommerce',
 ] as const;
 
 export type CloudId = (typeof CLOUD_IDS)[number];
+
+export const DEPRECATED_CLOUD_IDS = new Set<CloudId>(['file', 'monetization']);
 
 export const ENTITLEMENT_TIERS = ['free', 'basic', 'pro', 'enterprise'] as const;
 export type EntitlementTier = (typeof ENTITLEMENT_TIERS)[number];
