@@ -1,0 +1,84 @@
+What’s actually happening (no sugar-coating)
+Your Subscribe button is firing a checkout request without a valid authenticated user context.
+These errors matter:
+POST /api/checkout 401 (Unauthorized)
+Checkout error: You must be signed in to subscribe. Please sign in first.
+and earlier:
+/api/workspace/items 401
+That means:
+The frontend thinks you’re signed in (or doesn’t enforce sign-in before showing Subscribe)
+But the backend does not see a valid session / token
+So checkout is correctly refusing to create a Stripe session
+Stripe never even gets hit. This fails before payment.
+Root causes (one or more of these is true)
+1. Auth state mismatch (most likely)
+Your UI allows plan selection without requiring auth, but /api/checkout requires it.
+Classic symptom:
+Client-side auth context not hydrated
+Session cookie missing / expired
+getUser() returns null server-side
+2. Checkout endpoint is correctly protected, UI is not
+This is actually good security — but bad UX.
+Your backend is doing this (correctly):
+if (!user) {
+  return 401 "You must be signed in to subscribe"
+}
+But your pricing page:
+Shows Subscribe
+Lets you click it
+Only fails after the API call
+That’s sloppy gating.
+3. Workspace bootstrap call failing first
+This line matters:
+/api/workspace/items?... 401
+That endpoint probably:
+Initializes user workspace
+Or fetches entitlements
+And failing there means downstream state is broken
+So checkout never had a chance.
+What will not fix this
+❌ Stripe config
+❌ Prices
+❌ Products
+❌ Webhooks
+❌ Rebuilding checkout UI
+This is pure auth + gating logic.
+The correct fix (do this, in this order)
+1. Hard-gate Subscribe behind auth (frontend)
+On the pricing page:
+if (!user) {
+  redirect("/login?next=/pricing")
+}
+Or replace Subscribe with:
+“Sign in to subscribe”
+No auth = no checkout button. Period.
+2. Ensure auth session is available server-side
+In /api/checkout:
+Confirm you’re using the same auth source as the client
+Cookies are present
+Session middleware is running
+If using:
+Clerk → auth() not useAuth()
+NextAuth → getServerSession()
+Custom → verify cookie parsing
+Right now the server sees nothing.
+3. Fix workspace bootstrap dependency
+That /api/workspace/items 401 means:
+You’re calling workspace APIs before auth resolves
+Or assuming a workspace exists before login
+Workspace creation should happen:
+After login
+Or lazily on first authenticated request
+Not on page load unauthenticated.
+Why this is actually good news
+This tells you:
+Your entitlement enforcement works
+Your backend is secure
+You’re catching this before customers exist
+This is a 2–3 hour fix, not a rebuild.
+Blunt summary
+Subscription logic is fine
+Pricing is fine
+Stripe is fine
+Auth gating is broken
+Fix the auth → workspace → checkout chain, and this works immediately.
