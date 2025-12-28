@@ -70,7 +70,10 @@ async function recomputeEffectiveEntitlement(userId: number, cloudId: string) {
   const result = await query(
     `SELECT tier, status, stripe_customer_id, stripe_subscription_id, current_period_end
      FROM cloud_entitlement_grants
-     WHERE user_id = $1 AND cloud_id = $2 AND status IN ('active', 'trial', 'past_due')
+     WHERE user_id = $1 
+       AND cloud_id = $2 
+       AND status IN ('active', 'trial', 'past_due')
+       AND (current_period_end IS NULL OR current_period_end >= NOW())
      ORDER BY 
        CASE status WHEN 'active' THEN 2 WHEN 'trial' THEN 1 WHEN 'past_due' THEN 0 END DESC,
        CASE tier 
