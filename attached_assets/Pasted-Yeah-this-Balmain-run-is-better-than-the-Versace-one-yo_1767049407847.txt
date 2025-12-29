@@ -1,0 +1,89 @@
+Yeah — this Balmain run is better than the Versace one (you at least got dresses back), but it’s still missing the two highest-signal anchors for the actual item:
+sleeveless (your tool incorrectly inferred short sleeve)
+gold / embellished / bodycon (your query is too generic → returns random plaid dresses)
+What actually happened
+From your screenshot, the Balmain PDP is “SHORT SLEEVELESS DRESS WITH PLAID EMBROIDERY” and color is gold.
+Your tool generated:
+"dress short sleeve plaid checkered embroidered"
+Two problems:
+Sleeve bug: it read “short” + “sleeve” and decided “short sleeve”… but in the title “short” refers to dress length, not sleeve. The sleeve is sleeveless.
+Missing differentiators: no “gold”, no “sequin/embellished”, no “bodycon”, no “mini” — so AliExpress returns generic plaid/gingham stuff.
+Fix #1: Sleeve parsing must treat “sleeveless” as atomic
+Right now you’re splitting everything into single tokens and then doing naive inference.
+Rule (hard):
+If the URL/text contains "sleeveless" (or "no sleeve") → sleeve = sleeveless and stop.
+Don’t let "short" override anything.
+Drop-in sleeve resolver (client-side)
+function resolveSleeve(tokens: string[]): "sleeveless" | "short sleeve" | "long sleeve" | null {
+  const t = tokens.map(x => x.toLowerCase());
+
+  // atomic first
+  if (t.includes("sleeveless")) return "sleeveless";
+  if (t.includes("long-sleeve") || (t.includes("long") && t.includes("sleeve"))) return "long sleeve";
+  if (t.includes("short-sleeve") || (t.includes("short") && t.includes("sleeve"))) return "short sleeve";
+
+  return null;
+}
+Extra: stop creating “short sleeve” from “short + sleeveless”
+Your URL path is literally short-sleeveless-dress...
+When you split on hyphens, you get short, sleeveless, dress.
+If your code sees short and sleeve anywhere, it will misfire.
+So enforce: if sleeveless exists, never output short sleeve.
+Fix #2: Disambiguate “short” as length when dress is present
+In fashion, “short” is ambiguous:
+short dress (length)
+short sleeve
+If garment type is dress, treat “short” as length unless “short sleeve” is explicitly present.
+function resolveLength(tokens: string[], garmentType: string | null): "mini" | "short" | "midi" | "maxi" | null {
+  const t = tokens.map(x => x.toLowerCase());
+  if (garmentType !== "dress") return null;
+
+  if (t.includes("mini")) return "mini";
+  if (t.includes("maxi")) return "maxi";
+  if (t.includes("midi")) return "midi";
+  if (t.includes("short")) return "short";
+
+  return null;
+}
+Fix #3: Your query compiler needs a “fashion sharpening” pass
+For AliExpress, generic tokens like plaid checkered embroidered will pull in:
+gingham cottagecore
+schoolgirl dresses
+apron dresses
+random “plaid print” junk
+But this Balmain dress is:
+gold
+embellished / sequin / beaded look
+bodycon / bandage silhouette
+mini
+sleeveless
+plaid embroidery
+Even if you can’t scrape gold from the PDP (client-side CORS will usually block), you can still improve output a lot just from the title tokens + better vocab.
+Add a style expansion when you see embroidery + luxury brand
+If tokens include embroidery or embroidered, add one of:
+embellished
+sequin
+beaded
+And if dress is tight silhouette (hard to infer), at least add bodycon as an optional variant query.
+Fix #4: Generate 3 queries, not 1
+Don’t bet everything on one string. Compile a primary + 2 alternates:
+For this item, your tool should output links like:
+Best Match
+women sleeveless mini dress plaid embroidered gold
+Alt (more AliExpress-native)
+women sequin bodycon plaid mini dress
+Alt (if gold missing)
+women sleeveless bodycon mini dress embroidered
+Even without “gold,” query #2 will pull closer silhouettes than your current result set.
+The blunt truth
+Your Balmain results are “fine” given the query you produced — the tool isn’t “broken” here the way it was with Versace. It’s just not specific enough, and it has a sleeve-length logic bug that actively worsens the query.
+What I’d do next (fastest win)
+Fix sleeve resolver (atomic “sleeveless”)
+Add dress-length resolver (short/mini)
+Add multi-query output (3 links)
+Add a tiny “chips editor” UI: let the user click-add:
+gold
+sequin
+bodycon
+mini
+Because client-only scraping won’t reliably capture color/material from most luxury PDPs anyway.
