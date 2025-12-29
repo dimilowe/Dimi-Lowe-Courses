@@ -16,16 +16,20 @@ interface SearchLink {
 type ItemKind = "finished_garment" | "fabric" | "accessory" | "unknown";
 type Gender = "men" | "women" | "unisex" | "unknown";
 
+type DressLength = "mini" | "short" | "midi" | "maxi" | null;
+
 interface FashionIntent {
   itemKind: ItemKind;
   garmentType: string | null;
   gender: Gender;
   sleeve: "long sleeve" | "short sleeve" | "sleeveless" | null;
+  length: DressLength;
   colors: string[];
   styleTokens: string[];
   materialTokens: string[];
   coreTokens: string[];
   negativeTokens: string[];
+  silhouetteTokens: string[];
 }
 
 const GARMENT_TYPES = new Map<string, string>([
@@ -129,7 +133,7 @@ const STYLE_MAP: Record<string, string[]> = {
   minimalist: ["minimalist", "simple"],
   oversized: ["oversized", "loose"],
   slim: ["slim fit"],
-  fitted: ["slim fit"],
+  fitted: ["slim fit", "bodycon"],
   regular: [],
   casual: ["casual"],
   formal: ["formal", "elegant"],
@@ -145,10 +149,13 @@ const STYLE_MAP: Record<string, string[]> = {
   designer: ["designer style"],
   chain: ["chain", "ornate"],
   ornate: ["ornate", "decorative"],
-  embroidered: ["embroidered"],
-  embroidery: ["embroidered"],
-  sequin: ["sequin"],
-  beaded: ["beaded"],
+  embroidered: ["embroidered", "embellished"],
+  embroidery: ["embroidered", "embellished", "sequin"],
+  sequin: ["sequin", "sparkle", "glitter"],
+  sequins: ["sequin", "sparkle"],
+  beaded: ["beaded", "embellished"],
+  beading: ["beaded", "embellished"],
+  embellished: ["embellished", "sequin", "beaded"],
   ruffle: ["ruffle"],
   ruffled: ["ruffle"],
   lace: ["lace"],
@@ -159,6 +166,29 @@ const STYLE_MAP: Record<string, string[]> = {
   wrap: ["wrap"],
   puff: ["puff sleeve"],
   lantern: ["lantern sleeve"],
+  balmain: ["embellished", "sequin", "luxury", "bodycon"],
+  gucci: ["luxury", "designer", "print"],
+  dior: ["luxury", "elegant"],
+  chanel: ["luxury", "elegant", "classic"],
+};
+
+const SILHOUETTE_MAP: Record<string, string[]> = {
+  bodycon: ["bodycon", "tight", "fitted"],
+  bandage: ["bandage", "bodycon"],
+  aline: ["a-line", "flare"],
+  "a-line": ["a-line", "flare"],
+  flare: ["flare", "swing"],
+  swing: ["swing", "flare"],
+  fitted: ["bodycon", "fitted"],
+  tight: ["bodycon", "tight"],
+  loose: ["loose", "relaxed"],
+  relaxed: ["relaxed", "loose"],
+  shift: ["shift"],
+  sheath: ["sheath", "bodycon"],
+  wrap: ["wrap"],
+  pencil: ["pencil", "fitted"],
+  mermaid: ["mermaid", "fishtail"],
+  ballgown: ["ball gown"],
 };
 
 const NEGATIVE_TOKENS_BASE = [
@@ -199,18 +229,59 @@ function detectSleeve(keywords: string[]): FashionIntent["sleeve"] {
   const lower = keywords.map(k => k.toLowerCase());
   const joined = lower.join(" ");
   
-  if (joined.includes("long sleeve") || joined.includes("longsleeve") ||
-      (lower.includes("long") && lower.includes("sleeve"))) {
-    return "long sleeve";
-  }
-  if (joined.includes("short sleeve") || joined.includes("shortsleeve") ||
-      (lower.includes("short") && lower.includes("sleeve"))) {
-    return "short sleeve";
-  }
-  if (lower.includes("sleeveless") || lower.includes("tank")) {
+  if (lower.includes("sleeveless") || joined.includes("sleeveless") || lower.includes("tank")) {
     return "sleeveless";
   }
+  
+  if (joined.includes("long sleeve") || joined.includes("longsleeve") || joined.includes("long-sleeve") ||
+      (lower.includes("long") && lower.includes("sleeve") && !lower.includes("sleeveless"))) {
+    return "long sleeve";
+  }
+  
+  if (joined.includes("short sleeve") || joined.includes("shortsleeve") || joined.includes("short-sleeve")) {
+    return "short sleeve";
+  }
+  
+  if (lower.includes("short") && lower.includes("sleeve") && !lower.includes("sleeveless")) {
+    return "short sleeve";
+  }
+  
   return null;
+}
+
+function resolveLength(keywords: string[], garmentType: string | null): DressLength {
+  if (garmentType !== "dress" && garmentType !== "skirt") return null;
+  
+  const lower = keywords.map(k => k.toLowerCase());
+  
+  if (lower.includes("mini")) return "mini";
+  if (lower.includes("maxi")) return "maxi";
+  if (lower.includes("midi")) return "midi";
+  
+  if (lower.includes("short")) {
+    const hasShortSleeve = lower.includes("short-sleeve") || lower.includes("shortsleeve") ||
+      (lower.includes("short") && lower.includes("sleeve") && !lower.includes("sleeveless"));
+    
+    if (!hasShortSleeve) {
+      return "short";
+    }
+  }
+  
+  return null;
+}
+
+function resolveSilhouette(keywords: string[]): string[] {
+  const lower = keywords.map(k => k.toLowerCase());
+  const silhouettes: string[] = [];
+  
+  for (const k of lower) {
+    const mapped = SILHOUETTE_MAP[k];
+    if (mapped) {
+      silhouettes.push(...mapped);
+    }
+  }
+  
+  return dedupe(silhouettes);
 }
 
 function resolveFashionIntent(inputUrl: string, keywords: string[]): FashionIntent {
@@ -247,6 +318,8 @@ function resolveFashionIntent(inputUrl: string, keywords: string[]): FashionInte
 
   const gender = inferGender(inputUrl, lower);
   const sleeve = detectSleeve(lower);
+  const length = resolveLength(lower, garmentType);
+  const silhouetteTokens = resolveSilhouette(lower);
 
   const colors = lower.filter(k => COLOR_TOKENS.has(k));
   const materialTokens = lower.filter(k => MATERIAL_TOKENS.has(k));
@@ -267,8 +340,13 @@ function resolveFashionIntent(inputUrl: string, keywords: string[]): FashionInte
 
   if (itemKind === "finished_garment") {
     coreTokens.push(garmentType ?? "shirt");
+    
     if (sleeve) {
       coreTokens.push(sleeve);
+    }
+    
+    if (length) {
+      coreTokens.push(length === "short" ? "mini" : length);
     }
   } else if (itemKind === "accessory" && garmentType) {
     coreTokens.push(garmentType);
@@ -284,11 +362,13 @@ function resolveFashionIntent(inputUrl: string, keywords: string[]): FashionInte
     garmentType: garmentType ?? (itemKind === "finished_garment" ? "shirt" : null),
     gender,
     sleeve,
+    length,
     colors: dedupe(colors),
     styleTokens: dedupe(styleTokens),
     materialTokens: dedupe(materialTokens),
     coreTokens: dedupe(coreTokens),
     negativeTokens: dedupe(negativeTokens),
+    silhouetteTokens,
   };
 }
 
@@ -300,32 +380,73 @@ function compileAliExpressQueries(intent: FashionIntent): string[] {
   if (q1.trim()) queries.push(q1);
 
   if (intent.itemKind === "finished_garment") {
-    const q2Parts = [...base];
-    if (intent.garmentType === "shirt" && !q2Parts.includes("button up")) {
-      q2Parts.push("button up");
+    const genderPrefix = intent.gender !== "unknown" ? intent.gender : "";
+    const garment = intent.garmentType ?? "dress";
+    const lengthToken = intent.length ? (intent.length === "short" ? "mini" : intent.length) : "";
+    
+    const q2Parts: string[] = [];
+    if (genderPrefix) q2Parts.push(genderPrefix);
+    q2Parts.push(garment);
+    
+    if (intent.silhouetteTokens.length > 0) {
+      q2Parts.push(intent.silhouetteTokens[0]);
+    } else if (garment === "dress" && intent.styleTokens.some(s => ["embellished", "sequin", "beaded", "luxury"].includes(s))) {
+      q2Parts.push("bodycon");
     }
-    if (intent.styleTokens.includes("baroque") && !q2Parts.includes("baroque")) {
-      q2Parts.push("baroque");
+    
+    if (lengthToken) q2Parts.push(lengthToken);
+    
+    if (intent.styleTokens.length > 0) {
+      q2Parts.push(intent.styleTokens[0]);
     }
+    
     const q2 = q2Parts.join(" ");
     if (q2.trim() && q2 !== q1) queries.push(q2);
 
-    if (intent.materialTokens.length > 0) {
-      const q3Parts = [...base];
-      q3Parts.push(intent.materialTokens[0]);
-      const q3 = q3Parts.join(" ");
-      if (q3.trim() && !queries.includes(q3)) queries.push(q3);
+    const q3Parts: string[] = [];
+    if (genderPrefix) q3Parts.push(genderPrefix);
+    
+    if (intent.styleTokens.includes("sequin") || intent.styleTokens.includes("embellished")) {
+      q3Parts.push("sequin");
+    }
+    
+    if (intent.silhouetteTokens.length > 0) {
+      q3Parts.push(intent.silhouetteTokens[0]);
+    } else {
+      q3Parts.push("bodycon");
+    }
+    
+    if (lengthToken) q3Parts.push(lengthToken);
+    q3Parts.push(garment);
+    
+    if (intent.colors.length > 0) {
+      q3Parts.push(intent.colors[0]);
+    }
+    
+    const q3 = q3Parts.join(" ");
+    if (q3.trim() && !queries.includes(q3)) queries.push(q3);
+
+    if (intent.garmentType === "shirt") {
+      const q4Parts = [...base];
+      if (!q4Parts.includes("button up")) {
+        q4Parts.push("button up");
+      }
+      if (intent.styleTokens.includes("baroque") && !q4Parts.includes("baroque")) {
+        q4Parts.push("baroque");
+      }
+      const q4 = q4Parts.join(" ");
+      if (q4.trim() && !queries.includes(q4)) queries.push(q4);
     }
 
     if (intent.colors.length > 0 && intent.styleTokens.length > 0) {
-      const q4Parts = [
-        intent.gender !== "unknown" ? intent.gender : "",
-        intent.garmentType ?? "",
+      const q5Parts = [
+        genderPrefix,
+        garment,
         intent.colors[0],
         intent.styleTokens[0]
       ].filter(Boolean);
-      const q4 = q4Parts.join(" ");
-      if (q4.trim() && !queries.includes(q4)) queries.push(q4);
+      const q5 = q5Parts.join(" ");
+      if (q5.trim() && !queries.includes(q5)) queries.push(q5);
     }
   }
 
@@ -596,6 +717,16 @@ export default function AliExpressDupeFinderClient() {
                             {fashionIntent.sleeve}
                           </span>
                         )}
+                        {fashionIntent.length && (
+                          <span className="px-2.5 py-1 bg-pink-100 text-pink-700 text-xs font-medium rounded-full border border-pink-200">
+                            {fashionIntent.length}
+                          </span>
+                        )}
+                        {fashionIntent.silhouetteTokens.slice(0, 2).map((silhouette, i) => (
+                          <span key={`sil-${i}`} className="px-2.5 py-1 bg-rose-100 text-rose-700 text-xs font-medium rounded-full border border-rose-200">
+                            {silhouette}
+                          </span>
+                        ))}
                         {fashionIntent.styleTokens.slice(0, 3).map((style, i) => (
                           <span key={i} className="px-2.5 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full border border-amber-200">
                             {style}
