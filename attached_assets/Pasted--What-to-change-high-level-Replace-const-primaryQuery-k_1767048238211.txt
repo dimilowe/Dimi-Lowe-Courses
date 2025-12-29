@@ -1,0 +1,220 @@
+✅ What to change (high level)
+Replace:
+const primaryQuery = keywords.slice(0, 4).join(" ");
+With:
+resolveFashionIntent(keywords, urlText?)
+compileAliExpressQueries(intent) → returns 2–3 query strings
+Use the first query for the link, keep others as fallbacks UI links (or rotate)
+1) Fashion intent resolver (client-side, deterministic)
+type ItemKind = "finished_garment" | "fabric" | "accessory" | "unknown";
+type Gender = "men" | "women" | "unisex" | "unknown";
+
+type FashionIntent = {
+  itemKind: ItemKind;
+  garmentType: string | null;   // "shirt", "dress", ...
+  gender: Gender;
+  sleeve: "long sleeve" | "short sleeve" | "sleeveless" | null;
+  colors: string[];
+  styleTokens: string[];        // "baroque", "vintage", "ornate"
+  materialTokens: string[];     // "silk", "twill" (kept but downweighted)
+  coreTokens: string[];         // final must-have tokens
+  negativeTokens: string[];     // fabric/accessory leakage prevention
+};
+
+const GARMENT_TYPES = new Map<string, string>([
+  ["shirt", "shirt"],
+  ["button", "button up"], // helps when URLs include "button" etc.
+  ["button-up", "button up"],
+  ["buttonup", "button up"],
+  ["dress", "dress"],
+  ["jacket", "jacket"],
+  ["coat", "coat"],
+  ["pants", "pants"],
+  ["jeans", "jeans"],
+  ["hoodie", "hoodie"],
+  ["sweater", "sweater"],
+  ["skirt", "skirt"],
+  ["blouse", "blouse"],
+  ["scarf", "scarf"],
+  ["bag", "bag"],
+  ["shoe", "shoes"],
+  ["shoes", "shoes"],
+]);
+
+const MATERIAL_TOKENS = new Set([
+  "silk", "twill", "satin", "linen", "cotton", "wool", "cashmere", "polyester",
+  "leather", "suede", "denim", "velvet", "viscose", "rayon"
+]);
+
+const COLOR_TOKENS = new Set([
+  "black","white","gold","silver","red","blue","green","yellow","pink","purple",
+  "beige","brown","grey","gray","orange"
+]);
+
+const STYLE_MAP: Record<string, string[]> = {
+  baroque: ["baroque", "vintage", "ornate", "palace"],
+  versace: ["baroque", "chain", "ornate"], // optional; use carefully
+  chain: ["chain", "ornate"],
+  printed: ["print"],
+};
+
+const NEGATIVE_TOKENS_BASE = [
+  "fabric", "cloth", "textile", "meter", "metre", "yard", "yards",
+  "scarf", "shawl", "hijab", "bandana", "handkerchief", "material"
+];
+
+// light heuristic: if URL contains /women/ or /men/ or keywords contain those tokens
+function inferGender(raw: string, keywords: string[]): Gender {
+  const s = raw.toLowerCase();
+  if (s.includes("/women") || keywords.includes("women") || keywords.includes("womens")) return "women";
+  if (s.includes("/men") || keywords.includes("men") || keywords.includes("mens")) return "men";
+  return "unknown";
+}
+
+function detectSleeve(keywords: string[]): FashionIntent["sleeve"] {
+  if (keywords.includes("long") && keywords.includes("sleeve")) return "long sleeve";
+  if (keywords.includes("long-sleeve")) return "long sleeve";
+  if (keywords.includes("short") && keywords.includes("sleeve")) return "short sleeve";
+  if (keywords.includes("short-sleeve")) return "short sleeve";
+  return null;
+}
+
+function resolveFashionIntent(inputUrl: string, keywords: string[]): FashionIntent {
+  const lower = keywords.map(k => k.toLowerCase());
+
+  // garment type
+  let garmentType: string | null = null;
+  for (const k of lower) {
+    if (GARMENT_TYPES.has(k)) { garmentType = GARMENT_TYPES.get(k)!; break; }
+  }
+
+  // item kind (very important)
+  // If we have a garment type like shirt/dress/jacket => finished garment by default
+  // If we see strong fabric tokens (meter/yard/fabric) => fabric
+  // If garmentType is scarf/bag/shoes => accessory/footwear bucket
+  let itemKind: ItemKind = "unknown";
+  const hasFabricSignals = lower.some(k => ["fabric","cloth","textile","meter","metre","yard","yards"].includes(k));
+  if (hasFabricSignals) itemKind = "fabric";
+  else if (garmentType) {
+    if (["scarf","bag"].includes(garmentType)) itemKind = "accessory";
+    else if (["shoes"].includes(garmentType)) itemKind = "accessory";
+    else itemKind = "finished_garment";
+  } else {
+    // fallback: if it includes typical clothing descriptors, assume finished_garment
+    const clothingHints = ["shirt","dress","jacket","coat","pants","jeans","hoodie","sweater"];
+    if (lower.some(k => clothingHints.includes(k))) itemKind = "finished_garment";
+  }
+
+  const gender = inferGender(inputUrl, lower);
+  const sleeve = detectSleeve(lower);
+
+  // colors
+  const colors = lower.filter(k => COLOR_TOKENS.has(k));
+
+  // materials (kept but NOT core)
+  const materialTokens = lower.filter(k => MATERIAL_TOKENS.has(k));
+
+  // style tokens via mapping
+  const styleTokens: string[] = [];
+  for (const k of lower) {
+    const mapped = STYLE_MAP[k];
+    if (mapped) styleTokens.push(...mapped);
+  }
+
+  // core tokens: enforce garment anchor if finished garment
+  const coreTokens: string[] = [];
+
+  // gender injection (AliExpress responds better when you specify)
+  if (gender !== "unknown") coreTokens.push(gender);
+  else coreTokens.push("men"); // default bias (you can change default)
+
+  if (itemKind === "finished_garment") {
+    coreTokens.push(garmentType ?? "shirt");        // hard anchor
+    if (sleeve) coreTokens.push(sleeve);            // if known
+  }
+
+  // Add style + colors (high signal for fashion)
+  coreTokens.push(...dedupe(styleTokens).slice(0, 3));
+  coreTokens.push(...dedupe(colors).slice(0, 2));
+
+  // negative tokens
+  const negativeTokens = [...NEGATIVE_TOKENS_BASE];
+
+  // If we are searching finished garments, we should *downweight* materials to avoid fabric results
+  // We do not add materialTokens to core; they can appear in optional query variants.
+
+  return {
+    itemKind,
+    garmentType: garmentType ?? (itemKind === "finished_garment" ? "shirt" : null),
+    gender,
+    sleeve,
+    colors: dedupe(colors),
+    styleTokens: dedupe(styleTokens),
+    materialTokens: dedupe(materialTokens),
+    coreTokens: dedupe(coreTokens),
+    negativeTokens: dedupe(negativeTokens),
+  };
+}
+
+function dedupe(arr: string[]) {
+  return Array.from(new Set(arr.filter(Boolean)));
+}
+2) Query compiler (returns multiple queries, shirt never drops)
+AliExpress supports negative tokens poorly in the URL, but you can still build strong core queries and offer fallbacks. This compiler produces:
+Query A: garment-anchored (best default)
+Query B: garment + “button up” + style
+Query C: garment + colors + “print” (if style uncertain)
+function compileAliExpressQueries(intent: FashionIntent): string[] {
+  const base = intent.coreTokens.slice(); // already has gender + garment anchor
+
+  const q1 = base.join(" ");
+
+  // Add a stronger “finished garment” anchor phrase
+  const q2Parts = base.slice();
+  if (intent.itemKind === "finished_garment") {
+    if (!q2Parts.includes("button up") && intent.garmentType === "shirt") q2Parts.push("button up");
+  }
+  // optional style expansion
+  if (intent.styleTokens.includes("baroque") && !q2Parts.includes("baroque")) q2Parts.push("baroque");
+  const q2 = q2Parts.join(" ");
+
+  // A variant that includes material *only if* we still keep garment anchor
+  const q3Parts = base.slice();
+  if (intent.itemKind === "finished_garment" && intent.materialTokens.length) {
+    // include at most 1 to avoid fabric dominance
+    q3Parts.push(intent.materialTokens[0]);
+  }
+  const q3 = q3Parts.join(" ");
+
+  return dedupe([q1, q2, q3]).filter(q => q.trim().length > 0);
+}
+3) Drop-in replacement for generateSearchLinks
+function generateSearchLinksFashionAware(
+  url: string,
+  extractedKeywords: string[]
+) {
+  const intent = resolveFashionIntent(url, extractedKeywords);
+  const queries = compileAliExpressQueries(intent);
+
+  // Primary link uses best query
+  const primaryQuery = queries[0];
+
+  // Provide fallback links (optional UI)
+  const links = queries.map(q => ({
+    label: q === primaryQuery ? "AliExpress (Best match)" : "AliExpress (Alt)",
+    url: `https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(q)}`
+  }));
+
+  return { intent, links };
+}
+What this fixes immediately (your exact example)
+Input keywords:
+["printed","silk","twill","regular","shirt","black","gold"]
+Intent core tokens become something like:
+["men","shirt","baroque","ornate","black","gold"]
+(“baroque/ornate” comes from versace mapping; if you don’t like that, remove the versace→baroque mapping.)
+Primary query becomes:
+men shirt baroque ornate black gold
+Even if you hate the style tokens, minimum query becomes:
+men shirt black gold
+Either way: shirt can’t be dropped.

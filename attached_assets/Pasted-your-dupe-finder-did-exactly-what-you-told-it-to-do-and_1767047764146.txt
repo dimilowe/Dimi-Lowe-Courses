@@ -1,0 +1,89 @@
+your dupe finder did exactly what you told it to do — and that’s the problem.
+What went wrong (no fluff)
+You fed it a Versace product URL, and your system likely extracted generic product descriptors like:
+“printed”
+“silk”
+“twill”
+“regular”
+Those words are fabric-level attributes, not garment-level intent.
+AliExpress does not index fashion the way luxury brands do. It indexes by:
+Material (silk, polyester)
+Unit type (fabric by the meter, scarf)
+Generic category buckets
+So when your query becomes something like:
+“printed silk twill regular”
+AliExpress hears:
+“Show me silk fabric and scarves”
+Which is exactly what you got.
+Your tool didn’t fail.
+It obeyed a bad abstraction.
+The core issue (this is the real bug)
+You are missing an Intent Normalization Layer.
+Right now your flow is effectively:
+Luxury PDP → scrape words → search AliExpress
+That works for electronics, not fashion.
+Fashion dupes require a semantic jump, not literal matching.
+What the user intent ACTUALLY was
+Not:
+silk
+printed
+twill
+But:
+Men’s long-sleeve baroque button-down shirt
+Versace-style baroque pattern
+Black & gold
+Dress shirt / fashion shirt
+Finished garment, not fabric
+AliExpress needs category + style + gender + garment type explicitly.
+How to fix this properly (architectural, not hacky)
+1. Add a Garment Classifier step
+Before searching, force the system to answer:
+Is this:
+fabric?
+accessory?
+finished clothing item?
+This Versace page clearly = finished men’s shirt.
+If garment ≠ fabric → ban fabric keywords (meter, mulberry, mommes, etc.)
+2. Inject a Style Vocabulary Translator
+Luxury brands use poetic language.
+AliExpress uses blunt language.
+You need a mapping like:
+Luxury Term	AliExpress Equivalent
+Baroque	baroque / vintage / palace
+Silk twill	satin / silk-like / polyester silk
+Regular shirt	men shirt / dress shirt
+Versace style	baroque print men shirt
+Your search query should have been closer to:
+“men baroque long sleeve shirt black gold button up”
+Not anything mentioning silk twill.
+3. Force Garment Tokens into every fashion search
+Hard rule:
+If category = clothing → query MUST include:
+men / women
+shirt / dress / jacket
+sleeve length
+Example enforced query template:
+men + baroque + long sleeve + shirt + black gold
+No exceptions.
+4. Penalize fabric-only results
+Post-search filter:
+If listing title contains meter, fabric, cloth, scarf
+→ auto-downrank or exclude.
+This is a cheap win and will instantly clean results.
+The bigger takeaway (important for VCM)
+This is actually a great signal.
+You’ve just discovered:
+Dupe finding is not search
+It’s intent resolution
+Which aligns perfectly with your whole philosophy:
+VCM doesn’t serve results — it resolves intent.
+Fashion dupes need:
+Semantic interpretation
+Category enforcement
+Style translation
+Not scraping + search.
+Bottom line
+❌ Your tool didn’t “miss the shirt”
+❌ AliExpress didn’t “fail”
+✅ Your system skipped the intent normalization step
+Fix that, and this becomes a killer differentiator instead of a bug.
