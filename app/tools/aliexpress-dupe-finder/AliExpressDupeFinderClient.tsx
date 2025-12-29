@@ -9,6 +9,353 @@ interface SearchLink {
   type: "primary" | "variation" | "broad";
 }
 
+// ============================================
+// FASHION INTENT RESOLUTION SYSTEM
+// ============================================
+
+type ItemKind = "finished_garment" | "fabric" | "accessory" | "unknown";
+type Gender = "men" | "women" | "unisex" | "unknown";
+
+interface FashionIntent {
+  itemKind: ItemKind;
+  garmentType: string | null;
+  gender: Gender;
+  sleeve: "long sleeve" | "short sleeve" | "sleeveless" | null;
+  colors: string[];
+  styleTokens: string[];
+  materialTokens: string[];
+  coreTokens: string[];
+  negativeTokens: string[];
+}
+
+const GARMENT_TYPES = new Map<string, string>([
+  ["shirt", "shirt"],
+  ["shirts", "shirt"],
+  ["button", "button up"],
+  ["button-up", "button up"],
+  ["buttonup", "button up"],
+  ["tshirt", "t-shirt"],
+  ["t-shirt", "t-shirt"],
+  ["tee", "t-shirt"],
+  ["dress", "dress"],
+  ["dresses", "dress"],
+  ["jacket", "jacket"],
+  ["jackets", "jacket"],
+  ["blazer", "blazer"],
+  ["coat", "coat"],
+  ["coats", "coat"],
+  ["pants", "pants"],
+  ["trousers", "pants"],
+  ["jeans", "jeans"],
+  ["hoodie", "hoodie"],
+  ["hoodies", "hoodie"],
+  ["sweatshirt", "sweatshirt"],
+  ["sweater", "sweater"],
+  ["cardigan", "cardigan"],
+  ["skirt", "skirt"],
+  ["skirts", "skirt"],
+  ["blouse", "blouse"],
+  ["top", "top"],
+  ["tops", "top"],
+  ["tank", "tank top"],
+  ["shorts", "shorts"],
+  ["jumpsuit", "jumpsuit"],
+  ["romper", "romper"],
+  ["bodysuit", "bodysuit"],
+  ["vest", "vest"],
+  ["polo", "polo shirt"],
+  ["scarf", "scarf"],
+  ["scarves", "scarf"],
+  ["bag", "bag"],
+  ["bags", "bag"],
+  ["purse", "bag"],
+  ["handbag", "bag"],
+  ["backpack", "backpack"],
+  ["shoe", "shoes"],
+  ["shoes", "shoes"],
+  ["sneakers", "sneakers"],
+  ["boots", "boots"],
+  ["heels", "heels"],
+  ["sandals", "sandals"],
+  ["loafers", "loafers"],
+  ["watch", "watch"],
+  ["watches", "watch"],
+  ["jewelry", "jewelry"],
+  ["necklace", "necklace"],
+  ["bracelet", "bracelet"],
+  ["earrings", "earrings"],
+  ["ring", "ring"],
+  ["belt", "belt"],
+  ["hat", "hat"],
+  ["cap", "cap"],
+  ["sunglasses", "sunglasses"],
+]);
+
+const MATERIAL_TOKENS = new Set([
+  "silk", "twill", "satin", "linen", "cotton", "wool", "cashmere", "polyester",
+  "leather", "suede", "denim", "velvet", "viscose", "rayon", "nylon", "chiffon",
+  "lace", "mesh", "fleece", "corduroy", "canvas", "jersey", "spandex", "lycra"
+]);
+
+const COLOR_TOKENS = new Set([
+  "black", "white", "gold", "silver", "red", "blue", "green", "yellow", "pink", 
+  "purple", "beige", "brown", "grey", "gray", "orange", "navy", "cream", "ivory",
+  "burgundy", "maroon", "teal", "coral", "olive", "tan", "khaki", "champagne",
+  "rose", "mint", "lavender", "turquoise", "nude", "camel", "charcoal"
+]);
+
+const STYLE_MAP: Record<string, string[]> = {
+  baroque: ["baroque", "vintage", "ornate"],
+  versace: ["baroque", "chain", "ornate", "luxury"],
+  printed: ["print"],
+  print: ["print"],
+  floral: ["floral", "flower"],
+  striped: ["striped", "stripes"],
+  stripe: ["striped"],
+  plaid: ["plaid", "checkered"],
+  check: ["checkered"],
+  checked: ["checkered"],
+  paisley: ["paisley"],
+  geometric: ["geometric"],
+  abstract: ["abstract"],
+  animal: ["animal print"],
+  leopard: ["leopard print"],
+  zebra: ["zebra print"],
+  snake: ["snakeskin"],
+  camo: ["camouflage"],
+  camouflage: ["camouflage"],
+  vintage: ["vintage", "retro"],
+  retro: ["retro", "vintage"],
+  minimalist: ["minimalist", "simple"],
+  oversized: ["oversized", "loose"],
+  slim: ["slim fit"],
+  fitted: ["slim fit"],
+  regular: [],
+  casual: ["casual"],
+  formal: ["formal", "elegant"],
+  elegant: ["elegant", "formal"],
+  streetwear: ["streetwear", "urban"],
+  bohemian: ["boho", "bohemian"],
+  boho: ["boho"],
+  gothic: ["gothic", "goth"],
+  preppy: ["preppy"],
+  sporty: ["sporty", "athletic"],
+  athletic: ["athletic"],
+  luxury: ["luxury", "designer"],
+  designer: ["designer style"],
+  chain: ["chain", "ornate"],
+  ornate: ["ornate", "decorative"],
+  embroidered: ["embroidered"],
+  embroidery: ["embroidered"],
+  sequin: ["sequin"],
+  beaded: ["beaded"],
+  ruffle: ["ruffle"],
+  ruffled: ["ruffle"],
+  lace: ["lace"],
+  mesh: ["mesh", "sheer"],
+  sheer: ["sheer"],
+  cutout: ["cutout"],
+  asymmetric: ["asymmetric"],
+  wrap: ["wrap"],
+  puff: ["puff sleeve"],
+  lantern: ["lantern sleeve"],
+};
+
+const NEGATIVE_TOKENS_BASE = [
+  "fabric", "cloth", "textile", "meter", "metre", "yard", "yards",
+  "material", "mulberry", "momme", "mommes", "charmeuse", "by the",
+  "diy", "sewing", "craft", "crafts", "remnant", "remnants", "bolt"
+];
+
+const ACCESSORY_TYPES = new Set([
+  "scarf", "bag", "shoes", "sneakers", "boots", "heels", "sandals", "loafers",
+  "watch", "jewelry", "necklace", "bracelet", "earrings", "ring", "belt",
+  "hat", "cap", "sunglasses", "backpack"
+]);
+
+function dedupe(arr: string[]): string[] {
+  return Array.from(new Set(arr.filter(Boolean)));
+}
+
+function inferGender(rawUrl: string, keywords: string[]): Gender {
+  const s = rawUrl.toLowerCase();
+  const k = keywords.map(x => x.toLowerCase());
+  
+  if (s.includes("/women") || s.includes("/woman") || s.includes("womens") ||
+      k.includes("women") || k.includes("womens") || k.includes("woman") ||
+      k.includes("ladies") || k.includes("female")) {
+    return "women";
+  }
+  if (s.includes("/men") || s.includes("/man") || s.includes("mens") ||
+      k.includes("men") || k.includes("mens") || k.includes("man") ||
+      k.includes("male") || k.includes("guys")) {
+    return "men";
+  }
+  if (k.includes("unisex")) return "unisex";
+  return "unknown";
+}
+
+function detectSleeve(keywords: string[]): FashionIntent["sleeve"] {
+  const lower = keywords.map(k => k.toLowerCase());
+  const joined = lower.join(" ");
+  
+  if (joined.includes("long sleeve") || joined.includes("longsleeve") ||
+      (lower.includes("long") && lower.includes("sleeve"))) {
+    return "long sleeve";
+  }
+  if (joined.includes("short sleeve") || joined.includes("shortsleeve") ||
+      (lower.includes("short") && lower.includes("sleeve"))) {
+    return "short sleeve";
+  }
+  if (lower.includes("sleeveless") || lower.includes("tank")) {
+    return "sleeveless";
+  }
+  return null;
+}
+
+function resolveFashionIntent(inputUrl: string, keywords: string[]): FashionIntent {
+  const lower = keywords.map(k => k.toLowerCase());
+
+  let garmentType: string | null = null;
+  for (const k of lower) {
+    if (GARMENT_TYPES.has(k)) {
+      garmentType = GARMENT_TYPES.get(k)!;
+      break;
+    }
+  }
+
+  let itemKind: ItemKind = "unknown";
+  const hasFabricSignals = lower.some(k => 
+    ["fabric", "cloth", "textile", "meter", "metre", "yard", "yards", "material", "mulberry", "momme"].includes(k)
+  );
+  
+  if (hasFabricSignals) {
+    itemKind = "fabric";
+  } else if (garmentType) {
+    if (ACCESSORY_TYPES.has(garmentType)) {
+      itemKind = "accessory";
+    } else {
+      itemKind = "finished_garment";
+    }
+  } else {
+    const clothingHints = ["shirt", "dress", "jacket", "coat", "pants", "jeans", "hoodie", 
+                          "sweater", "blouse", "top", "shorts", "jumpsuit", "romper", "bodysuit"];
+    if (lower.some(k => clothingHints.includes(k))) {
+      itemKind = "finished_garment";
+    }
+  }
+
+  const gender = inferGender(inputUrl, lower);
+  const sleeve = detectSleeve(lower);
+
+  const colors = lower.filter(k => COLOR_TOKENS.has(k));
+  const materialTokens = lower.filter(k => MATERIAL_TOKENS.has(k));
+
+  const styleTokens: string[] = [];
+  for (const k of lower) {
+    const mapped = STYLE_MAP[k];
+    if (mapped) {
+      styleTokens.push(...mapped);
+    }
+  }
+
+  const coreTokens: string[] = [];
+
+  if (gender !== "unknown") {
+    coreTokens.push(gender);
+  }
+
+  if (itemKind === "finished_garment") {
+    coreTokens.push(garmentType ?? "shirt");
+    if (sleeve) {
+      coreTokens.push(sleeve);
+    }
+  } else if (itemKind === "accessory" && garmentType) {
+    coreTokens.push(garmentType);
+  }
+
+  coreTokens.push(...dedupe(styleTokens).slice(0, 3));
+  coreTokens.push(...dedupe(colors).slice(0, 2));
+
+  const negativeTokens = [...NEGATIVE_TOKENS_BASE];
+
+  return {
+    itemKind,
+    garmentType: garmentType ?? (itemKind === "finished_garment" ? "shirt" : null),
+    gender,
+    sleeve,
+    colors: dedupe(colors),
+    styleTokens: dedupe(styleTokens),
+    materialTokens: dedupe(materialTokens),
+    coreTokens: dedupe(coreTokens),
+    negativeTokens: dedupe(negativeTokens),
+  };
+}
+
+function compileAliExpressQueries(intent: FashionIntent): string[] {
+  const queries: string[] = [];
+  const base = [...intent.coreTokens];
+
+  const q1 = base.join(" ");
+  if (q1.trim()) queries.push(q1);
+
+  if (intent.itemKind === "finished_garment") {
+    const q2Parts = [...base];
+    if (intent.garmentType === "shirt" && !q2Parts.includes("button up")) {
+      q2Parts.push("button up");
+    }
+    if (intent.styleTokens.includes("baroque") && !q2Parts.includes("baroque")) {
+      q2Parts.push("baroque");
+    }
+    const q2 = q2Parts.join(" ");
+    if (q2.trim() && q2 !== q1) queries.push(q2);
+
+    if (intent.materialTokens.length > 0) {
+      const q3Parts = [...base];
+      q3Parts.push(intent.materialTokens[0]);
+      const q3 = q3Parts.join(" ");
+      if (q3.trim() && !queries.includes(q3)) queries.push(q3);
+    }
+
+    if (intent.colors.length > 0 && intent.styleTokens.length > 0) {
+      const q4Parts = [
+        intent.gender !== "unknown" ? intent.gender : "",
+        intent.garmentType ?? "",
+        intent.colors[0],
+        intent.styleTokens[0]
+      ].filter(Boolean);
+      const q4 = q4Parts.join(" ");
+      if (q4.trim() && !queries.includes(q4)) queries.push(q4);
+    }
+  }
+
+  if (queries.length === 0 && intent.garmentType) {
+    queries.push(intent.garmentType);
+  }
+
+  return dedupe(queries).slice(0, 5);
+}
+
+function generateSearchLinksFashionAware(
+  url: string,
+  extractedKeywords: string[]
+): { intent: FashionIntent; links: SearchLink[] } {
+  const intent = resolveFashionIntent(url, extractedKeywords);
+  const queries = compileAliExpressQueries(intent);
+
+  const links: SearchLink[] = queries.map((q, index) => ({
+    query: q,
+    url: `https://www.aliexpress.com/wholesale?SearchText=${encodeURIComponent(q)}`,
+    type: index === 0 ? "primary" : index === 1 ? "variation" : "broad"
+  }));
+
+  return { intent, links };
+}
+
+// ============================================
+// ORIGINAL KEYWORD EXTRACTION (kept for URL parsing)
+// ============================================
+
 const GENERIC_URL_SEGMENTS = new Set([
   "product", "products", "item", "items", "browse", "shop", "shopping", "store",
   "catalog", "catalogue", "category", "categories", "collection", "collections",
@@ -97,67 +444,6 @@ function extractKeywordsFromText(text: string): string[] {
   return [...new Set(words)].slice(0, 10);
 }
 
-function generateSearchLinks(keywords: string[]): SearchLink[] {
-  if (keywords.length === 0) return [];
-  
-  const links: SearchLink[] = [];
-  const baseUrl = "https://www.aliexpress.com/wholesale";
-  
-  const primaryQuery = keywords.slice(0, 4).join(" ");
-  links.push({
-    query: primaryQuery,
-    url: `${baseUrl}?SearchText=${encodeURIComponent(primaryQuery)}`,
-    type: "primary"
-  });
-  
-  if (keywords.length >= 3) {
-    const variation1 = [keywords[0], keywords[2], keywords[1]].filter(Boolean).slice(0, 3).join(" ");
-    if (variation1 !== primaryQuery) {
-      links.push({
-        query: variation1,
-        url: `${baseUrl}?SearchText=${encodeURIComponent(variation1)}`,
-        type: "variation"
-      });
-    }
-  }
-  
-  if (keywords.length >= 2) {
-    const coreQuery = keywords.slice(0, 2).join(" ");
-    links.push({
-      query: coreQuery,
-      url: `${baseUrl}?SearchText=${encodeURIComponent(coreQuery)}`,
-      type: "broad"
-    });
-  }
-  
-  if (keywords.length >= 4) {
-    const altQuery = keywords.slice(1, 4).join(" ");
-    links.push({
-      query: altQuery,
-      url: `${baseUrl}?SearchText=${encodeURIComponent(altQuery)}`,
-      type: "variation"
-    });
-  }
-  
-  if (keywords.length >= 5) {
-    const broadQuery = [keywords[0], keywords[4]].join(" ");
-    links.push({
-      query: broadQuery,
-      url: `${baseUrl}?SearchText=${encodeURIComponent(broadQuery)}`,
-      type: "broad"
-    });
-  }
-  
-  const uniqueLinks = links.reduce((acc, link) => {
-    if (!acc.find(l => l.query === link.query)) {
-      acc.push(link);
-    }
-    return acc;
-  }, [] as SearchLink[]);
-  
-  return uniqueLinks.slice(0, 5);
-}
-
 function isUrl(text: string): boolean {
   try {
     new URL(text);
@@ -171,6 +457,7 @@ export default function AliExpressDupeFinderClient() {
   const [input, setInput] = useState("");
   const [searchLinks, setSearchLinks] = useState<SearchLink[]>([]);
   const [extractedKeywords, setExtractedKeywords] = useState<string[]>([]);
+  const [fashionIntent, setFashionIntent] = useState<FashionIntent | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
@@ -182,19 +469,24 @@ export default function AliExpressDupeFinderClient() {
     setHasSearched(true);
     
     setTimeout(() => {
+      const trimmedInput = input.trim();
       let keywords: string[];
+      let inputUrl = "";
       
-      if (isUrl(input.trim())) {
-        keywords = extractKeywordsFromUrl(input.trim());
+      if (isUrl(trimmedInput)) {
+        inputUrl = trimmedInput;
+        keywords = extractKeywordsFromUrl(trimmedInput);
         if (keywords.length === 0) {
-          keywords = extractKeywordsFromText(input.trim());
+          keywords = extractKeywordsFromText(trimmedInput);
         }
       } else {
-        keywords = extractKeywordsFromText(input.trim());
+        keywords = extractKeywordsFromText(trimmedInput);
       }
       
       setExtractedKeywords(keywords);
-      const links = generateSearchLinks(keywords);
+      
+      const { intent, links } = generateSearchLinksFashionAware(inputUrl, keywords);
+      setFashionIntent(intent);
       setSearchLinks(links);
       setIsLoading(false);
     }, 300);
@@ -278,21 +570,70 @@ export default function AliExpressDupeFinderClient() {
             <div className="mt-8">
               {searchLinks.length > 0 ? (
                 <>
-                  {/* Extracted Keywords */}
-                  {extractedKeywords.length > 0 && (
-                    <div className="mb-6 p-4 bg-gray-50 rounded-xl">
-                      <div className="text-sm font-medium text-gray-600 mb-2">Extracted keywords:</div>
+                  {/* Fashion Intent Detection */}
+                  {fashionIntent && (
+                    <div className="mb-6 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                      <div className="text-sm font-medium text-emerald-800 mb-3">Detected item details:</div>
                       <div className="flex flex-wrap gap-2">
-                        {extractedKeywords.map((keyword, i) => (
-                          <span
-                            key={i}
-                            className="px-2 py-1 bg-white border border-gray-200 rounded-md text-sm text-gray-700"
-                          >
-                            {keyword}
+                        {fashionIntent.itemKind !== "unknown" && (
+                          <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full border border-emerald-200">
+                            {fashionIntent.itemKind === "finished_garment" ? "Clothing" : 
+                             fashionIntent.itemKind === "accessory" ? "Accessory" : "Fabric"}
+                          </span>
+                        )}
+                        {fashionIntent.gender !== "unknown" && (
+                          <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full border border-blue-200">
+                            {fashionIntent.gender === "men" ? "Men's" : fashionIntent.gender === "women" ? "Women's" : "Unisex"}
+                          </span>
+                        )}
+                        {fashionIntent.garmentType && (
+                          <span className="px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full border border-purple-200">
+                            {fashionIntent.garmentType}
+                          </span>
+                        )}
+                        {fashionIntent.sleeve && (
+                          <span className="px-2.5 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full border border-indigo-200">
+                            {fashionIntent.sleeve}
+                          </span>
+                        )}
+                        {fashionIntent.styleTokens.slice(0, 3).map((style, i) => (
+                          <span key={i} className="px-2.5 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full border border-amber-200">
+                            {style}
+                          </span>
+                        ))}
+                        {fashionIntent.colors.slice(0, 2).map((color, i) => (
+                          <span key={i} className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full border border-gray-200">
+                            {color}
                           </span>
                         ))}
                       </div>
+                      {fashionIntent.materialTokens.length > 0 && (
+                        <div className="mt-2 text-xs text-emerald-600">
+                          Materials detected (downweighted to avoid fabric results): {fashionIntent.materialTokens.join(", ")}
+                        </div>
+                      )}
                     </div>
+                  )}
+
+                  {/* Extracted Keywords (collapsed by default) */}
+                  {extractedKeywords.length > 0 && (
+                    <details className="mb-6">
+                      <summary className="text-sm text-gray-500 cursor-pointer hover:text-gray-700">
+                        View raw extracted keywords ({extractedKeywords.length})
+                      </summary>
+                      <div className="mt-2 p-4 bg-gray-50 rounded-xl">
+                        <div className="flex flex-wrap gap-2">
+                          {extractedKeywords.map((keyword, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-1 bg-white border border-gray-200 rounded-md text-sm text-gray-700"
+                            >
+                              {keyword}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </details>
                   )}
 
                   {/* Search Links */}
