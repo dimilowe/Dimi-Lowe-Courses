@@ -516,6 +516,14 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2025-12-29: **AliExpress Dupe Finder Fashion Intent Improvements**
+  - Fixed sleeve detection: checks "sleeveless" atomically FIRST before compound detection (short sleeve, long sleeve)
+  - Added length detection (resolveLength): mini/short/midi/maxi for dresses/skirts with guard against "short sleeve" confusion
+  - Added silhouette detection (resolveSilhouette): bodycon, bandage, a-line, fit and flare, wrap, pleated, empire, shift, mermaid
+  - Expanded STYLE_MAP: 40+ mappings including embroidered→embellished/sequin, brand names (balmain, gucci, dior)
+  - Improved query generation: 3-5 distinct variants (core tokens, gender+silhouette+length, sequin+bodycon+color combos)
+  - UI shows new length (pink badge) and silhouette tokens (rose badges)
+  - Pattern: Check "sleeveless" FIRST (atomic), then check compound sleeves; allow "short" as length unless "short-sleeve" compound exists
 - 2025-12-24: **Workflows Feature** - Step-by-step creator guides for specific goals
   - Data layer: `lib/workflows/types.ts` (Workflow, WorkflowStep, ToolRef interfaces) and `lib/workflows/workflows.ts` with 5 seeded workflows
   - Workflow content: First Sale, Competitor Ads, Validate Offer, Traffic Funnel, Monetize Audience
