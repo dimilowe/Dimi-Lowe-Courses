@@ -1,3 +1,12 @@
+/**
+ * Cloud ID Normalization
+ * 
+ * Global Workspace Rules:
+ * - Validation is optional - don't break on unknown clouds
+ * - Log warnings but store the string anyway
+ * - Prevents "new cloud launched → workspace breaks"
+ */
+
 export const CANONICAL_CLOUD_IDS = new Set([
   "creation",
   "video",
@@ -7,6 +16,10 @@ export const CANONICAL_CLOUD_IDS = new Set([
   "intelligence",
   "music-performance",
   "growth-distribution",
+  "shopping",
+  "advertising",
+  "gaming",
+  "ecommerce",
 ]);
 
 const LEGACY_TO_CANONICAL: Record<string, string> = {
@@ -24,12 +37,28 @@ const LEGACY_TO_CANONICAL: Record<string, string> = {
   "file-data": "file-data",
   "music-performance": "music-performance",
   "growth-distribution": "growth-distribution",
+  shopping: "shopping",
+  advertising: "advertising",
+  gaming: "gaming",
+  ecommerce: "ecommerce",
 };
 
 export function normalizeCloudId(input: string | null | undefined): string | null {
   if (!input) return null;
   const key = String(input).trim();
-  return LEGACY_TO_CANONICAL[key] ?? null;
+  
+  // Try canonical mapping first
+  if (LEGACY_TO_CANONICAL[key]) {
+    return LEGACY_TO_CANONICAL[key];
+  }
+  
+  // If not in mapping, log warning but return the input as-is
+  // This prevents "new cloud launched → workspace breaks"
+  if (key && !CANONICAL_CLOUD_IDS.has(key)) {
+    console.warn(`[normalizeCloudId] Unknown cloud ID: "${key}" - storing as-is`);
+  }
+  
+  return key || null;
 }
 
 export function assertCanonicalCloudId(input: string | null | undefined): string | null {

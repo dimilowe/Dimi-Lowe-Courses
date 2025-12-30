@@ -78,11 +78,12 @@ export default function CloudDashboardEngine({ cms }: CloudDashboardProps) {
     fetchTaggedTools();
   }, [cloudSlugForApi]);
 
+  // Global Workspace: Show ALL recent files by default (scope=all)
+  // Items are not "owned" by a cloud - origin_cloud_id is just metadata
   useEffect(() => {
     async function fetchRecentFiles() {
-      if (!cloudId) return;
       try {
-        const res = await fetch(`/api/workspace/items?cloud_id=${cloudId}&sort=recent&limit=10`);
+        const res = await fetch(`/api/workspace/items?scope=all&sort=recent&limit=10`);
         if (res.ok) {
           const data = await res.json();
           const files: RecentFile[] = (data.items || []).map((item: WorkspaceItem) => ({
@@ -103,7 +104,7 @@ export default function CloudDashboardEngine({ cms }: CloudDashboardProps) {
       }
     }
     fetchRecentFiles();
-  }, [cloudId]);
+  }, []); // No dependencies - global workspace, fetch once on mount
 
   function formatRelativeTime(dateStr: string): string {
     const date = new Date(dateStr);
