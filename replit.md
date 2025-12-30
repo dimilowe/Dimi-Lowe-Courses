@@ -516,6 +516,17 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2025-12-30: **Decision Hygiene Evaluator** - Deterministic pre-commitment filter for business ideas
+  - 18-question form across 5 sections: Structural Viability, Distribution Asymmetry, Effort-to-Feedback Ratio, Decision Reversibility, Bias Check
+  - Pure deterministic rule engine: no AI, no randomness, same input → same output
+  - Early termination: first RED stops evaluation, stoppedEarly=true
+  - Bias escalation: Emotional attachment + any YELLOW → final RED
+  - Accumulated uncertainty: 3+ YELLOWs across different sections → RED
+  - 27 failure classes with exact spec copy (code, label, explanation, section)
+  - RED / YELLOW / GREEN verdicts with cold, final messaging (no suggestions)
+  - Zod validation with field-level error reporting
+  - SEO: SoftwareApplication + FAQPage JSON-LD, 8 FAQs
+  - Files: `lib/decisionHygiene/`, `app/tools/decision-hygiene-evaluator/`, `app/api/tools/decision-hygiene-evaluator/`
 - 2025-12-29: **AliExpress Dupe Finder Fashion Intent Improvements**
   - Fixed sleeve detection: checks "sleeveless" atomically FIRST before compound detection (short sleeve, long sleeve)
   - Added length detection (resolveLength): mini/short/midi/maxi for dresses/skirts with guard against "short sleeve" confusion
