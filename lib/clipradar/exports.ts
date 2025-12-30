@@ -14,6 +14,13 @@ export function formatTimeHHMMSSmmm(seconds: number): string {
   return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(3, "0")}`;
 }
 
+function escapeCsvField(value: string): string {
+  if (value.includes('"') || value.includes(',') || value.includes('\n') || value.includes('\r')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return `"${value}"`;
+}
+
 export function generateCsv(peaks: ClipPeak[]): string {
   const header = "rank,start,end,duration,title,caption,score,category,reasons";
   const rows = peaks.map(peak => {
@@ -22,7 +29,7 @@ export function generateCsv(peaks: ClipPeak[]): string {
     const title = peak.titles[0] || "";
     const caption = peak.captions[0] || "";
     const reasons = peak.reasons.join("; ");
-    return `${peak.rank},${window.start},${window.end},${duration},"${title}","${caption}",${peak.score},"${peak.category}","${reasons}"`;
+    return `${peak.rank},${window.start},${window.end},${duration},${escapeCsvField(title)},${escapeCsvField(caption)},${peak.score},${escapeCsvField(peak.category)},${escapeCsvField(reasons)}`;
   });
   return [header, ...rows].join("\n");
 }
@@ -43,7 +50,7 @@ export function generateMarkersCsv(peaks: ClipPeak[]): string {
     const description = `Score: ${peak.score} | ${peak.category} | ${peak.reasons.slice(0, 2).join(", ")}`;
     const inTime = formatTimeHHMMSSmmm(window.start);
     const outTime = formatTimeHHMMSSmmm(window.end);
-    return `"${name}","${description}",${inTime},${outTime}`;
+    return `${escapeCsvField(name)},${escapeCsvField(description)},${inTime},${outTime}`;
   });
   return [header, ...rows].join("\n");
 }

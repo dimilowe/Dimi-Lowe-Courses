@@ -25,7 +25,7 @@ export function normalizeTranscript(
     const gap = next.start - current.end;
     const currentDuration = current.end - current.start;
 
-    const shouldMerge = gap <= mergeGapSeconds || currentDuration < 1.2;
+    const shouldMerge = gap <= mergeGapSeconds && (currentDuration < 1.2 || gap <= 0.3);
 
     if (shouldMerge) {
       current.text = current.text + " " + next.text;

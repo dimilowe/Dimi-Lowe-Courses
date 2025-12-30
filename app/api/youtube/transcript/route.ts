@@ -49,41 +49,117 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-function parseVttToText(vttContent: string): string {
+interface TranscriptSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+function parseVttTimestamp(timestamp: string): number {
+  const parts = timestamp.split(":");
+  let hours = 0, minutes = 0, seconds = 0;
+
+  if (parts.length === 3) {
+    hours = parseFloat(parts[0]);
+    minutes = parseFloat(parts[1]);
+    seconds = parseFloat(parts[2].replace(",", "."));
+  } else if (parts.length === 2) {
+    minutes = parseFloat(parts[0]);
+    seconds = parseFloat(parts[1].replace(",", "."));
+  }
+
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+function parseVttToSegments(vttContent: string): TranscriptSegment[] {
   const lines = vttContent.split("\n");
-  const textLines: string[] = [];
-  let inCue = false;
+  const segments: TranscriptSegment[] = [];
   
+  let currentStart: number | null = null;
+  let currentEnd: number | null = null;
+  let currentText: string[] = [];
+
   for (const line of lines) {
     const trimmed = line.trim();
-    
-    if (trimmed === "WEBVTT" || trimmed === "" || trimmed.startsWith("NOTE")) {
-      inCue = false;
-      continue;
-    }
-    
-    if (trimmed.includes("-->")) {
-      inCue = true;
-      continue;
-    }
-    
-    if (inCue && trimmed) {
-      const cleanText = trimmed
-        .replace(/<[^>]*>/g, "")
-        .replace(/&nbsp;/g, " ")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .trim();
-      
-      if (cleanText && !textLines.includes(cleanText)) {
-        textLines.push(cleanText);
+
+    if (trimmed === "WEBVTT" || trimmed === "" || trimmed.startsWith("NOTE") || /^\d+$/.test(trimmed)) {
+      if (currentStart !== null && currentEnd !== null && currentText.length > 0) {
+        const text = currentText
+          .join(" ")
+          .replace(/<[^>]*>/g, "")
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/\s+/g, " ")
+          .trim();
+
+        if (text) {
+          segments.push({ start: currentStart, end: currentEnd, text });
+        }
+        currentStart = null;
+        currentEnd = null;
+        currentText = [];
       }
+      continue;
+    }
+
+    const timestampMatch = trimmed.match(/^(\d{1,2}:)?(\d{2}:\d{2}[.,]\d{3})\s*-->\s*(\d{1,2}:)?(\d{2}:\d{2}[.,]\d{3})/);
+    if (timestampMatch) {
+      if (currentStart !== null && currentEnd !== null && currentText.length > 0) {
+        const text = currentText
+          .join(" ")
+          .replace(/<[^>]*>/g, "")
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/\s+/g, " ")
+          .trim();
+
+        if (text) {
+          segments.push({ start: currentStart, end: currentEnd, text });
+        }
+      }
+
+      const startStr = (timestampMatch[1] || "") + timestampMatch[2];
+      const endStr = (timestampMatch[3] || "") + timestampMatch[4];
+      currentStart = parseVttTimestamp(startStr);
+      currentEnd = parseVttTimestamp(endStr);
+      currentText = [];
+      continue;
+    }
+
+    if (currentStart !== null) {
+      currentText.push(trimmed);
     }
   }
-  
-  return textLines.join(" ").replace(/\s+/g, " ").trim();
+
+  if (currentStart !== null && currentEnd !== null && currentText.length > 0) {
+    const text = currentText
+      .join(" ")
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (text) {
+      segments.push({ start: currentStart, end: currentEnd, text });
+    }
+  }
+
+  return segments;
+}
+
+function parseVttToText(vttContent: string): string {
+  const segments = parseVttToSegments(vttContent);
+  return segments.map(s => s.text).join(" ").replace(/\s+/g, " ").trim();
 }
 
 async function cleanupTempDir(tempDir: string): Promise<void> {
@@ -96,7 +172,7 @@ async function cleanupTempDir(tempDir: string): Promise<void> {
 }
 
 type TranscriptResult = 
-  | { ok: true; transcript: string; source: "subtitles" | "auto_subtitles"; language: string }
+  | { ok: true; transcript: string; segments: TranscriptSegment[]; source: "subtitles" | "auto_subtitles"; language: string }
   | { ok: false; code: "NO_CAPTIONS" | "TOO_LARGE" };
 
 async function fetchTranscriptWithYtDlp(
@@ -154,15 +230,17 @@ async function fetchTranscriptWithYtDlp(
     return { ok: false, code: "NO_CAPTIONS" };
   }
   
-  const transcript = parseVttToText(result.content);
+  const segments = parseVttToSegments(result.content);
+  const transcript = segments.map(s => s.text).join(" ").replace(/\s+/g, " ").trim();
   
-  if (!transcript) {
+  if (!transcript || segments.length === 0) {
     return { ok: false, code: "NO_CAPTIONS" };
   }
   
   return {
     ok: true,
     transcript,
+    segments,
     source,
     language: "en"
   };
@@ -184,7 +262,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { url } = body;
+    const { url, format } = body;
+    const includeSegments = format === "segments";
 
     if (!url || typeof url !== "string") {
       return NextResponse.json(
@@ -236,13 +315,19 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({
+    const response: Record<string, unknown> = {
       ok: true,
       videoId,
       transcript: result.transcript,
       source: result.source,
       language: result.language
-    });
+    };
+    
+    if (includeSegments) {
+      response.segments = result.segments;
+    }
+    
+    return NextResponse.json(response);
 
   } catch (error) {
     console.error("YouTube transcript API error:", error);

@@ -1007,6 +1007,26 @@ export const toolsRegistry: Tool[] = [
     primaryKeyword: "image to prompt",
     secondaryKeywords: ["image prompt generator", "reverse image prompt", "describe image for ai", "recreate image prompt", "prompt from image", "midjourney prompt generator", "stable diffusion prompt"],
     searchIntent: "action"
+  },
+  {
+    id: "clip-radar",
+    name: "ClipRadar",
+    slug: "clip-radar",
+    description: "Paste a YouTube URL and find the best moments for clips. Get ranked highlight timestamps, auto clip windows, and export markers for editing.",
+    category: "creator",
+    tags: ["creator", "video", "new"],
+    icon: "video",
+    iconBg: "bg-orange-500",
+    priority: 88,
+    isNew: true,
+    engineType: "standalone",
+    inputType: "url",
+    outputType: "interactive",
+    relatedTools: ["youtube-thumbnail-resizer", "ai-thumbnail-coach"],
+    relatedArticles: [],
+    primaryKeyword: "youtube clip finder",
+    secondaryKeywords: ["gaming clip finder", "clip marker", "youtube transcript clip detector", "highlight timestamps", "best moments finder", "clip timestamps generator", "premiere marker export", "davinci resolve markers", "youtube shorts clip ideas"],
+    searchIntent: "action"
   }
 ];
 
