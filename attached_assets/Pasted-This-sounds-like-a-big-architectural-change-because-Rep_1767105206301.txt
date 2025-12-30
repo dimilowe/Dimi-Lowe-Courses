@@ -1,0 +1,45 @@
+This sounds like a big architectural change because Replit is thinking “refactor everything.” It isn’t. It’s a schema + API contract swap with a compatibility shim. You can implement Global Workspace without ripping through the codebase.
+Here’s the boundary:
+What we are changing (allowed)
+Add origin_cloud_id column
+Backfill origin_cloud_id from existing cloud_id
+Update the two workspace API routes:
+/api/workspace/upload writes origin_cloud_id (optional)
+/api/workspace/items reads using origin_cloud_id (optional filter)
+Update one caller:
+CloudDashboardEngine fetch uses scope=all by default (or origin filter if you add a toggle)
+That’s it.
+What we are NOT changing (not allowed)
+Tool internals
+Cloud theme system
+Cloud routing / slugs
+Entitlement system
+Anything in your engines / renderer beyond the single dashboard fetch call
+This is not “re-architect VCM.” This is “fix workspace semantics to match your single source of truth.”
+Tell Replit the task list like this (copy/paste)
+DB migration
+Add origin_cloud_id (nullable)
+Backfill from cloud_id
+Keep cloud_id column for backward compatibility (do not drop yet)
+Upload route update
+Accept optional origin_cloud_id
+Normalize if provided
+Insert into origin_cloud_id (stop depending on cloud_id)
+Do not require origin_cloud_id
+Items read route update
+Default: return all workspace items for user (no origin filter)
+Optional: filter by origin_cloud_id when param is present
+Add strict scope=all or origin_cloud_id param rules (no silent fallback)
+Cloud dashboard change
+Change recent files request to:
+/api/workspace/items?scope=all&sort=recent&limit=10
+(Optional later) add a toggle to request origin_cloud_id=<currentCloud>
+Indexes
+Add workspace_items_user_recent_idx
+Add workspace_items_user_origin_recent_idx
+No other refactors
+Do not touch theme IDs, cloud lists, tool routes, or renderer architecture.
+The answer to “do we want our architecture touched?”
+Yes, but only at the workspace boundary.
+This is a contract fix, not a platform rewrite.
+If Replit tries to expand scope, push back: “No. Only migrate + update the two routes + update the dashboard fetch.”
