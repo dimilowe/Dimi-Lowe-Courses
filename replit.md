@@ -522,7 +522,8 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
   - Early termination: first RED stops evaluation, stoppedEarly=true
   - Bias escalation: Emotional attachment + any YELLOW → final RED
   - Accumulated uncertainty: 3+ YELLOWs across different sections → RED
-  - 27 failure classes with exact spec copy (code, label, explanation, section)
+  - 28 failure classes with exact spec copy (code, label, explanation, section)
+  - R6b: Coordination dependency - marketplace cold-start kills ideas without proven audience (early-terminate RED)
   - RED / YELLOW / GREEN verdicts with cold, final messaging (no suggestions)
   - Zod validation with field-level error reporting
   - SEO: SoftwareApplication + FAQPage JSON-LD, 8 FAQs
