@@ -1,0 +1,322 @@
+FULL REPLIT PROMPT — BUILD “CLIPRADAR” (Transcript → Ranked Clip Windows + Exports)
+
+You are working inside the existing VCM Suite Next.js app (App Router). Follow existing project conventions for tools (tool registry, tools DB table, global_urls, ExploreMoreTools, UI styling, and API patterns). DO NOT introduce new architecture patterns that drift from the codebase.
+
+GOAL
+Build a new tool named “ClipRadar” that:
+1) Takes a YouTube URL
+2) Uses our existing “YouTube Transcript” fetcher/util to retrieve a timestamped transcript (we already have this tool working somewhere in the codebase)
+3) Runs a transcript-only “clip detection” scan:
+   - scores segments using emotion/event/audience-address/pacing signals
+   - selects top peaks with de-duplication
+   - generates 3 clip windows (short/standard/long) per peak
+   - generates titles + caption overlays (rule-based templates; no LLM required for v1)
+4) Displays ranked results in a table
+5) Provides exports:
+   - CSV (start,end,title,caption,score,category)
+   - YouTube timestamps list
+   - Marker CSV (simple name/description/in/out)
+6) Adds ClipRadar into the tool registry + tools DB table + global_urls table so it shows up and can be indexed/de-indexed like other tools.
+
+IMPORTANT CONSTRAINTS
+- Transcript-only V1 (no audio/video analysis).
+- No login required, free tool.
+- Must be performant: O(n) or O(n log n) over transcript lines.
+- Must be safe: validate URL, sanitize inputs, limit transcript size.
+- Must match existing VCM styling conventions.
+- Must not break existing tools.
+
+DELIVERABLES (FILES TO CREATE / MODIFY)
+
+A) Tool Page (Server component wrapper + metadata + JSON-LD + FAQ JSON-LD)
+Create:
+- app/tools/clip-radar/page.tsx
+
+B) Client Component
+Create:
+- app/tools/clip-radar/ClipRadarClient.tsx
+
+C) API endpoint
+Create:
+- app/api/tools/clip-radar/analyze/route.ts
+
+D) Core logic modules
+Create:
+- lib/clipradar/normalizeTranscript.ts
+- lib/clipradar/scoreTranscript.ts
+- lib/clipradar/selectPeaks.ts
+- lib/clipradar/buildWindows.ts
+- lib/clipradar/generateMetadata.ts
+- lib/clipradar/exports.ts
+- lib/clipradar/types.ts
+
+E) Tool registry + DB + global_urls updates
+Modify whichever files/scripts this codebase uses for:
+- tool registry list (the list that powers admin/tools + ExploreMoreTools)
+- seed/migration logic that inserts into `tools` table
+- insert/update into `global_urls` table for indexing
+
+If the project has an admin seed script or SQL migration pattern, follow it exactly.
+If there is an existing “register tool” utility, use it instead of inventing new patterns.
+
+STEP 1 — FIND & REUSE EXISTING TRANSCRIPT FETCH
+We already have a tool that takes a YouTube URL and returns transcript text with timestamps. Locate it and reuse its internal fetch/util logic. Do NOT call an external paid API.
+- If there is a shared function like getYouTubeTranscript(url) use it.
+- If transcript tool has an API endpoint, you can call it server-side from ClipRadar API, but prefer importing shared logic.
+
+The transcript returned MUST be converted into an array of:
+{ start: number, end: number, text: string }
+
+If the existing transcript tool returns plain text without timestamps, update it minimally to expose timestamps or add a parallel helper in ClipRadar that accesses timestamp data (do NOT break the old tool).
+
+STEP 2 — API CONTRACT
+Implement POST /api/tools/clip-radar/analyze with:
+
+Request JSON:
+{
+  "videoUrl": "https://www.youtube.com/watch?v=...",
+  "options": {
+    "style": "balanced" | "hype" | "funny" | "rage" | "educational",
+    "minScore": number (default 55),
+    "maxResults": number (default 20),
+    "mergeGapSeconds": number (default 0.7),
+    "windows": { "short": number (default 10), "standard": number (default 20), "long": number (default 40) }
+  }
+}
+
+Response JSON:
+{
+  "videoUrl": string,
+  "stats": { "segmentsIn": number, "segmentsMerged": number, "durationSec": number },
+  "results": [
+    {
+      "rank": number,
+      "peakTime": number,
+      "score": number,
+      "category": string,
+      "reasons": string[],
+      "windows": {
+        "short": { "start": number, "end": number },
+        "standard": { "start": number, "end": number },
+        "long": { "start": number, "end": number }
+      },
+      "titles": string[],
+      "captions": string[]
+    }
+  ],
+  "exports": {
+    "csv": string,
+    "youtubeTimestamps": string,
+    "markersCsv": string
+  }
+}
+
+Validation:
+- videoUrl required and must match youtube.com or youtu.be
+- limit transcript lines (e.g. max 10,000 segments) and total chars
+- minScore 0–100
+- maxResults 1–50
+
+Errors return { error: string } with appropriate status.
+
+STEP 3 — CLIP DETECTION LOGIC (TRANSCRIPT-ONLY)
+
+normalizeTranscript.ts
+Input: transcript[] of {start,end,text}
+- Trim text, drop empties
+- Sort by start
+- Merge segments if:
+  - gap between current.start and prev.end <= mergeGapSeconds OR
+  - current duration < 1.2s
+- When merging: concatenate text with space, end = current.end
+Output: normalized segments
+
+scoreTranscript.ts
+Compute score per segment (0–100) with reasons.
+Signals:
+1) Emotion keywords (high weight)
+2) Event keywords (medium)
+3) Audience-address phrases (medium-high)
+4) Pacing spike proxy: words per second (light)
+5) Punctuation density: ! ? (light-medium)
+6) Repetition: repeated tokens within segment (light)
+7) Reaction Stack bonus: if emotion+event appear within a 12s neighborhood, boost
+
+Use dictionaries:
+- emotionWords: ["no way","let's go","holy","insane","bro","wtf","omg","clutch","crazy","yo","wow","nah","bruh","are you kidding","i'm done","this game"]
+- eventWords: ["killed","downed","knocked","headshot","ace","1v","wipe","team wipe","win","won","gg","final","last","rank","promo","overtime","plant","defuse","zone","circle","boss"]
+- audiencePhrases: ["watch this","look at this","listen","clip that","you're not gonna believe","did you see that"]
+
+Style weights:
+- balanced: defaults
+- hype: boost emotion + event
+- funny: boost audience + emotion
+- rage: boost rage phrases + punctuation
+- educational: boost phrases like "here's how", "do this", "tip", "strategy" (add a small educationalWords list)
+
+Score formula (example; implement cleanly, easy to tweak):
+base = 0
++ emotionHits * 18
++ eventHits * 12
++ audienceHits * 16
++ punctScore (0–10)
++ paceScore (0–10)
++ repetitionScore (0–6)
+then clamp 0–100
+Then apply reactionStackBonus (e.g. *1.15 or +10) if neighborhood qualifies, clamp again
+
+Return:
+{ ...segment, score, reasons, features: {emotionHits,eventHits,audienceHits,paceWps,punctCount} }
+
+selectPeaks.ts
+Input: scored segments
+- Sort by score desc
+- Select peaks where score >= minScore
+- De-dup: once a peak chosen, suppress any segment whose start time is within ±standardWindow seconds of peakTime
+- Continue until maxResults
+Return ordered peaks with rank
+
+buildWindows.ts
+Input: peaks, options.windows
+For each peakTime:
+- short: [peakTime - short, peakTime + short]
+- standard: ...
+- long: ...
+Clamp start >= 0 and end <= lastTranscriptEnd
+Optionally snap to nearest transcript boundaries (start to nearest segment.start before, end to nearest segment.end after)
+
+generateMetadata.ts
+No LLM. Use rule templates:
+- Determine category by strongest signal:
+  - if rage phrases or many ?!/caps => rage
+  - else if audience phrases => funny/hype depending on event presence
+  - else if event+emotion => hype
+  - else educational if educational words found
+- titles: 3 options from templates per category
+- captions: 2 short overlays (max 6 words) with emoji optional
+Also include reasons from scoring.
+
+exports.ts
+Build:
+- csv: header + one row per result using STANDARD window (or let user choose later; for v1 use standard)
+- youtubeTimestamps: “MM:SS - Title”
+- markersCsv: “name,description,in,out” with in/out as HH:MM:SS.mmm
+Include score in description.
+
+Provide helper formatTime functions.
+
+STEP 4 — UI (ClipRadarClient.tsx)
+
+UI requirements:
+- Hero card with tool name and one-line promise
+- Input: YouTube URL
+- Options:
+  - style dropdown
+  - minScore slider (default 55)
+  - maxResults input (default 20)
+  - window presets shown (short/standard/long) but editable optional
+- Button: “Find Clip Moments”
+- On submit: call POST /api/tools/clip-radar/analyze
+- Show:
+  - stats summary
+  - results table with:
+    Rank, Time Range (Standard), Score, Category, Reasons (tooltip or expandable), Copy Title, Copy Caption
+    Also allow switching displayed window (short/standard/long) via a small toggle above table (client-side) but exports remain standard for v1.
+- Export section:
+  - Copy CSV
+  - Download CSV
+  - Copy YouTube timestamps
+  - Copy marker CSV
+No login gating.
+
+Add loading states, error handling, and URL validation.
+
+STEP 5 — TOOL PAGE (page.tsx) — ADAPT THE UNIVERSAL TEMPLATE
+
+Create app/tools/clip-radar/page.tsx using the Universal Tool Template structure:
+- Metadata title/description/keywords tailored for ClipRadar
+- OpenGraph
+- JSON-LD SoftwareApplication for “ClipRadar”
+- FAQ JSON-LD + on-page FAQ section
+- Example previews section (NO real images required; you can use placeholder or omit images if not available)
+- Features grid (Clip detection, ranked moments, exports, timestamps, etc.)
+- Comparison table vs “manual searching” and/or generic clip tools (do not mention competitors unless already used elsewhere; keep it safe)
+- Internal links via <ExploreMoreTools currentTool="/tools/clip-radar" />
+
+IMPORTANT: Keep page content keyword-rich but not spammy. Focus on “YouTube clip finder”, “gaming clip timestamps”, “transcript clip detector”, “highlight finder”, “clip marker export”.
+
+Include disclaimers:
+- “Transcript-based detection; works best when you react/talk.”
+- “We do not store your transcripts long-term.” (Match existing site privacy behavior.)
+
+STEP 6 — REGISTER TOOL IN REGISTRY + DB + GLOBAL_URLS
+
+1) Tool registry:
+- Add ClipRadar with slug: "clip-radar"
+- Name: "ClipRadar"
+- Category/tag: Gaming / YouTube / Creator tools (match existing taxonomy)
+- Route: /tools/clip-radar
+- Short description
+
+2) `tools` table:
+Insert a row for clip-radar with:
+- slug, name, description, is_public, is_indexed default true (match schema)
+- any fields required by your admin UI
+
+3) `global_urls` table:
+Insert canonical URL:
+- https://vcmsuite.com/tools/clip-radar
+with:
+- is_indexed true
+- type “tool”
+- priority/changefreq if your schema supports it
+
+Do it the same way other tools are added. If there is a seed file, update it. If there is an admin endpoint, use it. If there is SQL migration, add one.
+
+DO NOT GUESS table schemas. Inspect the existing schema or similar tool entries and replicate precisely.
+
+STEP 7 — QA CHECKLIST
+- Valid YouTube URLs only
+- Handles long transcripts
+- Results stable (same input → same output)
+- No crashes on empty transcript / missing timestamps
+- Exports generate correctly
+- Page renders and tool works end-to-end
+- Tool appears in admin tools list and ExploreMoreTools
+- global_urls row is created so indexing controls can affect it
+
+CONTENT FOR METADATA (USE THIS)
+
+Title:
+“ClipRadar: Free YouTube Clip Finder from Transcript | Gaming Highlight Timestamps”
+
+Description:
+“Paste a YouTube URL and ClipRadar scans the transcript to find clip-worthy moments. Get ranked highlight timestamps, auto clip windows, hook ideas, and export markers for editing. Free, no login.”
+
+Keywords (include these):
+[
+"youtube clip finder",
+"gaming clip finder",
+"clip marker",
+"youtube transcript clip detector",
+"highlight timestamps",
+"best moments finder",
+"clip timestamps generator",
+"premiere marker export",
+"davinci resolve markers",
+"youtube shorts clip ideas"
+]
+
+FAQ IDEAS (include 8–10)
+- What is ClipRadar?
+- How does transcript-based clip detection work?
+- Does it work for any YouTube video?
+- Does it find silent gameplay highlights?
+- How do I export timestamps for editing?
+- Can I use this for YouTube Shorts?
+- Is ClipRadar free?
+- Do you store my transcripts?
+
+FINAL OUTPUT EXPECTATION
+Implement everything above with clean TypeScript, strong validation, and no architecture drift.
+After code changes, provide a short summary of what files were created/modified and how to access the tool at /tools/clip-radar.
