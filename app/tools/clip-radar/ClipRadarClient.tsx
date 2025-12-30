@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Download, Copy, Check, ChevronDown, ChevronUp, ExternalLink, Zap, Video, FileText, Clock } from "lucide-react";
+import { useState, useRef } from "react";
+import { Search, Download, Copy, Check, ChevronDown, ChevronUp, ExternalLink, Zap, Video, FileText, Clock, Upload, X, Youtube } from "lucide-react";
+
+type InputMode = "youtube" | "upload";
 
 interface TranscriptSegment {
   start: number;
@@ -64,7 +66,9 @@ function formatDuration(seconds: number): string {
 }
 
 export default function ClipRadarClient() {
+  const [inputMode, setInputMode] = useState<InputMode>("youtube");
   const [url, setUrl] = useState("");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [style, setStyle] = useState<ClipStyle>("balanced");
   const [minScore, setMinScore] = useState(55);
   const [maxResults, setMaxResults] = useState(20);
@@ -74,17 +78,45 @@ export default function ClipRadarClient() {
   const [copiedIndex, setCopiedIndex] = useState<string | null>(null);
   const [windowType, setWindowType] = useState<WindowType>("standard");
   const [showOptions, setShowOptions] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const ext = file.name.toLowerCase().split(".").pop();
+      if (ext !== "vtt" && ext !== "srt") {
+        setError("Only .vtt and .srt files are supported");
+        return;
+      }
+      setUploadedFile(file);
+      setError(null);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setUploadedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleAnalyze = async () => {
-    if (!url.trim()) {
-      setError("Please enter a YouTube URL");
-      return;
-    }
+    if (inputMode === "youtube") {
+      if (!url.trim()) {
+        setError("Please enter a YouTube URL");
+        return;
+      }
 
-    const isYoutubeUrl = url.includes("youtube.com") || url.includes("youtu.be");
-    if (!isYoutubeUrl) {
-      setError("Please enter a valid YouTube URL");
-      return;
+      const isYoutubeUrl = url.includes("youtube.com") || url.includes("youtu.be");
+      if (!isYoutubeUrl) {
+        setError("Please enter a valid YouTube URL");
+        return;
+      }
+    } else {
+      if (!uploadedFile) {
+        setError("Please upload a captions file");
+        return;
+      }
     }
 
     setLoading(true);
@@ -92,28 +124,53 @@ export default function ClipRadarClient() {
     setResult(null);
 
     try {
-      const transcriptRes = await fetch("/api/youtube/transcript", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim(), format: "segments" })
-      });
+      let segments: TranscriptSegment[];
+      let sourceLabel: string;
 
-      const transcriptData = await transcriptRes.json();
+      if (inputMode === "youtube") {
+        const transcriptRes = await fetch("/api/youtube/transcript", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: url.trim(), format: "segments" })
+        });
 
-      if (!transcriptData.ok || !transcriptData.segments) {
-        setError(transcriptData.message || "Failed to fetch transcript. Make sure the video has captions enabled.");
-        setLoading(false);
-        return;
+        const transcriptData = await transcriptRes.json();
+
+        if (!transcriptData.ok || !transcriptData.segments) {
+          setError(transcriptData.message || "Failed to fetch transcript. Make sure the video has captions enabled.");
+          setLoading(false);
+          return;
+        }
+
+        segments = transcriptData.segments;
+        sourceLabel = url.trim();
+      } else {
+        const formData = new FormData();
+        formData.append("file", uploadedFile!);
+
+        const parseRes = await fetch("/api/tools/clip-radar/parse-captions", {
+          method: "POST",
+          body: formData
+        });
+
+        const parseData = await parseRes.json();
+
+        if (!parseData.success) {
+          setError(parseData.error || "Failed to parse captions file");
+          setLoading(false);
+          return;
+        }
+
+        segments = parseData.segments;
+        sourceLabel = uploadedFile!.name;
       }
-
-      const segments: TranscriptSegment[] = transcriptData.segments;
 
       const analyzeRes = await fetch("/api/tools/clip-radar/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           segments,
-          videoUrl: url.trim(),
+          videoUrl: sourceLabel,
           options: {
             style,
             minScore,
@@ -185,23 +242,100 @@ export default function ClipRadarClient() {
     return `https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(seconds)}s`;
   };
 
+  const canAnalyze = inputMode === "youtube" ? url.trim().length > 0 : uploadedFile !== null;
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-6 md:p-8">
       <div className="space-y-4">
-        <div>
-          <label htmlFor="youtube-url" className="block text-sm font-medium text-gray-700 mb-2">
-            YouTube Video URL
-          </label>
-          <input
-            id="youtube-url"
-            type="text"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://www.youtube.com/watch?v=..."
-            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
-            onKeyDown={(e) => e.key === "Enter" && !loading && handleAnalyze()}
-          />
+        <div className="flex rounded-lg overflow-hidden border border-gray-300 mb-4">
+          <button
+            onClick={() => { setInputMode("youtube"); setError(null); }}
+            className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+              inputMode === "youtube"
+                ? "bg-orange-500 text-white"
+                : "bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            <Youtube className="w-4 h-4" />
+            YouTube URL
+          </button>
+          <button
+            onClick={() => { setInputMode("upload"); setError(null); }}
+            className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+              inputMode === "upload"
+                ? "bg-orange-500 text-white"
+                : "bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            <Upload className="w-4 h-4" />
+            Upload Captions
+          </button>
         </div>
+
+        {inputMode === "youtube" ? (
+          <div>
+            <label htmlFor="youtube-url" className="block text-sm font-medium text-gray-700 mb-2">
+              YouTube Video URL
+            </label>
+            <input
+              id="youtube-url"
+              type="text"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+              onKeyDown={(e) => e.key === "Enter" && !loading && handleAnalyze()}
+            />
+          </div>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Caption File
+            </label>
+            
+            {uploadedFile ? (
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-300">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-5 h-5 text-orange-500" />
+                  <span className="text-sm font-medium text-gray-900">{uploadedFile.name}</span>
+                  <span className="text-xs text-gray-500">({(uploadedFile.size / 1024).toFixed(1)} KB)</span>
+                </div>
+                <button
+                  onClick={handleRemoveFile}
+                  className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium text-orange-600">Click to upload</span> or drag and drop
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Supports .srt and .vtt</p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".vtt,.srt"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </label>
+            )}
+
+            <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <p className="text-xs text-amber-800">
+                <strong>No captions?</strong> Export from CapCut, Premiere, DaVinci, or Descript as .srt or .vtt
+              </p>
+              <p className="text-xs text-amber-700 mt-1">
+                If your captions don&apos;t include timestamps, ClipRadar can&apos;t generate clip windows.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div>
           <button
@@ -258,7 +392,7 @@ export default function ClipRadarClient() {
 
         <button
           onClick={handleAnalyze}
-          disabled={loading || !url.trim()}
+          disabled={loading || !canAnalyze}
           className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-colors flex items-center justify-center gap-2"
         >
           {loading ? (
@@ -267,7 +401,7 @@ export default function ClipRadarClient() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              Analyzing transcript...
+              Analyzing {inputMode === "youtube" ? "transcript" : "captions"}...
             </>
           ) : (
             <>
