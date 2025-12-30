@@ -1,0 +1,87 @@
+a two-sided marketplace cold start should almost never pass GREEN.
+What you’ve discovered is not a UI issue, it’s a missing structural failure detector.
+Right now, the engine is behaving correctly according to its rules, but the rules are incomplete for marketplaces.
+Let’s fix that cleanly, without bloating the system or breaking philosophy.
+What’s Actually Going Wrong (Precisely)
+A two-sided marketplace can currently pass GREEN because:
+It doesn’t necessarily depend on:
+virality
+platform featuring
+press
+future features
+It can name an acquisition channel
+It can be “testable” in theory
+It can be reversible on paper
+But all of that misses the real failure mode:
+Value is zero until both sides exist in sufficient density.
+That is neither marketing nor validation — it is coordination risk.
+Your engine does not yet have a way to detect:
+liquidity dependency
+critical mass dependency
+cross-side simultaneity
+So it lets the idea through.
+That’s a gap, not a bug.
+The Correct Fix (Minimal, Surgical, Deterministic)
+Add ONE new dependency option
+Do not create a new section.
+Do not add free-text.
+Do not loosen anything.
+Update Q6 only
+Q6. Success depends on (select all that apply)
+Add exactly one checkbox:
+⬜ Achieving critical mass (network effects / two-sided liquidity)
+This keeps the abstraction correct:
+It’s still a dependency
+It’s still pre-commitment
+It’s still structural
+Deterministic Rule (Exact)
+Add one rule in Section 1 (Structural Viability), early in the order.
+New Rule (R6b)
+If Q6 includes “Achieving critical mass (network effects / two-sided liquidity)” AND Q8 ≠ “Proven audience” → RED
+Failure Class
+Code: coordination_dependency
+Label: Coordination Dependency
+Explanation (cold, final):
+What failed: The system has no standalone value without liquidity.
+Why: Value emerges only after coordination across participants succeeds.
+Meaning: Early effort is spent solving coordination, not demand.
+This is a hard RED, not YELLOW.
+Why? Because:
+Cold-start marketplaces fail before demand validation
+Iteration speed is low
+Feedback is delayed
+Effort is misallocated
+This is exactly what your tool exists to kill.
+Why This Fix Is Correct (Philosophically)
+This does not say:
+“Marketplaces are bad”
+“Network effects are impossible”
+It says:
+“This is not a viable first bet unless you already control one side.”
+That’s decision hygiene, not pessimism.
+A marketplace with:
+proven supply
+captive demand
+or enforced participation
+would not check that box — and would pass.
+That’s the right behavior.
+Why GREEN Was Dangerous Here
+A GREEN verdict implicitly means:
+“No catastrophic failure detected”
+Letting a cold-start two-sided marketplace through GREEN trains users to:
+commit effort
+justify sunk cost
+discover the problem months later
+That is exactly the outcome your system is meant to prevent.
+You caught this at the right moment.
+Summary (What to Do)
+Immediate change
+Add checkbox: Achieving critical mass (network effects / two-sided liquidity) to Q6
+Add deterministic RED rule tied to lack of proven audience
+Add new failure class coordination_dependency
+Do NOT
+Add guidance
+Add percentages
+Add marketplace-specific language elsewhere
+One checkbox. One rule. One failure class.
+That’s it.
