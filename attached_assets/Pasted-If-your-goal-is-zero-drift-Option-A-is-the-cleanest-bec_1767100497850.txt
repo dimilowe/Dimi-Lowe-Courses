@@ -1,0 +1,103 @@
+If your goal is zero drift, Option A is the cleanest because it makes one canonical ID across UI + DB + API. That’s the right “single source of truth” move.
+Here’s the exact way to do Option A without breaking anything.
+Option A, done correctly (no regressions)
+Canonical cloud IDs (theme IDs)
+Use these everywhere going forward:
+creation
+video
+writing-seo
+file-data
+monetize
+intelligence
+music-performance
+growth-distribution
+1) Add a canonicalizer helper (used by both read + upload routes)
+Create: lib/cloud/normalizeCloudId.ts
+export const CANONICAL_CLOUD_IDS = new Set([
+  "creation",
+  "video",
+  "writing-seo",
+  "file-data",
+  "monetize",
+  "intelligence",
+  "music-performance",
+  "growth-distribution",
+]);
+
+const LEGACY_TO_CANONICAL: Record<string, string> = {
+  // legacy short ids -> canonical theme ids
+  writing: "writing-seo",
+  file: "file-data",
+  files: "file-data",
+  music: "music-performance",
+  growth: "growth-distribution",
+
+  // already canonical
+  creation: "creation",
+  video: "video",
+  monetize: "monetize",
+  intelligence: "intelligence",
+  "writing-seo": "writing-seo",
+  "file-data": "file-data",
+  "music-performance": "music-performance",
+  "growth-distribution": "growth-distribution",
+};
+
+export function normalizeCloudId(input: string | null | undefined): string | null {
+  if (!input) return null;
+  const key = String(input).trim();
+  return LEGACY_TO_CANONICAL[key] ?? null;
+}
+
+export function assertCanonicalCloudId(input: string | null | undefined): string | null {
+  const normalized = normalizeCloudId(input);
+  if (!normalized) return null;
+  return CANONICAL_CLOUD_IDS.has(normalized) ? normalized : null;
+}
+This is the drift-killer. One mapping. One list. Imported everywhere.
+2) Update /api/workspace/upload to insert canonical IDs only
+Where you currently compute validCloudId, replace with:
+import { assertCanonicalCloudId } from "@/lib/cloud/normalizeCloudId";
+
+const cloudIdParam = formData.get("cloud_id")?.toString() ?? null;
+const validCloudId = assertCanonicalCloudId(cloudIdParam);
+
+if (!validCloudId) {
+  return NextResponse.json({ error: "Invalid cloud_id" }, { status: 400 });
+}
+Now uploads store only canonical IDs.
+3) Update /api/workspace/items to query using canonical IDs
+In the read route:
+import { normalizeCloudId } from "@/lib/cloud/normalizeCloudId";
+
+const cloudId = normalizeCloudId(searchParams.get("cloud_id"));
+// if null -> treat as "all" or error (your choice)
+
+if (cloudId) {
+  // filter WHERE cloud_id = cloudId
+}
+Even if the client sends legacy writing, it becomes writing-seo.
+4) One-time DB migration to update existing rows
+Run:
+UPDATE workspace_items SET cloud_id = 'writing-seo' WHERE cloud_id = 'writing';
+UPDATE workspace_items SET cloud_id = 'file-data' WHERE cloud_id IN ('files','file');
+UPDATE workspace_items SET cloud_id = 'music-performance' WHERE cloud_id = 'music';
+UPDATE workspace_items SET cloud_id = 'growth-distribution' WHERE cloud_id = 'growth';
+This makes historical uploads show up correctly in the themed dashboards.
+5) Tighten the index (optional but better once canonical)
+Your current index is fine. Keep it.
+6) Add a safety backstop (prevents future garbage IDs)
+If you want real “no drift,” enforce it at the DB level:
+ALTER TABLE workspace_items
+ADD CONSTRAINT workspace_items_cloud_id_check
+CHECK (cloud_id IN (
+  'creation','video','writing-seo','file-data','monetize','intelligence','music-performance','growth-distribution'
+));
+Only do this after the migration, or it’ll fail.
+Why this prevents drift
+UI uses theme IDs
+DB stores theme IDs
+API validates + normalizes IDs
+Legacy inputs still work
+DB constraint makes it impossible to regress silently
+That’s actually “single source of truth,” not vibes.
