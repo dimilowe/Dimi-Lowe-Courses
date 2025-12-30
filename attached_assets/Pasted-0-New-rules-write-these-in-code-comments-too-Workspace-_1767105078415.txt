@@ -1,0 +1,88 @@
+0) New rules (write these in code comments too)
+Workspace is global.
+workspace_items.origin_cloud_id = where it was created / saved from (optional metadata)
+Cloud dashboards default to All workspace
+Cloud dashboards optionally filter to This cloud via origin_cloud_id
+No more storing “where it belongs.” Only “where it came from.”
+1) Database migration (do this first)
+A) Add the new column + backfill from old cloud_id
+ALTER TABLE workspace_items
+  ADD COLUMN IF NOT EXISTS origin_cloud_id TEXT;
+
+UPDATE workspace_items
+SET origin_cloud_id = cloud_id
+WHERE origin_cloud_id IS NULL AND cloud_id IS NOT NULL;
+B) Make cloud_id nullable (so legacy code doesn’t break)
+ALTER TABLE workspace_items
+  ALTER COLUMN cloud_id DROP NOT NULL;
+C) (Optional but recommended) Stop using cloud_id long-term
+Once you’ve updated code, you can leave cloud_id in place for a while, then later drop it safely.
+2) Update /api/workspace/upload (write path)
+What to change
+Accept origin_cloud_id (optional)
+Normalize it if present
+Insert into origin_cloud_id
+(Optionally still write cloud_id during transition, but don’t rely on it)
+Insert should become:
+INSERT INTO workspace_items
+(user_id, title, type, origin_cloud_id, preview_text, file_url, thumbnail_url, payload_json)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+...
+Do not require origin_cloud_id. If it’s not provided, store NULL.
+Important UX rule
+Your upload UI must send the current cloud as origin_cloud_id when uploading from inside a cloud page.
+If the upload happens from a global workspace page:
+send nothing (NULL)
+or let user pick origin (optional)
+3) Update /api/workspace/items (read path)
+Replace the meaning of cloud_id in the API
+Stop taking cloud_id as the filter key. Use:
+scope=all (default) → no origin filter
+origin_cloud_id=<id> → filter by origin
+Examples
+All workspace:
+/api/workspace/items?scope=all&sort=recent&limit=10
+This cloud:
+/api/workspace/items?origin_cloud_id=writing-seo&sort=recent&limit=10
+SQL logic
+Always filter by user_id
+Only add AND origin_cloud_id = $2 when origin param is present
+4) CloudDashboardEngine (frontend)
+Change the fetch call
+Right now you do:
+/api/workspace/items?cloud_id=${cloudId}...
+Change default behavior to all workspace:
+/api/workspace/items?scope=all&sort=recent&limit=10
+Then add a toggle later for “This cloud”:
+/api/workspace/items?origin_cloud_id=${cloudId}&sort=recent&limit=10
+If you want the fastest win with minimal UI changes:
+keep the UI exactly the same
+just switch the request to scope=all
+That immediately makes uploads show everywhere (your expectation).
+5) Indexes (so global + filtered stays fast)
+Add two indexes:
+CREATE INDEX IF NOT EXISTS workspace_items_user_recent_idx
+ON workspace_items (user_id, last_opened_at DESC, updated_at DESC, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS workspace_items_user_origin_recent_idx
+ON workspace_items (user_id, origin_cloud_id, last_opened_at DESC, updated_at DESC, created_at DESC);
+You can keep your existing index too; these just align with the new access patterns.
+6) Transition plan (prevents regressions)
+Phase 1 (safe transition)
+Upload route writes origin_cloud_id
+Read route reads origin_cloud_id
+Keep cloud_id untouched except the backfill
+Phase 2 (cleanup)
+Remove any remaining references to cloud_id in code
+Optional: drop cloud_id column after you’re confident
+ALTER TABLE workspace_items DROP COLUMN cloud_id;
+(Do this only after verifying no code uses it.)
+7) One gotcha you’ll hit immediately
+Your “canonical cloud id” list must still include your new clouds only if you want origin filtering to be validated.
+But here’s the key point: with global workspace, validation becomes optional.
+My recommendation:
+Allow origin_cloud_id to be NULL or any known cloud id
+Keep a canonical list for known clouds but don’t break uploads if a new cloud exists and the list didn’t get updated yet
+log a warning instead
+store the string anyway
+That’s how you prevent “new cloud launched → workspace breaks.”
