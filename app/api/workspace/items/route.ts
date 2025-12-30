@@ -3,17 +3,13 @@ import { query } from '@/lib/db';
 import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
 import { UserSessionData, userSessionOptions } from '@/lib/user-session';
+import { normalizeCloudId, CANONICAL_CLOUD_IDS } from '@/lib/cloud/normalizeCloudId';
 
 const VALID_SORT_COLUMNS = {
   recent: 'COALESCE(last_opened_at, updated_at)',
   updated: 'updated_at',
   name: 'title'
 } as const;
-
-const VALID_CLOUD_IDS = [
-  'creation', 'video', 'writing', 'files', 
-  'monetize', 'intelligence', 'music', 'growth'
-];
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,9 +30,10 @@ export async function GET(request: NextRequest) {
     const params: any[] = [session.userId];
     let paramIndex = 2;
 
-    if (cloudId && VALID_CLOUD_IDS.includes(cloudId)) {
+    const normalizedCloudId = normalizeCloudId(cloudId);
+    if (normalizedCloudId && CANONICAL_CLOUD_IDS.has(normalizedCloudId)) {
       conditions.push(`cloud_id = $${paramIndex}`);
-      params.push(cloudId);
+      params.push(normalizedCloudId);
       paramIndex++;
     }
 
@@ -99,7 +96,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Title and type are required' }, { status: 400 });
     }
 
-    if (cloud_id && !VALID_CLOUD_IDS.includes(cloud_id)) {
+    const validCloudId = normalizeCloudId(cloud_id);
+    if (cloud_id && !validCloudId) {
       return NextResponse.json({ error: 'Invalid cloud_id' }, { status: 400 });
     }
 
@@ -113,7 +111,7 @@ export async function POST(request: NextRequest) {
         session.userId,
         title,
         type,
-        cloud_id || null,
+        validCloudId,
         tool_id || null,
         workflow_id || null,
         preview_text || null,

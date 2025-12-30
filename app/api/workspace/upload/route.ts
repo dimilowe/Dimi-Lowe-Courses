@@ -4,13 +4,9 @@ import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
 import { UserSessionData, userSessionOptions } from '@/lib/user-session';
 import { Client } from '@replit/object-storage';
+import { assertCanonicalCloudId } from '@/lib/cloud/normalizeCloudId';
 
 const client = new Client();
-
-const VALID_CLOUD_IDS = [
-  'creation', 'video', 'writing', 'files', 
-  'monetize', 'intelligence', 'music', 'growth'
-];
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -51,7 +47,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validCloudId = cloudId && VALID_CLOUD_IDS.includes(cloudId) ? cloudId : 'files';
+    const validCloudId = assertCanonicalCloudId(cloudId) ?? 'file-data';
 
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 8);
