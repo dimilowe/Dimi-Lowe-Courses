@@ -1,0 +1,111 @@
+1) Build the missing read endpoint (make the frontend work instantly)
+Create app/api/workspace/items/route.ts (Next.js App Router).
+import { NextResponse } from "next/server";
+import { query } from "@/lib/db";
+import { getSession } from "@/lib/auth"; // match your project (or whatever you use)
+
+type WorkspaceItem = {
+  id: string;
+  user_id: string;
+  title: string | null;
+  type: string;
+  cloud_id: string | null;
+  preview_text: string | null;
+  file_url: string | null;
+  thumbnail_url: string | null;
+  payload_json: any | null;
+  last_opened_at: string | null;
+  updated_at: string | null;
+  created_at: string | null;
+};
+
+function clampInt(v: string | null, fallback: number, min: number, max: number) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(n)));
+}
+
+export async function GET(req: Request) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const cloudId = searchParams.get("cloud_id"); // optional if you want "all"
+    const sort = (searchParams.get("sort") || "recent").toLowerCase();
+    const limit = clampInt(searchParams.get("limit"), 10, 1, 50);
+
+    const orderBy =
+      sort === "recent"
+        ? "COALESCE(last_opened_at, updated_at, created_at) DESC"
+        : "COALESCE(updated_at, created_at) DESC";
+
+    const params: any[] = [session.userId];
+    let where = "WHERE user_id = $1";
+
+    if (cloudId && cloudId !== "all") {
+      params.push(cloudId);
+      where += ` AND cloud_id = $${params.length}`;
+    }
+
+    params.push(limit);
+
+    const sql = `
+      SELECT
+        id, user_id, title, type, cloud_id, preview_text,
+        file_url, thumbnail_url, payload_json,
+        last_opened_at, updated_at, created_at
+      FROM workspace_items
+      ${where}
+      ORDER BY ${orderBy}
+      LIMIT $${params.length}
+    `;
+
+    const result = await query<WorkspaceItem>(sql, params);
+    return NextResponse.json({ items: result.rows }, { status: 200 });
+  } catch (err) {
+    console.error("GET /api/workspace/items failed:", err);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+Why I made cloud_id optional
+Because “everything you generated anywhere” becomes much better if you can show:
+This cloud
+All workspace
+Your frontend is already passing cloud_id, so it’ll work as-is. Later you can add a toggle.
+2) Stop the silent failure in CloudDashboardEngine (so you don’t get fooled again)
+In your existing fetch:
+if (res.ok) {
+  ...
+} else {
+  const text = await res.text().catch(() => "");
+  console.error("Recent files fetch failed:", res.status, text);
+}
+Right now you had a missing route and the UI just looked “empty.” Don’t allow that.
+3) Index (so it doesn’t slow down later)
+CREATE INDEX IF NOT EXISTS workspace_items_user_cloud_recent_idx
+ON workspace_items (user_id, cloud_id, last_opened_at DESC, updated_at DESC, created_at DESC);
+4) The “everything you uploaded anywhere” part (the audit)
+Replit nailed the second gap: some tools may upload directly to object storage, bypassing /api/workspace/upload.
+Your rule should be:
+No tool uploads directly. All uploads go through /api/workspace/upload.
+How to enforce without rewriting everything:
+Search your repo for:
+@replit/object-storage
+new Client( / ObjectStorage
+.put( / .upload( calls
+any direct S3-style writes
+Replace those calls with the shared uploader API.
+Outcome: every file output automatically becomes a workspace_items row, and now “Recent Files” actually means something universal.
+5) If you want true “everything generated” (including text-only outputs)
+You already store payload_json and preview_text. Good.
+Add a second endpoint later:
+POST /api/workspace/capture
+for text results, tool runs, etc.
+saves a workspace_item without a file_url
+But you don’t need that to fix your current bug. You’ll get huge mileage just from uploads.
+Bottom line
+Build /api/workspace/items → fixes the dashboard immediately.
+Enforce “uploads must go through shared uploader” → makes it universal across bespoke tools.
