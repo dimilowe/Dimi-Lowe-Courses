@@ -1,0 +1,198 @@
+Below is a full Replit prompt to build the YPC MVP + Gate UI (Option 2) using your template style, without drifting into dashboards. It includes: page file, client UI, API route, logic gates, bridge-phrase reset detection, and the required registry + urls + db tools inserts.
+Copy/paste this into Replit.
+You are working in a Next.js (App Router) VCM Suite codebase that uses a universal tool page pattern.
+
+TASK:
+Build a new tool: "YouTube Pattern Cloud (YPC) – Outlier Gate"
+This is NOT an analytics dashboard. It is a fiduciary gate.
+UI must be a single-screen gate experience with RED/YELLOW/GREEN verdicts.
+Minimal metrics are shown ONLY AFTER rejection. No charts, no history, no suggestions.
+
+TOOL NAME / SLUG:
+- Name: YouTube Pattern Cloud (YPC)
+- Slug: /tools/youtube-pattern-cloud
+- Internal tool key: youtube-pattern-cloud
+
+CLOUD TAG / CATEGORY:
+- Put under Advertising Cloud (or Growth Cloud if that’s how your system is structured). Prefer "advertising" if you have a cloud_id field.
+- Make sure canonical cloud IDs are used (no short IDs drift).
+
+MVP INPUTS (3):
+1) YouTube video URL (target candidate)
+2) Transcript paste (60–120 seconds, plain text)
+3) Dominant Click Motive (radio): Fear Avoidance | Status Gain | Insider Access
+No "General Interest" option.
+
+OUTPUT:
+- Verdict screen with:
+  - RED: REJECT + one-line reason + bold "Do not make this video."
+  - YELLOW: STOP — RISK ELEVATED + one-line reason + bold "Rewrite before production."
+  - GREEN: GREEN-LIGHT + one-line confirmation "Time investment is rational."
+- Show minimal metrics ONLY on RED/YELLOW (never on GREEN).
+- No other guidance.
+
+BACKEND LOGIC: Hard gates only (run in order for lowest compute cost)
+Gate 1: Outlier Validation
+- Fetch channel’s last 20 uploads + view counts
+- Compute median views (last 20)
+- Fetch target video views
+- Rule: target_views >= 5 * median_views => pass
+  Else: RED reject
+  Reason: "Fan-base noise detected. This video did not escape the channel’s median."
+  Minimal metrics to show on reject:
+    - median_views
+    - target_views
+    - required_threshold (5*median)
+
+Gate 2: Click Motive Sharpness
+- Validate that the selected motive is not "diffuse".
+Implementation (MVP heuristic, deterministic):
+  - Pull title + description for target video.
+  - If those fields are missing, allow transcript-only fallback.
+  - Create keyword sets per motive and score occurrences (case-insensitive).
+  - If the selected motive score is below a threshold OR if another motive scores within 1 point => YELLOW stop (not green).
+  - YELLOW reason: "No dominant click motive. Blunt packaging."
+  Metrics to show on stop:
+    - motive_scores (3 small numbers)
+
+Gate 3: Retention Contract Check (first 30 seconds)
+- We do NOT judge by length. We judge contract pillars.
+- From transcript input, analyze the first ~80–120 words as “first 30 seconds” proxy.
+- Must satisfy ALL three:
+  1) Named Pain (specific problem words)
+  2) Established Proximity (experience/data/seen/tested language)
+  3) Future Reward (explicit payoff language)
+- Score 0–3.
+  - If score <=1 => RED reject: "Retention contract broken. Viewer has no rational reason to stay."
+  - If score ==2 => YELLOW stop: "Retention contract weak. One pillar missing."
+  - If score ==3 => pass
+
+Gate 4: Semantic Density Check (bridge-phrase verified resets)
+- Count Semantic Resets using explicit “bridge phrases” OR structural markers.
+- A reset counts only when a phrase indicates one of:
+  - Escalation (e.g., "but here's where", "this is the part", "here’s the twist", "what people miss")
+  - Proof (e.g., "look at this", "the data", "when I tested", "here’s what happened", "numbers show")
+  - Contrast (e.g., "compare that to", "most people think", "but in reality", "instead of", "on the other hand")
+- If semantic_resets < 4 per 60 seconds of transcript:
+  - If semantic_resets <=2 => RED reject: "Low information density. No verified semantic resets detected."
+  - If semantic_resets ==3 => YELLOW stop: "Low information density. Pattern may not hold AVD."
+- Else pass.
+
+FINAL VERDICT:
+- GREEN only if all gates pass with no YELLOW.
+- If any YELLOW triggered but none RED => overall YELLOW.
+- First RED stops immediately.
+
+NO LLM CALLS:
+This MVP must be deterministic and cheap. Use heuristics only. Do NOT call OpenAI.
+
+DATA FETCH:
+Use the YouTube Data API v3 if available in env:
+- YOUTUBE_API_KEY
+If not present, implement a graceful error:
+- Return a user-facing message: "YouTube API key not configured."
+But still keep tool functional shape.
+
+API IMPLEMENTATION DETAILS:
+- Create POST /api/tools/youtube-pattern-cloud/evaluate
+- Request body: { url: string, transcript: string, motive: "fear"|"status"|"insider" }
+- Response: { verdict: "red"|"yellow"|"green", reason: string, metrics?: {...}, gateResults?: {...} }
+- Only include metrics on red/yellow.
+
+YOUTUBE API STEPS:
+1) Parse videoId from URL (support youtu.be, watch?v=, shorts/, embed/)
+2) videos.list(part=snippet,statistics,contentDetails&id=videoId) => title, description, viewCount, channelId
+3) search.list(part=snippet&channelId=...&order=date&type=video&maxResults=20) => last 20 video ids
+4) videos.list(part=statistics&id=comma-separated-ids) => viewCounts for last 20
+Compute median.
+
+FRONTEND UI: “Gate” not dashboard
+- Build a client component with a 2-step experience:
+  Step A: input form
+  Step B: verdict screen
+- Use a single centered card. No sidebars.
+- Button label: "Submit for Evaluation"
+- After submit: show "Evaluating distribution risk…" (non-fancy)
+- Verdict screen must fill the card with:
+  - big headline: REJECT / STOP — RISK ELEVATED / GREEN-LIGHT
+  - one line reason
+  - bold instruction line
+  - metrics drawer shown automatically ONLY on red/yellow (small, plain text)
+- No score numbers like 92%. No confetti. No charts.
+
+PAGE TEMPLATE:
+Create:
+app/tools/youtube-pattern-cloud/page.tsx
+app/tools/youtube-pattern-cloud/YouTubePatternCloudClient.tsx
+
+Metadata:
+- Title: "YouTube Pattern Cloud (YPC) | Outlier Gate for Viral Formats"
+- Description: "A fiduciary gate that rejects risky video ideas by detecting outlier geometry, retention contract integrity, and semantic density. No dashboards. Just REJECT or GREEN-LIGHT."
+- Keywords: include youtube outlier videos, retention contract, semantic resets, youtube pattern analysis, viral format gate, etc.
+
+JSON-LD:
+SoftwareApplication schema with price/offer aligned to your current business model (if free, price 0; if paid, set price blank and omit if unknown).
+
+TOOL REGISTRY / URL REGISTRY / DB TOOLS TABLE:
+SPECIAL NOTE: You MUST add the tool to:
+1) Tool Registry (whatever file or table you use)
+2) Global URLs table
+3) Database tools table
+
+IMPLEMENTATION:
+- If you have a central tool registry file (e.g. lib/tools/registry.ts or similar), add a new entry:
+  {
+    slug: "/tools/youtube-pattern-cloud",
+    title: "YouTube Pattern Cloud (YPC)",
+    description: "Fiduciary outlier gate: REJECT or GREEN-LIGHT.",
+    cloud_id: "advertising" (or your canonical ID),
+    isIndexed: true (or follow existing standard),
+    tags: [...]
+  }
+
+- Add to global urls registry (whatever you use, e.g. url_registry or global_urls):
+  - canonical_url: https://vcmsuite.com/tools/youtube-pattern-cloud
+  - type: "tool"
+  - title, description, isIndexed true
+
+- Add to database tools table:
+  - tool_key: "youtube-pattern-cloud"
+  - slug, title, cloud_id, status, created_at
+Use the existing migration pattern:
+  - either create a SQL migration file in /migrations
+  - or add to seed if that’s how your app does it
+DO NOT break existing migrations.
+
+SEO CONTENT:
+Keep the page lean.
+No long blog sections.
+No comparisons to VidIQ/TubeBuddy.
+This is not a “free” SEO spam page.
+We want: hero + tool + short explanation + FAQ (3–5 FAQs max) + ExploreMoreTools.
+
+FAQ (short):
+- What is an outlier video?
+- What does REJECT mean?
+- Why no optimization tips?
+- Does this guarantee virality? (Answer: no, it mitigates risk.)
+- Do you store transcripts? (Answer consistent with your privacy stance.)
+
+VISUAL STYLE:
+- Minimal, serious.
+- Red/yellow/green states.
+- No playful language.
+- No “you got this” tone.
+- No chat.
+
+DELIVERABLES:
+1) New page at /tools/youtube-pattern-cloud
+2) Client component with gate UI
+3) API route /api/tools/youtube-pattern-cloud/evaluate
+4) Registry + URL + DB tools inserts/migrations
+5) Works locally without crashing. If YOUTUBE_API_KEY missing, show configuration error gracefully.
+
+IMPORTANT:
+- Do not introduce new dependencies.
+- Use existing UI primitives if present.
+- Keep code consistent with repo patterns.
+- Avoid drift in cloud_id mappings (use canonical IDs only).
