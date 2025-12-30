@@ -1,0 +1,337 @@
+REPLIT PROMPT — BUILD: Deterministic Decision Hygiene Tool (Red/Yellow/Green)
+
+You are working inside my existing Next.js (App Router) VCM Suite codebase with Tailwind. Follow existing patterns from other tools (tool pages, API routes, tool registry, global URLs, and db “tools” table). Do NOT introduce new architectures or “clever refactors.” No drift.
+
+GOAL
+Create a new deterministic tool: “Decision Hygiene Evaluator” (aka Mine Detector). It is NOT an LLM tool. It is a pre-commitment filter that produces RED / YELLOW / GREEN based on a required input form. It must be cold, final, and non-coaching. It must say “NO” often.
+
+ROUTING / SLUG
+Tool route: /tools/decision-hygiene-evaluator
+Internal tool id/slug: decision-hygiene-evaluator
+Cloud tag: intelligence (use canonical cloud ids already used in your theme system)
+
+PAGE REQUIREMENTS
+1) Create a new tool page using the same Universal Tool Template style as my example.
+2) Replace ThumbnailCoachClient with a new client component DecisionHygieneClient that renders:
+   - The hardened required form (no “unknown”, no “not sure”, no “I’ll figure it out later”)
+   - Submit button disabled until all required fields are answered.
+   - On submit: call the API route and display the verdict + triggered failure classes.
+   - The results UI must be unemotional and final. No suggestions. No “try this”. No optimism.
+
+3) Add minimal SEO body sections after the tool (keyword intro + how it works + FAQ), but keep copy aligned with “decision hygiene” / “pre-commitment filter” / “avoid expensive mistakes”. Do NOT mention “AI personalities” or “LLM”. This is deterministic.
+
+4) Add structured data JSON-LD:
+   - SoftwareApplication
+   - FAQPage
+
+DETERMINISTIC INPUT FORM (REQUIRED FIELDS)
+Implement exactly these questions + allowed values.
+
+SECTION 1 — Structural Viability
+Q1. One-sentence idea (text, required, max 200 chars)
+Q2. Who pays? (required)
+  - Individual consumer
+  - Small business
+  - Mid-size business
+  - Enterprise
+  - Advertisers
+Q3. Expected price per paying user? (required)
+  - <$10
+  - $10–$50
+  - $50–$200
+  - $200–$1,000
+  - $1,000+
+Q4. Paying users required to survive? (required)
+  - <100
+  - 100–1,000
+  - 1,000–10,000
+  - 10,000+
+Q5. Behavior change required? (required)
+  - No behavior change
+  - Small behavior change
+  - Major behavior change
+Q6. Success depends on (checkboxes; required; “None” allowed)
+  - None
+  - Virality
+  - Platform featuring / algorithm boost
+  - Press / influencer lift
+  - Regulatory approval
+  - Future unbuilt feature
+
+SECTION 2 — Distribution Asymmetry
+Q7. First acquisition channel (required)
+  - SEO
+  - YouTube
+  - Social short-form
+  - Paid ads
+  - Cold outreach
+  - Partnerships
+  - App store / marketplace
+Q8. Control over this channel (required)
+  - Proven audience
+  - Small but real audience
+  - No existing audience
+Q9. Why you win attention vs alternatives (required)
+  - Clear differentiated wedge
+  - Moderate improvement
+  - Minimal differentiation
+Q10. Can the core assumption behind this decision be tested before irreversible commitment? (required)
+  - Yes — cheaply and quickly
+  - Yes — but with meaningful effort
+  - No — commitment comes first
+
+SECTION 3 — Effort-to-Feedback Ratio
+Q11. Time to first real signal (required)
+  - <7 days
+  - 7–30 days
+  - 1–3 months
+  - 3+ months
+Q12. Cost before first signal (required)
+  - <$100 or <10 hours
+  - $100–$1k or 10–50 hours
+  - $1k–$10k or 50–200 hours
+  - $10k+ or 200+ hours
+Q13. Attempts per month possible (required)
+  - 10+
+  - 3–9
+  - 1–2
+  - <1
+Q14. Can you clearly diagnose failure causes? (required)
+  - Yes
+  - Partially
+  - No
+
+SECTION 4 — Decision Reversibility
+Q15. Reversibility of the decision (required)
+  - Fully reversible
+  - Mostly reversible
+  - Hard to reverse
+  - Irreversible
+Q16. Commitments required before validation (checkboxes; required; “None” allowed)
+  - None
+  - Significant capital
+  - Hiring
+  - Public brand identity
+  - Long-term contracts
+  - Custom infrastructure
+Q17. Downside if this fails (required)
+  - Minor time loss
+  - Moderate time/money loss
+  - Severe financial loss
+  - Reputation damage
+
+SECTION 5 — Bias Check
+Q18. Primary reason you want to pursue this (required)
+  - Clear market signal
+  - Existing unfair advantage
+  - Curiosity / interest
+  - Emotional attachment
+
+API REQUIREMENTS
+Create POST /api/tools/decision-hygiene-evaluator/evaluate
+
+- Validate input strictly with Zod.
+- Reject requests missing any required field with 400 and specific field errors.
+- Deterministically compute verdict using the rule engine below.
+- Return JSON:
+  {
+    verdict: "GREEN" | "YELLOW" | "RED",
+    failures: Array<{
+      code: string,              // stable id e.g. "economic_impossibility"
+      label: string,             // human label e.g. "Economic Impossibility"
+      explanation: string,       // cold final copy (provided below)
+      section: "Structural" | "Distribution" | "Feedback" | "Reversibility" | "Bias"
+    }>,
+    stoppedEarly: boolean        // true if RED triggered early termination
+  }
+
+RULE ENGINE (EXACT, IN ORDER)
+Implement early termination: first RED stops evaluation.
+
+SECTION 1 RULES
+R1: If Q3 = "<$10" AND Q4 = "10,000+" => RED: Economic Impossibility
+R2: If Q3 = "<$10" AND Q4 = "1,000–10,000" => YELLOW: Low-Ticket Scale Trap
+R3: If Q5 = "Major behavior change" AND Q9 != "Clear differentiated wedge" => RED: Adoption Resistance
+R4: If Q6 includes "Virality" => RED: Non-Deterministic Dependency
+R5: If Q6 includes "Platform featuring / algorithm boost" => RED: External Permission Dependency
+R6: If Q6 has 2+ checked items excluding "None" => RED: Compound Uncertainty
+R7: If Q6 includes "Future unbuilt feature" => YELLOW: Deferred Viability
+
+SECTION 2 RULES
+R8: If Q8 = "No existing audience" AND Q7 = "Paid ads" => RED: CAC Exposure
+R9: If Q9 = "Minimal differentiation" => RED: Commodity Competition
+R10: If Q9 = "Moderate improvement" => YELLOW: Weak Differentiation
+R11: If Q10 = "No — commitment comes first" => RED: Discovery After Commitment
+R12: If Q10 = "Yes — but with meaningful effort" => YELLOW: High Validation Cost
+
+SECTION 3 RULES
+R13: If Q11 = "3+ months" => RED: Delayed Feedback Loop
+R14: If Q11 = "1–3 months" => YELLOW: Slow Feedback
+R15: If Q12 = "$10k+ or 200+ hours" => RED: High Sunk-Cost Exposure
+R16: If Q12 = "$1k–$10k or 50–200 hours" => YELLOW: Capital Risk Pre-Validation
+R17: If Q13 = "<1" => RED: Low Iteration Velocity
+R18: If Q13 = "1–2" => YELLOW: Constrained Learning
+R19: If Q14 = "No" => RED: Opaque Failure
+R20: If Q14 = "Partially" => YELLOW: Ambiguous Learning
+
+SECTION 4 RULES
+R21: If Q15 = "Irreversible" => RED: One-Way Commitment
+R22: If Q15 = "Hard to reverse" => YELLOW: High Reversal Cost
+R23: If Q16 has 2+ items checked excluding "None" => RED: Compound Commitment Risk
+R24: If Q16 includes "Significant capital" AND includes "Hiring" => RED: Capital Lock-In
+R25: If Q16 includes "Public brand identity" => YELLOW: Identity Trap
+R26: If Q17 = "Severe financial loss" => RED: Asymmetric Downside
+R27: If Q17 = "Reputation damage" => YELLOW: Reputational Lock-In
+
+SECTION 5 RULES (Modifier)
+R28: If Q18 = "Emotional attachment" => add Bias Present (modifier failure; section Bias).
+Additionally: if Bias Present AND there exists ANY YELLOW failure => escalate verdict to RED at end.
+
+GLOBAL ROLLOUT RULES
+G1: Early termination: first RED stops. stoppedEarly=true.
+G2: If no RED but >=3 YELLOW across different sections => RED: Accumulated Uncertainty
+G3: If no RED and (some YELLOW) => verdict=YELLOW
+G4: If no failures => verdict=GREEN
+
+FAILURE CLASSES: CODES + LABELS + EXPLANATIONS (USE EXACT COPY)
+Implement a constant registry mapping code→label→explanation→section.
+
+Use these codes and exact explanations:
+
+economic_impossibility — "Economic Impossibility"
+"What failed: The numbers do not support survival. Why: Even optimistic outcomes do not clear basic economic thresholds. Meaning: Continuing converts time into guaranteed loss."
+
+low_ticket_scale_trap — "Low-Ticket Scale Trap"
+"What failed: Revenue per user is too low relative to required scale. Why: Scale must be achieved before validation, increasing exposure. Meaning: Success requires volume before proof."
+
+adoption_resistance — "Adoption Resistance"
+"What failed: The idea requires major behavior change without sufficient leverage. Why: Habit change is one of the highest friction barriers. Meaning: Adoption cost likely exceeds user motivation."
+
+non_deterministic_dependency — "Non-Deterministic Dependency"
+"What failed: Success depends on events you do not control. Why: Outcomes cannot be reliably repeated or tested. Meaning: Results are governed by luck, not execution."
+
+external_permission_dependency — "External Permission Dependency"
+"What failed: Viability depends on platform approval or special access. Why: Control over outcomes is external. Meaning: Progress can be halted without warning."
+
+compound_uncertainty — "Compound Uncertainty"
+"What failed: Multiple external dependencies stack. Why: Each dependency multiplies risk. Meaning: The overall error band is unacceptable."
+
+deferred_viability — "Deferred Viability"
+"What failed: Core functionality required for success does not yet exist. Why: Validation is postponed until after commitment. Meaning: You are investing before knowing what you are investing in."
+
+cac_exposure — "CAC Exposure"
+"What failed: Paid acquisition is required without cost advantage. Why: Economics are unproven and likely unfavorable. Meaning: Growth increases losses."
+
+commodity_competition — "Commodity Competition"
+"What failed: No meaningful differentiation. Why: Attention defaults to incumbents. Meaning: Competing requires superior resources, not better ideas."
+
+weak_differentiation — "Weak Differentiation"
+"What failed: Advantage is incremental, not decisive. Why: Small improvements rarely displace existing behavior. Meaning: Outcomes depend on persistence, not leverage."
+
+discovery_after_commitment — "Discovery After Commitment"
+"What failed: Validation occurs only after irreversible effort. Why: Feedback arrives too late to protect downside. Meaning: Failure is expensive by design."
+
+high_validation_cost — "High Validation Cost"
+"What failed: Testing is possible, but not cheap. Why: High validation cost increases exposure before proof. Meaning: Early mistakes become expensive."
+
+delayed_feedback_loop — "Delayed Feedback Loop"
+"What failed: Reality responds too slowly. Why: Long feedback cycles amplify sunk-cost bias. Meaning: You will defend the idea before understanding it."
+
+slow_feedback — "Slow Feedback"
+"What failed: Feedback arrives late. Why: Slow cycles reduce learning rate. Meaning: Progress is fragile."
+
+high_sunk_cost_exposure — "High Sunk-Cost Exposure"
+"What failed: Significant resources are required before learning. Why: Early losses are difficult to reverse. Meaning: Mistakes compound."
+
+capital_risk_pre_validation — "Capital Risk Pre-Validation"
+"What failed: Material resources are committed before proof. Why: Capital loss reduces optionality. Meaning: This decision limits future decisions."
+
+low_iteration_velocity — "Low Iteration Velocity"
+"What failed: Attempts cannot be repeated quickly. Why: Learning rate is capped. Meaning: Improvement is slow and fragile."
+
+constrained_learning — "Constrained Learning"
+"What failed: Few attempts are possible. Why: Low repetition slows signal discovery. Meaning: You will spend time waiting, not learning."
+
+opaque_failure — "Opaque Failure"
+"What failed: Failure causes are not diagnosable. Why: Learning is indistinguishable from noise. Meaning: Repeated attempts do not improve odds."
+
+ambiguous_learning — "Ambiguous Learning"
+"What failed: Failure causes are partially diagnosable. Why: Partial signal slows improvement. Meaning: Iteration may not converge."
+
+one_way_commitment — "One-Way Commitment"
+"What failed: The decision cannot be undone. Why: Reversibility is required for early-stage uncertainty. Meaning: You are locking risk in permanently."
+
+high_reversal_cost — "High Reversal Cost"
+"What failed: Reversing the decision is difficult. Why: High reversal costs discourage correction. Meaning: You may continue past the evidence."
+
+compound_commitment_risk — "Compound Commitment Risk"
+"What failed: Multiple irreversible commitments stack. Why: Combined commitments reduce optionality. Meaning: A wrong bet becomes hard to exit."
+
+capital_lock_in — "Capital Lock-In"
+"What failed: Capital and hiring are committed before validation. Why: Fixed costs accelerate downside. Meaning: Growth pressure replaces learning."
+
+identity_trap — "Identity Trap"
+"What failed: Public identity is committed before validation. Why: Social cost discourages reversal. Meaning: You may continue to avoid embarrassment, not because it works."
+
+asymmetric_downside — "Asymmetric Downside"
+"What failed: Loss magnitude outweighs potential learning. Why: Downside is not survivable. Meaning: A single failure can end the game."
+
+reputational_lock_in — "Reputational Lock-In"
+"What failed: Reputation is at risk before proof. Why: Reputational damage discourages iteration. Meaning: You will avoid honest testing."
+
+accumulated_uncertainty — "Accumulated Uncertainty"
+"What failed: Multiple medium risks compound. Why: Each weak assumption multiplies error. Meaning: The overall bet quality is unacceptable."
+
+bias_present — "Bias Present"
+"What failed: Motivation may distort judgment. Why: Emotional attachment reduces objectivity. Meaning: Marginal risks become decisive."
+
+VERDICT COPY
+Return verdict plus a short verdictExplanation:
+GREEN: "No catastrophic failure detected."
+YELLOW: "Risk is present."
+RED: "High-probability failure mode detected."
+
+UI REQUIREMENTS
+- Tool UI in a clean card.
+- Sections clearly labeled.
+- “Evaluate” button at bottom.
+- Results show:
+  - Verdict badge (RED/YELLOW/GREEN)
+  - Verdict explanation (one line)
+  - List failures (label + explanation). No fixes.
+  - If stoppedEarly, show small note: "Evaluation stopped at first RED."
+
+TECH REQUIREMENTS
+- Create lib/decisionHygiene/engine.ts with pure functions, no React.
+- Create lib/decisionHygiene/types.ts
+- Create lib/decisionHygiene/failureRegistry.ts
+- API route uses engine.
+- Client uses fetch, shows loading/error.
+
+SEO PAGE TEMPLATE
+Adapt my Universal Tool Template:
+- Update metadata title/description/keywords for decision hygiene / business idea evaluator / pre-commitment filter / stop wasting time / validate idea before committing.
+- Update JSON-LD name/description.
+- Write 6–8 FAQs relevant to decision hygiene (no promises, no income claims).
+
+INTERNAL LINKS
+Include <ExploreMoreTools currentTool="/tools/decision-hygiene-evaluator" />
+
+REGISTRY + DB + URLS (MANDATORY)
+- Add this tool to:
+  1) Tool Registry (where other tools are registered)
+  2) Global URLs table
+  3) Database tools table
+Use existing patterns/migrations; do not invent new schemas. Ensure it appears in nav/explore components consistent with other tools.
+
+DELIVERABLES
+- New page at /tools/decision-hygiene-evaluator with SEO + JSON-LD + tool UI.
+- New API route.
+- Lib engine and registry.
+- Tool registered everywhere required.
+- Tested locally: returns correct verdicts for at least:
+  - Case A: Q6 includes Virality => RED (Non-Deterministic Dependency) early stop
+  - Case B: 3 yellows across sections => RED (Accumulated Uncertainty)
+  - Case C: all strong answers => GREEN
+
+Keep it deterministic. No LLM. No suggestions.
