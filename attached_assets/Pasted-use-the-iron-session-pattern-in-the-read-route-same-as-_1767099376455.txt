@@ -1,0 +1,103 @@
+use the iron-session pattern in the read route, same as upload. Don’t use getCurrentUserWithTier() for API auth; that’s pricing-layer and adds unnecessary coupling.
+Create this file:
+app/api/workspace/items/route.ts
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { getIronSession } from "iron-session";
+
+import { query } from "@/lib/db";
+import { UserSessionData, userSessionOptions } from "@/lib/user-session";
+
+type WorkspaceItemRow = {
+  id: string;
+  user_id: string;
+  title: string | null;
+  type: string;
+  cloud_id: string | null;
+  preview_text: string | null;
+  file_url: string | null;
+  thumbnail_url: string | null;
+  payload_json: any | null;
+  last_opened_at: string | null;
+  updated_at: string | null;
+  created_at: string | null;
+};
+
+function clampInt(v: string | null, fallback: number, min: number, max: number) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(n)));
+}
+
+export async function GET(req: Request) {
+  const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);
+
+  if (!session.isLoggedIn || !session.userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+
+    const cloudId = searchParams.get("cloud_id"); // optional if you want "all"
+    const sort = (searchParams.get("sort") || "recent").toLowerCase();
+    const limit = clampInt(searchParams.get("limit"), 10, 1, 50);
+
+    const orderBy =
+      sort === "recent"
+        ? "COALESCE(last_opened_at, updated_at, created_at) DESC"
+        : "COALESCE(updated_at, created_at) DESC";
+
+    const params: any[] = [session.userId];
+    let where = `WHERE user_id = $1`;
+
+    // Frontend passes cloud_id; keep behavior strict.
+    // If you later want "All", you can pass cloud_id=all and skip filter.
+    if (cloudId && cloudId !== "all") {
+      params.push(cloudId);
+      where += ` AND cloud_id = $${params.length}`;
+    }
+
+    params.push(limit);
+
+    const sql = `
+      SELECT
+        id,
+        user_id,
+        title,
+        type,
+        cloud_id,
+        preview_text,
+        file_url,
+        thumbnail_url,
+        payload_json,
+        last_opened_at,
+        updated_at,
+        created_at
+      FROM workspace_items
+      ${where}
+      ORDER BY ${orderBy}
+      LIMIT $${params.length}
+    `;
+
+    const result = await query<WorkspaceItemRow>(sql, params);
+    return NextResponse.json({ items: result.rows }, { status: 200 });
+  } catch (err) {
+    console.error("GET /api/workspace/items failed:", err);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+Do this too (so you never get fooled again)
+In CloudDashboardEngine.tsx, add an else:
+if (res.ok) {
+  ...
+} else {
+  const text = await res.text().catch(() => "");
+  console.error("Recent files fetch failed:", res.status, text);
+}
+Right now, missing routes look identical to “no files”.
+Index (recommended)
+CREATE INDEX IF NOT EXISTS workspace_items_user_cloud_recent_idx
+ON workspace_items (user_id, cloud_id, last_opened_at DESC, updated_at DESC, created_at DESC);
+Why this fixes “only some clouds”
+Once /api/workspace/items exists, the shared cloud dashboard fetch will succeed everywhere. Any cloud that still shows nothing after this is almost certainly a cloud_id mismatch (e.g., "video" vs "VIDEO_CLOUD"). If that happens, your next move is to log cloudId in the dashboard and compare it to what /api/workspace/upload is inserting as validCloudId.

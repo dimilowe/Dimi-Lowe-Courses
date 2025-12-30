@@ -94,6 +94,9 @@ export default function CloudDashboardEngine({ cms }: CloudDashboardProps) {
             timestamp: formatRelativeTime(item.last_opened_at || item.updated_at),
           }));
           setRecentFiles(files);
+        } else {
+          const text = await res.text().catch(() => "");
+          console.error("Recent files fetch failed:", res.status, text);
         }
       } catch (error) {
         console.error("Failed to fetch recent files:", error);
