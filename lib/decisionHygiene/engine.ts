@@ -21,6 +21,14 @@ function evaluateSection1(input: DecisionHygieneInput): RuleResult[] {
   if (input.q6_success_depends_on.includes('Platform featuring / algorithm boost')) {
     results.push({ code: 'external_permission_dependency', severity: 'RED' });
   }
+  // R6b: Coordination dependency - early in Section 1, before deferred_viability
+  // Must early-terminate like virality - this is structural impossibility, not medium risk
+  if (
+    input.q6_success_depends_on.includes('Achieving critical mass (network effects / two-sided liquidity)') &&
+    input.q8_channel_control !== 'Proven audience'
+  ) {
+    results.push({ code: 'coordination_dependency', severity: 'RED' });
+  }
   const nonNoneDeps = input.q6_success_depends_on.filter(d => d !== 'None');
   if (nonNoneDeps.length >= 2) {
     results.push({ code: 'compound_uncertainty', severity: 'RED' });

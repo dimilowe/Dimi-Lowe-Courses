@@ -37,6 +37,11 @@ export const FAILURE_REGISTRY: Record<string, FailureDefinition> = {
     explanation: 'What failed: Multiple external dependencies stack. Why: Each dependency multiplies risk. Meaning: The overall error band is unacceptable.',
     section: 'Structural'
   },
+  coordination_dependency: {
+    label: 'Coordination Dependency',
+    explanation: 'What failed: The system has no standalone value without liquidity. Why: Value emerges only after coordination across participants succeeds. Meaning: Early effort is spent solving coordination, not demand.',
+    section: 'Structural'
+  },
   deferred_viability: {
     label: 'Deferred Viability',
     explanation: 'What failed: Core functionality required for success does not yet exist. Why: Validation is postponed until after commitment. Meaning: You are investing before knowing what you are investing in.',

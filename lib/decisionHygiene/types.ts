@@ -47,7 +47,8 @@ export type SuccessDependency =
   | 'Platform featuring / algorithm boost'
   | 'Press / influencer lift'
   | 'Regulatory approval'
-  | 'Future unbuilt feature';
+  | 'Future unbuilt feature'
+  | 'Achieving critical mass (network effects / two-sided liquidity)';
 
 export type AcquisitionChannel =
   | 'SEO'

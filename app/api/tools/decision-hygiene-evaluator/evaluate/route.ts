@@ -37,7 +37,8 @@ const SUCCESS_DEPENDENCY = [
   'Platform featuring / algorithm boost',
   'Press / influencer lift',
   'Regulatory approval',
-  'Future unbuilt feature'
+  'Future unbuilt feature',
+  'Achieving critical mass (network effects / two-sided liquidity)'
 ] as const;
 
 const ACQUISITION_CHANNEL = [
