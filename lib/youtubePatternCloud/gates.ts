@@ -59,7 +59,7 @@ export function gate1_outlier(
     gate: 'Outlier Validation',
     passed: false,
     verdict: 'red',
-    reason: 'Fan-base noise detected. This video did not escape the channel\'s median.',
+    reason: 'This video did not escape the channel median.',
     metrics: {
       median_views: medianViews,
       target_views: targetViews,
@@ -129,7 +129,7 @@ export function gate2_motive(
     gate: 'Click Motive Sharpness',
     passed: false,
     verdict: 'yellow',
-    reason: 'No dominant click motive. Blunt packaging.',
+    reason: 'No dominant motive detected. Packaging is blunt.',
     metrics: {
       fear_score: scores.fear,
       status_score: scores.status,
@@ -196,7 +196,7 @@ export function gate3_contract(transcript: string): GateResult {
       gate: 'Retention Contract Check',
       passed: false,
       verdict: 'yellow',
-      reason: 'Retention contract weak. One pillar missing.',
+      reason: 'Retention contract is weak. One pillar missing.',
       metrics: {
         pillars_found: pillars,
         pillars_detected: pillarDetails.join(', ') || 'None'
@@ -208,7 +208,7 @@ export function gate3_contract(transcript: string): GateResult {
     gate: 'Retention Contract Check',
     passed: false,
     verdict: 'red',
-    reason: 'Retention contract broken. Viewer has no rational reason to stay.',
+    reason: 'The retention contract is incomplete.',
     metrics: {
       pillars_found: pillars,
       pillars_detected: pillarDetails.join(', ') || 'None'
@@ -263,7 +263,7 @@ export function gate4_semanticDensity(transcript: string): GateResult {
       gate: 'Semantic Density Check',
       passed: false,
       verdict: 'yellow',
-      reason: 'Low information density. Pattern may not hold AVD.',
+      reason: 'Density is marginal. Pattern may not hold AVD.',
       metrics: {
         semantic_resets: resets,
         resets_per_minute: resetsPerMinute
@@ -275,7 +275,7 @@ export function gate4_semanticDensity(transcript: string): GateResult {
     gate: 'Semantic Density Check',
     passed: false,
     verdict: 'red',
-    reason: 'Low information density. No verified semantic resets detected.',
+    reason: 'Information density is insufficient to hold AVD.',
     metrics: {
       semantic_resets: resets,
       resets_per_minute: resetsPerMinute
