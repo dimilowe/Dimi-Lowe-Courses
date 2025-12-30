@@ -1,0 +1,92 @@
+What’s Good
+Reusing /api/youtube/transcript + yt-dlp logic ✅
+Adding a timestamp-preserving VTT parser ✅ (mandatory)
+Splitting core logic into modules ✅ (keeps it testable)
+Tool registry + SEO/indexing integration ✅
+Two Critical Fixes to the Plan
+1) Don’t “reuse transcript fetching” inside ClipRadar unless necessary
+You already have a transcript endpoint. Best architecture:
+Step A: /api/youtube/transcript returns timestamped segments (upgrade it)
+Step B: /api/tools/clip-radar/analyze accepts segments and returns results
+That way:
+transcript fetching stays one responsibility
+ClipRadar works with uploaded VTT/SRT later without changing logic
+you can reuse timestamped transcripts across future tools
+If you bake fetching into ClipRadar, you’ll duplicate logic and reintroduce drift later.
+2) Exports should be generated from results, not from transcript
+Exports should be pure functions of the selected windows + metadata.
+Keep export generation isolated so it doesn’t destabilize scoring.
+The “Must-Haves” (Ship v1 with these)
+If you do nothing else, do these and you’ll have a real tool.
+A) Upgrade /api/youtube/transcript to return segments
+Add a query param like format=segments:
+default returns plain text (keeps backwards compatibility)
+format=segments returns:
+[
+  { "start": 12.34, "end": 15.20, "text": "no way" },
+  ...
+]
+This is the highest leverage change because it upgrades your whole platform.
+B) ClipRadar Analyze API (deterministic)
+Input: segments + options
+Output: ranked windows + exports.
+No LLM required to ship.
+C) De-dup peaks
+Without suppression, you’ll get 10 clips from the same 40 seconds.
+Make suppression a first-class step.
+D) “Why flagged” explanations
+Users won’t trust the tool unless you show:
+which signals triggered
+why it ranked high
+The “Nice-to-Haves” (Don’t block launch)
+LLM-polished titles/captions (do later)
+game-specific keyword packs (do later)
+audio peak detection (v2)
+Resolve/Premiere perfect import formats (v1 can be “generic markers csv”)
+Suggested Final Task List (Clean & Minimal)
+VTT timestamp parser
+Parse cues into {start,end,text}
+Merge lines inside each cue properly
+Strip tags, keep punctuation
+Upgrade /api/youtube/transcript
+Add format=segments
+Return both plainText and segments if you want
+Core logic modules (your 6 are correct)
+normalizeTranscript
+scoreTranscript
+selectPeaks (with suppression window)
+buildWindows
+generateMetadata (template-based v1)
+exports
+ClipRadar analyze route
+POST /api/tools/clip-radar/analyze
+Accept segments + options
+Return results + exports
+UI client
+URL input OR “use existing transcript tool result” (whichever you prefer)
+style dropdown
+min score slider
+results table
+copy/download exports
+Register tool
+data/toolsRegistry.ts
+DB tool row (if your system requires it)
+global_urls + indexing hooks
+Tests
+3 VTT fixtures:
+normal
+multi-line cues
+weird formatting/tags
+ensure timestamp ordering and parsing correctness
+One Extra “Guardrail” I’d Add
+Add a hard cap on processing:
+max segments (e.g., 20k)
+max duration (e.g., 6 hours)
+Return a helpful error if exceeded.
+Otherwise someone pastes a 12-hour stream and your server cries.
+Verdict
+Replit’s plan is good.
+Ship it with the “split responsibilities” tweak:
+Transcript endpoint becomes timestamp-capable
+ClipRadar only analyzes segments
+That keeps your architecture clean and makes ClipRadar reusable as a workflow building block.
