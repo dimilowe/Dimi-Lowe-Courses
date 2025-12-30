@@ -1027,6 +1027,26 @@ export const toolsRegistry: Tool[] = [
     primaryKeyword: "youtube clip finder",
     secondaryKeywords: ["gaming clip finder", "clip marker", "youtube transcript clip detector", "highlight timestamps", "best moments finder", "clip timestamps generator", "premiere marker export", "davinci resolve markers", "youtube shorts clip ideas"],
     searchIntent: "action"
+  },
+  {
+    id: "decision-hygiene-evaluator",
+    name: "Decision Hygiene Evaluator",
+    slug: "decision-hygiene-evaluator",
+    description: "A deterministic pre-commitment filter that detects high-probability failure modes in business decisions. RED / YELLOW / GREEN verdicts. No coaching. No suggestions.",
+    category: "business",
+    tags: ["business", "new"],
+    icon: "Shield",
+    iconBg: "bg-zinc-700",
+    priority: 84,
+    isNew: true,
+    engineType: "standalone",
+    inputType: "multi",
+    outputType: "analysis",
+    relatedTools: ["sale-business-by-owner", "p-and-l-report"],
+    relatedArticles: [],
+    primaryKeyword: "decision hygiene",
+    secondaryKeywords: ["pre-commitment filter", "business idea validator", "startup idea evaluator", "idea risk assessment", "validate idea before committing", "decision quality", "commitment filter"],
+    searchIntent: "action"
   }
 ];
 
