@@ -6,8 +6,64 @@ import {
   gate3_contract,
   gate4_semanticDensity,
   type Motive,
-  type EvaluationResult
+  type EvaluationResult,
+  type GateResult
 } from '@/lib/youtubePatternCloud/gates';
+
+function runGatesWithoutOutlier(
+  title: string,
+  description: string,
+  transcript: string,
+  motive: Motive
+): EvaluationResult {
+  const results: GateResult[] = [];
+  
+  const gate2 = gate2_motive(title, description, transcript, motive);
+  results.push(gate2);
+  
+  const gate3 = gate3_contract(transcript);
+  results.push(gate3);
+  if (gate3.verdict === 'red') {
+    return {
+      verdict: 'red',
+      reason: gate3.reason,
+      instruction: 'Do not make this video.',
+      metrics: gate3.metrics,
+      gateResults: results
+    };
+  }
+  
+  const gate4 = gate4_semanticDensity(transcript);
+  results.push(gate4);
+  if (gate4.verdict === 'red') {
+    return {
+      verdict: 'red',
+      reason: gate4.reason,
+      instruction: 'Do not make this video.',
+      metrics: gate4.metrics,
+      gateResults: results
+    };
+  }
+  
+  const hasYellow = results.some(r => r.verdict === 'yellow');
+  if (hasYellow) {
+    const yellowGate = results.find(r => r.verdict === 'yellow')!;
+    return {
+      verdict: 'yellow',
+      reason: yellowGate.reason,
+      instruction: 'Rewrite before production.',
+      metrics: yellowGate.metrics,
+      gateResults: results
+    };
+  }
+  
+  return {
+    verdict: 'green',
+    reason: 'All available gates passed.',
+    instruction: 'Time investment is rational.',
+    gateResults: results
+  };
+}
 
 interface YouTubeVideoSnippet {
   title: string;
@@ -135,39 +191,10 @@ export async function POST(request: NextRequest) {
     const apiKey = process.env.YOUTUBE_API_KEY;
     
     if (!apiKey) {
-      const gate2 = gate2_motive('', '', transcript, motive);
-      const gate3 = gate3_contract(transcript);
-      const gate4 = gate4_semanticDensity(transcript);
+      const result = runGatesWithoutOutlier('', '', transcript, motive);
       
-      const gates = [gate2, gate3, gate4];
-      const redGate = gates.find(g => g.verdict === 'red');
-      const yellowGate = gates.find(g => g.verdict === 'yellow');
-      
-      let result: EvaluationResult;
-      
-      if (redGate) {
-        result = {
-          verdict: 'red',
-          reason: redGate.reason,
-          instruction: 'Do not make this video.',
-          metrics: redGate.metrics,
-          gateResults: gates
-        };
-      } else if (yellowGate) {
-        result = {
-          verdict: 'yellow',
-          reason: yellowGate.reason,
-          instruction: 'Rewrite before production.',
-          metrics: yellowGate.metrics,
-          gateResults: gates
-        };
-      } else {
-        result = {
-          verdict: 'green',
-          reason: 'All available gates passed. (Outlier check skipped: YouTube API not configured)',
-          instruction: 'Time investment is rational.',
-          gateResults: gates
-        };
+      if (result.verdict === 'green') {
+        result.reason = 'All available gates passed. (Outlier check skipped: YouTube API not configured)';
       }
       
       return NextResponse.json({
@@ -186,39 +213,15 @@ export async function POST(request: NextRequest) {
     }
     
     if (youtubeData.recentViews.length < 5) {
-      const gate2 = gate2_motive(youtubeData.title, youtubeData.description, transcript, motive);
-      const gate3 = gate3_contract(transcript);
-      const gate4 = gate4_semanticDensity(transcript);
+      const result = runGatesWithoutOutlier(
+        youtubeData.title,
+        youtubeData.description,
+        transcript,
+        motive
+      );
       
-      const gates = [gate2, gate3, gate4];
-      const redGate = gates.find(g => g.verdict === 'red');
-      const yellowGate = gates.find(g => g.verdict === 'yellow');
-      
-      let result: EvaluationResult;
-      
-      if (redGate) {
-        result = {
-          verdict: 'red',
-          reason: redGate.reason,
-          instruction: 'Do not make this video.',
-          metrics: redGate.metrics,
-          gateResults: gates
-        };
-      } else if (yellowGate) {
-        result = {
-          verdict: 'yellow',
-          reason: yellowGate.reason,
-          instruction: 'Rewrite before production.',
-          metrics: yellowGate.metrics,
-          gateResults: gates
-        };
-      } else {
-        result = {
-          verdict: 'green',
-          reason: 'All available gates passed. (Outlier check skipped: insufficient channel history)',
-          instruction: 'Time investment is rational.',
-          gateResults: gates
-        };
+      if (result.verdict === 'green') {
+        result.reason = 'All available gates passed. (Outlier check skipped: insufficient channel history)';
       }
       
       return NextResponse.json({
