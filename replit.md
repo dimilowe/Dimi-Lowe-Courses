@@ -537,6 +537,17 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
   - Navigation: Workflows link added between Resources and Magazine (desktop and mobile)
   - Components: WorkflowBadges, WorkflowCard, WorkflowFilters, WorkflowStepCard, RelatedWorkflows
   - Files: `lib/workflows/`, `components/workflows/`, `app/workflows/`, `app/workflows/[slug]/`
+- 2025-12-30: **Global Workspace Architecture** - Workspace items are now global, not cloud-owned
+  - NEW RULES: Workspace is global. Items are not "owned" by a cloud.
+  - origin_cloud_id = where item was created/saved from (optional metadata)
+  - Cloud dashboards default to ALL workspace items (scope=all)
+  - No more storing "where it belongs" - only "where it came from"
+  - Database: Added origin_cloud_id column, backfilled from cloud_id, added indexes
+  - API: GET supports scope=all (default) and origin_cloud_id filtering
+  - API: POST writes origin_cloud_id (graceful, any value) and cloud_id (only canonical IDs)
+  - normalizeCloudId: Logs warnings instead of breaking on unknown clouds
+  - Added missing clouds: shopping, advertising, gaming, ecommerce
+  - Files: `app/api/workspace/items/route.ts`, `lib/cloud/normalizeCloudId.ts`, `components/engines/CloudDashboardEngine.tsx`
 - 2025-12-24: **Workspace Feature** - Save and manage outputs from tools across all clouds
   - Database: `workspace_items` table with indexes for user queries, cloud filtering, and starred items
   - API endpoints: Full CRUD at `/api/workspace/items` and `/api/workspace/items/[id]`
@@ -544,7 +555,7 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
   - Grid/list view toggle with responsive design
   - Individual item detail page at `/workspace/[id]` with full content display
   - Workspace link added to profile dropdown between Dashboard and Settings
-  - Cloud dashboard integration: Recent files rail fetches from workspace API by cloud_id
+  - Cloud dashboard integration: Recent files rail fetches from workspace API
   - AI Summarizer integration: "Save to Workspace" button with optimistic UI updates
   - 401 handling redirects to login, error states with retry functionality
   - Flat structure (no folders/projects), separate from commerce "Saved Items"
