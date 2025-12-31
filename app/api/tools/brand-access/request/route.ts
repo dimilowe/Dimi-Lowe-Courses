@@ -40,7 +40,11 @@ export async function POST(request: NextRequest) {
       requested_brand_name, 
       requested_website_url, 
       request_reason, 
-      user_email 
+      user_email,
+      resolved_website_url,
+      resolved_contact_url,
+      resolve_confidence,
+      resolver_method
     } = body;
 
     if (!requested_brand_name || typeof requested_brand_name !== 'string') {
@@ -93,7 +97,11 @@ export async function POST(request: NextRequest) {
       requested_website_url,
       request_reason,
       user_email,
-      user_id: userId
+      user_id: userId,
+      resolved_website_url: resolved_website_url || undefined,
+      resolved_contact_url: resolved_contact_url || undefined,
+      resolve_confidence: resolve_confidence || undefined,
+      resolver_method: resolver_method || undefined
     });
 
     return NextResponse.json({ ok: true });

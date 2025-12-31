@@ -87,22 +87,85 @@ export async function createRequest(params: CreateRequestParams): Promise<BrandA
     requested_website_url, 
     request_reason, 
     user_email,
-    user_id 
+    user_id,
+    resolved_website_url,
+    resolved_contact_url,
+    resolve_confidence,
+    resolver_method
   } = params;
 
   const { rows } = await query(
     `INSERT INTO brand_access_requests 
-       (requested_brand_name, requested_website_url, request_reason, user_email, user_id)
-     VALUES ($1, $2, $3, $4, $5)
+       (requested_brand_name, requested_website_url, request_reason, user_email, user_id,
+        resolved_website_url, resolved_contact_url, resolve_confidence, resolver_method)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING *`,
     [
       requested_brand_name.trim().slice(0, 200),
       requested_website_url?.trim().slice(0, 500) || null,
       request_reason?.trim().slice(0, 1000) || null,
       user_email?.trim().slice(0, 255) || null,
-      user_id || null
+      user_id || null,
+      resolved_website_url?.trim().slice(0, 500) || null,
+      resolved_contact_url?.trim().slice(0, 500) || null,
+      resolve_confidence || 'low',
+      resolver_method || null
     ]
   );
 
   return rows[0] as BrandAccessRequest;
+}
+
+export async function listRequests(status?: string): Promise<BrandAccessRequest[]> {
+  let sql = `SELECT * FROM brand_access_requests`;
+  const values: string[] = [];
+  
+  if (status) {
+    sql += ` WHERE status = $1`;
+    values.push(status);
+  }
+  
+  sql += ` ORDER BY created_at DESC LIMIT 100`;
+  
+  const { rows } = await query(sql, values);
+  return rows as BrandAccessRequest[];
+}
+
+export async function getRequestById(id: string): Promise<BrandAccessRequest | null> {
+  const { rows } = await query(
+    `SELECT * FROM brand_access_requests WHERE id = $1`,
+    [id]
+  );
+  return rows[0] as BrandAccessRequest || null;
+}
+
+export async function updateRequestStatus(
+  id: string, 
+  status: string, 
+  adminId: string,
+  adminNotes?: string,
+  publishedEntryId?: string
+): Promise<void> {
+  await query(
+    `UPDATE brand_access_requests 
+     SET status = $2, reviewed_by = $3, reviewed_at = NOW(), admin_notes = $4, published_entry_id = $5
+     WHERE id = $1`,
+    [id, status, adminId, adminNotes || null, publishedEntryId || null]
+  );
+}
+
+export async function publishEntry(
+  brandName: string,
+  websiteUrl: string | null,
+  contactUrl: string,
+  notes: string | null
+): Promise<string> {
+  const { rows } = await query(
+    `INSERT INTO brand_access_entries 
+       (brand_name, website_url, contact_url, contact_type, tags, notes, is_active, source)
+     VALUES ($1, $2, $3, 'brand', ARRAY['user-requested'], $4, true, 'user_request')
+     RETURNING id`,
+    [brandName, websiteUrl, contactUrl, notes]
+  );
+  return rows[0].id;
 }
