@@ -1,0 +1,103 @@
+The schema confirms the problem:
+DB: required_cloud single
+Registry: cloud_ids[] multi (OR logic)
+So the migration is: replace/upgrade required_cloud → required_clouds (array) and make DB the SSoT.
+Here’s the clean plan.
+Step 1 — Add new DB column for multi-cloud
+Keep required_cloud for now (backward compatibility), but stop using it once migration completes.
+Migration (Postgres)
+Add required_clouds text[] NOT NULL DEFAULT '{}'
+Ensure required_tier varchar NOT NULL DEFAULT 'free' (already exists but may be nullable)
+Why text[]? You already use text[] elsewhere (tags, secondary_keywords), so it matches your style and avoids JSON parsing.
+Step 2 — Backfill DB from existing data
+We need to populate required_clouds for every tool.
+Backfill priority order
+Registry → DB (best source, already curated)
+If tool not in registry: use DB required_cloud (if present)
+If neither: set {} and tier 'free' (or keep existing tier but that will fail validation—better to default free)
+Rule: if required_tier != 'free', required_clouds must not be empty.
+Step 3 — Update code to read DB fields first (registry fallback)
+You’re not deleting the registry immediately. You’re using it as a safety net during cutover.
+New DB entitlement shape
+required_clouds: CloudId[] (from text[])
+required_tier: EntitlementTier
+Replace usage everywhere
+Tool listing/tile rendering: use DB required_clouds/required_tier
+Tool pages (ToolServerGate): gate using DB record
+APIs (withToolGate): gate using DB record
+Registry becomes fallback only if DB is missing/invalid.
+Step 4 — Update admin to edit tier + clouds in DB
+This is your ask.
+In your Tools dashboard:
+keep the cloud selector UI, but it now writes to required_clouds (array)
+add a Tier selector that writes to required_tier
+Admin validation
+If required_tier !== 'free' and required_clouds.length === 0 → block save
+If the tool is “draft” you can allow misconfig, but if “published/ready” then enforce hard.
+Step 5 — Deprecate and remove required_cloud
+After a week of running stable:
+stop reading required_cloud anywhere
+optional: drop column later, or keep it as legacy but unused
+Exact SQL migration + backfill (Postgres)
+Have Replit implement this migration:
+-- 1) Add multi-cloud column
+ALTER TABLE tools
+  ADD COLUMN IF NOT EXISTS required_clouds text[] NOT NULL DEFAULT '{}';
+
+-- 2) Normalize required_tier (if nullable in your DB)
+UPDATE tools
+SET required_tier = 'free'
+WHERE required_tier IS NULL OR required_tier = '';
+
+-- 3) Backfill required_clouds from existing required_cloud if present
+UPDATE tools
+SET required_clouds = ARRAY[required_cloud]
+WHERE (required_clouds IS NULL OR array_length(required_clouds, 1) IS NULL)
+  AND required_cloud IS NOT NULL
+  AND required_cloud <> '';
+
+-- 4) Safety: if tier is non-free but clouds empty, downgrade to free for now (or flag)
+UPDATE tools
+SET required_tier = 'free'
+WHERE required_tier <> 'free'
+  AND (required_clouds IS NULL OR array_length(required_clouds, 1) IS NULL);
+Then run a second backfill script from toolsRegistry.ts to overwrite DB with true SSoT values.
+Backfill script from toolsRegistry.ts (one-time)
+Pseudo-logic:
+Load registry tools: { slug, cloud_ids, required_tier }
+For each tool:
+UPDATE tools SET required_clouds=$1, required_tier=$2 WHERE slug=$3
+Log:
+registry slugs not found in DB
+DB tools missing required_clouds but non-free tier
+This makes DB match the real intended gating.
+Code changes you need (core)
+1) Gate function expects DB tool object
+Replace registry lookup inside gate.
+Tool contract becomes:
+type ToolAccess = {
+  required_clouds: CloudId[];
+  required_tier: EntitlementTier;
+};
+2) OR logic uses required_clouds
+const ok = tool.required_clouds.some(cloudId =>
+  hasAccess(entitlements, cloudId, tool.required_tier)
+);
+3) Registry fallback only in one place
+Create getToolAccessBySlug(slug):
+try DB first
+fallback to registry only if DB missing
+Don’t sprinkle fallback logic everywhere.
+Replit task list (copy/paste)
+Add required_clouds text[] column to tools table
+Backfill required_clouds from required_cloud
+Write registry→DB backfill script to set required_clouds + required_tier by slug
+Update tool fetch APIs to return required_clouds + required_tier
+Refactor gateTool() to take DB tool access object
+Update ToolServerGate and withToolGate to read from DB tool access
+Update admin Tools dashboard:
+edit required_clouds (multi-select)
+edit required_tier (dropdown)
+enforce validation on save
+Remove any remaining gating reads from toolsRegistry (keep as fallback only during migration)
+After verification, remove fallback and deprecate required_cloud
