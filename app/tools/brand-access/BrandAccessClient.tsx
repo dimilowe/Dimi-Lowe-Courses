@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Search, Lock, ExternalLink, Copy, Check, Send, Loader2 } from "lucide-react";
+import { Search, Lock, ExternalLink, Copy, Check, Send, Loader2, Globe, Sparkles, AlertCircle } from "lucide-react";
 
 interface BrandEntry {
   id: string;
@@ -57,6 +57,22 @@ export default function BrandAccessClient() {
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestSuccess, setRequestSuccess] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+
+  const [finderForm, setFinderForm] = useState({
+    brand_name: "",
+    website_url: "",
+    email: "",
+  });
+  const [finderLoading, setFinderLoading] = useState(false);
+  const [finderResult, setFinderResult] = useState<{
+    website_url: string;
+    contact_url: string | null;
+    confidence: string;
+    method: string;
+  } | null>(null);
+  const [finderError, setFinderError] = useState<string | null>(null);
+  const [finderSubmitting, setFinderSubmitting] = useState(false);
+  const [finderSubmitted, setFinderSubmitted] = useState(false);
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
@@ -137,8 +153,222 @@ export default function BrandAccessClient() {
     });
   };
 
+  const handleFinderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!finderForm.website_url.trim() && !finderForm.email.trim()) return;
+
+    setFinderLoading(true);
+    setFinderError(null);
+    setFinderResult(null);
+    setFinderSubmitted(false);
+
+    try {
+      const res = await fetch("/api/tools/brand-access/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand_name: finderForm.brand_name || undefined,
+          website_url: finderForm.website_url || undefined,
+          email: finderForm.email || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to resolve contact page");
+      }
+
+      const data = await res.json();
+      setFinderResult(data);
+    } catch (err) {
+      setFinderError(err instanceof Error ? err.message : "Failed to resolve contact page");
+    } finally {
+      setFinderLoading(false);
+    }
+  };
+
+  const handleSubmitToDirectory = async () => {
+    if (!finderResult || finderSubmitting) return;
+
+    setFinderSubmitting(true);
+
+    try {
+      const res = await fetch("/api/tools/brand-access/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requested_brand_name: finderForm.brand_name || new URL(finderResult.website_url).hostname,
+          requested_website_url: finderResult.website_url,
+          resolved_website_url: finderResult.website_url,
+          resolved_contact_url: finderResult.contact_url,
+          resolve_confidence: finderResult.confidence,
+          resolver_method: finderResult.method,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to submit");
+      }
+
+      setFinderSubmitted(true);
+    } catch (err) {
+      setFinderError(err instanceof Error ? err.message : "Failed to submit");
+    } finally {
+      setFinderSubmitting(false);
+    }
+  };
+
+  const getConfidenceBadge = (confidence: string) => {
+    switch (confidence) {
+      case "high":
+        return <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">High</span>;
+      case "medium":
+        return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">Medium</span>;
+      default:
+        return <span className="px-2 py-0.5 bg-zinc-100 text-zinc-600 rounded text-xs font-medium">Low</span>;
+    }
+  };
+
+  const getMethodLabel = (method: string) => {
+    switch (method) {
+      case "homepage_links":
+        return "Found on homepage";
+      case "common_paths":
+        return "Common contact path";
+      default:
+        return "Not found";
+    }
+  };
+
   return (
     <div className="space-y-8">
+      <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 rounded-2xl p-6 text-white">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-orange-500 rounded-lg">
+            <Globe className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg">Contact Page Finder</h3>
+            <p className="text-sm text-zinc-400">Find contact pages for any brand</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleFinderSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-zinc-400 mb-1">Brand Name (optional)</label>
+              <input
+                type="text"
+                value={finderForm.brand_name}
+                onChange={(e) => setFinderForm({ ...finderForm, brand_name: e.target.value })}
+                placeholder="e.g. Nike"
+                className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                maxLength={200}
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-zinc-400 mb-1">Website URL *</label>
+              <input
+                type="text"
+                value={finderForm.website_url}
+                onChange={(e) => setFinderForm({ ...finderForm, website_url: e.target.value })}
+                placeholder="https://nike.com"
+                className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                maxLength={500}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-zinc-500">
+            <span>Or use email:</span>
+            <input
+              type="email"
+              value={finderForm.email}
+              onChange={(e) => setFinderForm({ ...finderForm, email: e.target.value })}
+              placeholder="contact@company.com"
+              className="flex-1 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white placeholder:text-zinc-500 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              maxLength={255}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={finderLoading || (!finderForm.website_url.trim() && !finderForm.email.trim())}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {finderLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                Find Contact Page
+              </>
+            )}
+          </button>
+        </form>
+
+        {finderError && (
+          <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-400 text-sm">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {finderError}
+          </div>
+        )}
+
+        {finderResult && (
+          <div className="mt-4 p-4 bg-zinc-800 rounded-xl border border-zinc-700">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm text-zinc-400">Result</span>
+              <div className="flex items-center gap-2">
+                {getConfidenceBadge(finderResult.confidence)}
+                <span className="text-xs text-zinc-500">{getMethodLabel(finderResult.method)}</span>
+              </div>
+            </div>
+
+            {finderResult.contact_url ? (
+              <div className="space-y-3">
+                <a
+                  href={finderResult.contact_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-orange-400 hover:text-orange-300 break-all text-sm underline"
+                >
+                  {finderResult.contact_url}
+                </a>
+                
+                {finderSubmitted ? (
+                  <p className="text-sm text-green-400 flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Submitted for review. Thanks!
+                  </p>
+                ) : (
+                  <button
+                    onClick={handleSubmitToDirectory}
+                    disabled={finderSubmitting}
+                    className="flex items-center gap-2 px-3 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm transition-colors"
+                  >
+                    {finderSubmitting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Submit to Brand Access
+                      </>
+                    )}
+                  </button>
+                )}
+                <p className="text-xs text-zinc-500">
+                  Submissions are reviewed before being added to the directory.
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-400">
+                Could not find a contact page. The site may block automated access.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
