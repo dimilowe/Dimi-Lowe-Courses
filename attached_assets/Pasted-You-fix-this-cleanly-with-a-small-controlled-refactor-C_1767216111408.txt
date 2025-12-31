@@ -1,0 +1,72 @@
+You fix this cleanly with a small, controlled refactor:
+Canonical ladder for VCM Suite
+Use this everywhere:
+free → starter → basic → pro
+And drop enterprise for now (or keep it only if you truly need it, but your pricing doesn’t sell it).
+1) Update the tier type (single source of truth)
+lib/types/cloudEntitlements.ts
+export const ENTITLEMENT_TIERS = ['free', 'starter', 'basic', 'pro'] as const;
+export type EntitlementTier = (typeof ENTITLEMENT_TIERS)[number];
+If you want to keep enterprise “for later” without surfacing it, you can, but you’ll need pricing/admin mappings anyway. Based on your current state: remove it.
+2) Update TIER_ORDER
+lib/entitlements/gate.ts
+const TIER_ORDER: EntitlementTier[] = ['free', 'starter', 'basic', 'pro'];
+3) Make hasAccess resilient (don’t explode on unexpected tiers)
+Right now, if anything writes a weird tier, indexOf() returns -1. That can create bad behavior.
+Update hasAccess() to handle unknown tiers safely:
+function tierIndex(t: string): number {
+  const i = TIER_ORDER.indexOf(t as EntitlementTier);
+  return i === -1 ? -1 : i;
+}
+
+function hasAccess(
+  entitlements: CloudEntitlement[] | undefined,
+  cloud: CloudId,
+  required: EntitlementTier
+): boolean {
+  const record = entitlements?.find(
+    e => e.cloud_id === cloud && (e.status === 'active' || e.status === 'trial')
+  );
+  if (!record) return false;
+
+  const userIdx = tierIndex(record.tier);
+  const reqIdx = tierIndex(required);
+
+  // If required tier is unknown, fail closed
+  if (reqIdx === -1) return false;
+
+  // If user tier is unknown, treat as no access
+  if (userIdx === -1) return false;
+
+  return userIdx >= reqIdx;
+}
+4) Fix the admin dropdown options
+Your admin should show:
+FREE / STARTER / BASIC / PRO
+No enterprise.
+And it should write starter into tools.required_tier.
+5) DB migration / data cleanup
+You need to normalize what’s already in the DB, because you said:
+tools.required_tier currently has: free, basic, pro
+checkout writes: starter, basic, pro
+So after code change, you’ll also want to allow tools to require starter.
+Suggested migrations
+If any existing tools have required_tier = 'enterprise' (from earlier), map them to pro.
+If your system currently stores users with no subscription as tier='free', keep it or don’t—your gating already allows free tools without entitlements, so it’s fine either way.
+SQL example (only if needed):
+UPDATE tools SET required_tier = 'pro' WHERE required_tier = 'enterprise';
+UPDATE cloud_entitlements SET tier = 'pro' WHERE tier = 'enterprise';
+6) One more critical rule: free tools must stay universally accessible
+Your gateTool() already does:
+if required_tier === 'free' → allowed true
+That’s correct. Keep it.
+7) Global Pro is not a tier
+Don’t add global_pro to EntitlementTier. Handle it at checkout by granting pro across all clouds.
+What to tell Replit to do (tight checklist)
+Replace tier enum with free | starter | basic | pro.
+Update TIER_ORDER.
+Make hasAccess fail-closed on unknown tiers.
+Update admin dropdown to include Starter and remove Enterprise.
+Ensure checkout writes starter and it’s accepted by the new type.
+Add a quick DB cleanup mapping any leftover enterprise → pro.
+That’s the whole fix.

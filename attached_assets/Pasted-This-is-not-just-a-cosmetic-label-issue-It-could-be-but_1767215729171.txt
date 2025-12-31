@@ -1,0 +1,30 @@
+This is not just a cosmetic label issue. It could be, but only if your backend is still using the old entitlement tier enum and your pricing page is the only thing that changed.
+Right now you have two different tier systems showing up:
+Admin / gating tiers: FREE | BASIC | PRO | ENTERPRISE
+Pricing tiers: Starter | Basic | Pro | Global Pro
+That mismatch will eventually break something unless you pick one canonical model.
+What’s most likely happening
+Your gating system was built on an enum like:
+['free', 'basic', 'pro', 'enterprise']
+And your pricing page is using a different product naming scheme:
+Starter / Basic / Pro / Global Pro
+So the admin dropdown is pulling from the real gating enum, while pricing is showing your marketing plans. Those are not the same thing, unless you deliberately map them.
+How to tell if it’s a UI relabel vs a real refactor
+Run these two checks (they take 30 seconds):
+1) What values are actually stored in the DB?
+SELECT DISTINCT required_tier FROM tools;
+SELECT DISTINCT tier FROM cloud_entitlements;
+If you see values like enterprise in DB, then it’s not a UI bug — the system is built around enterprise.
+If you see starter anywhere, then your gating enum already changed and the admin dropdown is wrong.
+2) What does Stripe/subscription code grant?
+When someone buys “Starter”, what entitlement tier do they get in cloud_entitlements.tier?
+if it writes basic, then “Starter” is just a plan name (marketing) and gating won’t ever recognize “starter”.
+if it writes starter, your gate ordering must include it.
+The clean decision you need to make
+Pick one canonical entitlement tier ladder for VCM Suite.
+Option A (recommended): Make entitlements match pricing
+Canonical entitlements become:
+free → starter → basic → pro
+And delete “enterprise” from the app for now (unless you actually sell enterprise).
+“Global Pro” is not a tier — it’s a product that grants pro on all clouds (i.e., inserts/updates entitlements across all clouds).
+This option keeps everything consistent with what users see and what you’re selling.
