@@ -1,0 +1,68 @@
+This is the real architecture issue: your dedicated SEO pages bypass the dynamic gated route, so server-side gating in [slug] helps only for tools that don’t have a dedicated page.
+Here’s what you do next, in the right order, with the least chaos.
+Decision: What should gate first?
+API-level protection first. Always.
+Because if a user can still execute the tool via API, you’re not gated — you’re just hiding buttons.
+So the order is:
+API gating (real lock)
+Server-side page gating (no flash + clean UX)
+Upsell targeting (conversion)
+Cleanup / consolidation (optional)
+The correct path forward (no debate)
+Task A — Systematically wrap all tool APIs
+Replit asked “focus API-level first?” → yes.
+Rule: Every endpoint that produces value must be behind withToolGate().
+Any /api/tools/** route: wrap it.
+Any shared endpoints tools call (uploads, exports, AI, processing): wrap those too if a Pro tool uses them.
+Acceptance test:
+blocked user hits a Pro tool API → 403 GateResult
+Pro user hits same endpoint → 200
+If you do only this, the paywall is already “real.” Even if the UI loads, nothing works.
+Task B — Add a reusable server-side gating wrapper for dedicated pages
+Do not manually copy/paste gating into 70 pages. You’ll create a new drift mess.
+Create one wrapper like:
+<ToolServerGate slug="ai-thumbnail-coach"> (server component)
+loads session
+loads entitlements
+loads tool by slug from registry/DB
+runs gateTool()
+if allowed: renders children
+if denied: renders <UpgradeWall />
+Then each dedicated page becomes:
+export default function Page() {
+  return (
+    <ToolServerGate slug="ai-thumbnail-coach">
+      {/* existing 594 lines unchanged */}
+    </ToolServerGate>
+  );
+}
+Yes you can wrap a big page like this without rewriting it.
+Acceptance test:
+blocked user visiting /tools/ai-thumbnail-coach gets UpgradeWall from server
+tool client component never mounts
+Task C — Apply wrapper only where it matters first
+Don’t gate 70 pages blindly. Do it by tool tier.
+Prioritization:
+All dedicated pages for tools with required_tier !== 'free'
+Then “free tools” can stay ungated (they don’t need it)
+Replit offered: “Identify which Pro tools have dedicated pages” → yes.
+Have Replit generate:
+list of dedicated tool page slugs
+join against toolsRegistry required_tier
+output: which are gated vs free
+Then apply wrapper only to gated ones.
+Task D — Upsell targeting improvement
+After the above works, fix the upgrade_cloud_id selection:
+if user has an active/trial entitlement in any tool cloud, upsell that cloud (closest path)
+else fallback to first cloud
+Answer to Replit’s options
+Identify which Pro tools have dedicated pages?
+Yes. Do this first. It dictates scope and prevents unnecessary edits.
+Create a wrapper pattern and apply it to one example tool?
+Yes. Do one example gated page end-to-end (page + API) as the reference pattern. Then scale.
+Focus on API-level protection first?
+Yes. This is mandatory. Page gating without API gating is theater.
+The blunt truth
+Dynamic [slug] gating is fine, but it’s not your real system because your SEO pages are the real system.
+You need a single wrapper so those pages don’t bypass entitlements.
+And you need systematic API wrapping so there is no bypass anywhere.
