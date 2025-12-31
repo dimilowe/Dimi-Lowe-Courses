@@ -727,8 +727,8 @@ function ContentManagerInner() {
             {isLoading ? (
               <div className="text-center py-12 text-gray-400">Loading tools...</div>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="border rounded-lg overflow-x-auto">
+                <table className="w-full text-sm min-w-[1000px]">
                   <thead className="bg-gray-50 border-b">
                     <tr>
                       <th className="px-4 py-3 w-10">
