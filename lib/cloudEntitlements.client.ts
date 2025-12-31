@@ -1,7 +1,6 @@
-import type { CloudEntitlement, CloudId, EntitlementTier } from '@/lib/types/cloudEntitlements';
+import type { CloudEntitlement, CloudId } from '@/lib/types/cloudEntitlements';
 import type { CloudSlug } from '@/lib/clouds';
-
-const TIER_ORDER: EntitlementTier[] = ['free', 'starter', 'basic', 'pro'];
+import { TIER_ORDER, type EntitlementTier } from '@/lib/entitlements/tiers';
 
 const CLOUD_SLUG_TO_ID: Record<CloudSlug, CloudId> = {
   creation: 'creation',

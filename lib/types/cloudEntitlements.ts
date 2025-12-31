@@ -1,3 +1,5 @@
+import { ENTITLEMENT_TIERS as _ENTITLEMENT_TIERS, type EntitlementTier as _EntitlementTier } from '@/lib/entitlements/tiers';
+
 export const CLOUD_IDS = [
   'creation',
   'video',
@@ -21,8 +23,8 @@ export const PUBLIC_CLOUD_IDS: CloudId[] = CLOUD_IDS.filter(
   (id) => !DEPRECATED_CLOUD_IDS.has(id)
 );
 
-export const ENTITLEMENT_TIERS = ['free', 'starter', 'basic', 'pro'] as const;
-export type EntitlementTier = (typeof ENTITLEMENT_TIERS)[number];
+export const ENTITLEMENT_TIERS = _ENTITLEMENT_TIERS;
+export type EntitlementTier = _EntitlementTier;
 
 export const TOOL_ACCESS_TIERS = ['starter', 'basic', 'pro'] as const;
 export type ToolAccessTier = (typeof TOOL_ACCESS_TIERS)[number];

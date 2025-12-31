@@ -1,7 +1,8 @@
 'use client';
 
 import type { UserTier } from '@/lib/pricing/types';
-import type { CloudId, EntitlementTier, ToolAccessTier, CloudEntitlementsMap } from '@/lib/types/cloudEntitlements';
+import type { CloudId, ToolAccessTier, CloudEntitlementsMap } from '@/lib/types/cloudEntitlements';
+import { TIER_ORDER } from '@/lib/entitlements/tiers';
 
 export type HeavyMode = 'none' | 'single' | 'multi';
 
@@ -20,8 +21,6 @@ export type ToolAccessMeta = {
   requiredCloud?: CloudId | null;
   requiredTier?: ToolAccessTier | null;
 };
-
-const TIER_ORDER: (EntitlementTier | ToolAccessTier)[] = ['free', 'starter', 'basic', 'pro'];
 
 function hasCloudAccess(
   cloudEntitlements: CloudEntitlementsMap | undefined,

@@ -1,4 +1,5 @@
-import type { CloudId, EntitlementTier, CloudEntitlement } from '@/lib/types/cloudEntitlements';
+import type { CloudId, CloudEntitlement } from '@/lib/types/cloudEntitlements';
+import { TIER_ORDER, tierIndex, type EntitlementTier } from '@/lib/entitlements/tiers';
 
 export type GateReason =
   | 'allowed'
@@ -19,13 +20,6 @@ export interface GateResult {
 export interface ToolAccess {
   required_clouds: CloudId[];
   required_tier: EntitlementTier;
-}
-
-const TIER_ORDER: EntitlementTier[] = ['free', 'starter', 'basic', 'pro'];
-
-function tierIndex(t: string): number {
-  const i = TIER_ORDER.indexOf(t as EntitlementTier);
-  return i === -1 ? -1 : i;
 }
 
 function hasAccess(
