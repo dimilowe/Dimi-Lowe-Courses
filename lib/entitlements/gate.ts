@@ -91,15 +91,21 @@ export function gateTool(params: {
     };
   }
 
-  const hasSomeEntitlement = entitlements?.some(
+  const activeEntitlements = entitlements?.filter(
     e => tool.cloud_ids.includes(e.cloud_id) && (e.status === 'active' || e.status === 'trial')
-  );
+  ) ?? [];
+  
+  const userTierBest = activeEntitlements.length > 0
+    ? activeEntitlements
+        .map(e => e.tier)
+        .sort((a, b) => TIER_ORDER.indexOf(b) - TIER_ORDER.indexOf(a))[0]
+    : null;
 
   return {
     allowed: false,
-    reason: hasSomeEntitlement ? 'tier_too_low' : 'no_entitlement',
+    reason: activeEntitlements.length > 0 ? 'tier_too_low' : 'no_entitlement',
     required_tier: tool.required_tier,
-    user_tier_best: 'free',
+    user_tier_best: userTierBest,
     upgrade_cloud_id: tool.cloud_ids[0] ?? null,
     checked_cloud_ids: tool.cloud_ids
   };
