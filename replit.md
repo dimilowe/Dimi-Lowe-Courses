@@ -516,6 +516,15 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2025-12-31: **Brand Access** - Pro-gated Intelligence Cloud tool for deal-ready creators
+  - Curated directory of brand contact paths (PR, affiliate, influencer, agency, partnerships)
+  - Pro gating: Free users see preview (max 10 entries, blurred contact URLs), Pro users see full access
+  - Search and filter by contact type
+  - Request form to submit new brand entries
+  - Database: brand_access_entries (curated contacts), brand_access_requests (user submissions)
+  - API: GET /api/tools/brand-access/list, POST /api/tools/brand-access/request
+  - SEO: SoftwareApplication + FAQPage JSON-LD, 8 FAQs
+  - Files: lib/brandAccess/, app/tools/brand-access/, app/api/tools/brand-access/
 - 2025-12-30: **Decision Hygiene Evaluator** - Deterministic pre-commitment filter for business ideas
   - 18-question form across 5 sections: Structural Viability, Distribution Asymmetry, Effort-to-Feedback Ratio, Decision Reversibility, Bias Check
   - Pure deterministic rule engine: no AI, no randomness, same input → same output
