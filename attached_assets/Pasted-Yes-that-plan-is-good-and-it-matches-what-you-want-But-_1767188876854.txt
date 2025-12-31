@@ -1,0 +1,31 @@
+Yes — that plan is good and it matches what you want.
+But there are 3 non-negotiable tweaks to make sure this doesn’t drift or turn into a maintenance trap:
+1) Use your canonical cloud IDs (drift killer)
+Make sure it gates on the exact canonical cloud id you already standardized (the same one your theme + entitlements use).
+If your canonical is intelligence (or intelligence-cloud / intelligence-suite etc.), pick the one your system treats as SSoT and use it everywhere: tool registry, tools table, gating, and UI labels.
+Directive to Replit: “No new cloud ids. Use the existing canonical intelligence cloud id used by the entitlement registry.”
+2) Preview behavior should be intentional (conversion)
+Don’t return “empty” for free users. Return a preview list but redact contact_url:
+Show brand name + type + tags + “Locked”
+Blur/lock the contact path cell
+Add a single CTA: “Unlock Pro to reveal contact paths”
+This keeps SEO and makes the tool feel real.
+Directive to Replit: “Free users get preview rows; contact_url always redacted.”
+3) Seed data must not go to prod
+Seed entries are fine, but only for local/dev, never production.
+Directive to Replit: “Seed script must be dev-only, never auto-run.”
+The one extra thing I’d add (small but high-leverage)
+Add a source field to entries:
+source text default 'curated'
+Later you can add user_request, import, partner, etc. without schema drama.
+Not required, but it’s cheap future-proofing.
+What to reply to Replit (copy/paste)
+Yes — proceed. Three requirements:
+
+1) Prevent drift: use the existing canonical intelligence cloud_id and tier enums everywhere (tool registry, tools table, gating, UI). Do not introduce new cloud ids.
+
+2) Free users must see a preview list (brand_name/type/tags/notes) but contact_url must be redacted + blurred/locked in UI with an “Unlock Pro” CTA. Do not return empty.
+
+3) Seed data is dev-only. Do not auto-seed in production.
+
+Optional: add brand_access_entries.source text default 'curated' for future-proofing.

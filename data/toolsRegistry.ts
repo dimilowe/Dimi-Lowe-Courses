@@ -1047,6 +1047,26 @@ export const toolsRegistry: Tool[] = [
     primaryKeyword: "decision hygiene",
     secondaryKeywords: ["pre-commitment filter", "business idea validator", "startup idea evaluator", "idea risk assessment", "validate idea before committing", "decision quality", "commitment filter"],
     searchIntent: "action"
+  },
+  {
+    id: "brand-access",
+    name: "Brand Access",
+    slug: "brand-access",
+    description: "Curated contact paths for brands, agencies, and opportunities — for deal-ready creators.",
+    category: "business",
+    tags: ["business", "creator", "new"],
+    icon: "Building2",
+    iconBg: "bg-orange-500",
+    priority: 85,
+    isNew: true,
+    engineType: "standalone",
+    inputType: "selection",
+    outputType: "interactive",
+    relatedTools: ["decision-hygiene-evaluator", "sale-business-by-owner"],
+    relatedArticles: [],
+    primaryKeyword: "brand contact page finder",
+    secondaryKeywords: ["influencer outreach", "brand partnerships contacts", "PR contact page", "affiliate program contact", "sponsorship inquiry page", "brand deals", "creator partnerships"],
+    searchIntent: "action"
   }
 ];
 
