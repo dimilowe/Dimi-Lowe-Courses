@@ -727,11 +727,11 @@ function ContentManagerInner() {
             {isLoading ? (
               <div className="text-center py-12 text-gray-400">Loading tools...</div>
             ) : (
-              <div className="-mx-4 sm:mx-0 overflow-x-auto">
-                <table className="w-full text-sm border sm:rounded-lg">
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="px-3 py-2 md:px-4 md:py-3 w-10">
+                      <th className="px-4 py-3 w-10">
                         <input
                           type="checkbox"
                           checked={paginatedTools.length > 0 && paginatedTools.every((t) => selectedTools.has(t.slug))}
@@ -739,21 +739,21 @@ function ContentManagerInner() {
                           className="w-4 h-4 rounded border-gray-300"
                         />
                       </th>
-                      <th className="text-left px-3 py-2 md:px-4 md:py-3 font-medium">Tool</th>
-                      <th className="text-left px-3 py-2 md:px-4 md:py-3 font-medium hidden sm:table-cell">Engine</th>
-                      <th className="text-left px-3 py-2 md:px-4 md:py-3 font-medium">Pillar</th>
-                      <th className="text-center px-3 py-2 md:px-4 md:py-3 font-medium">Clouds</th>
-                      <th className="text-center px-3 py-2 md:px-4 md:py-3 font-medium">Tier</th>
-                      <th className="text-center px-3 py-2 md:px-4 md:py-3 font-medium hidden md:table-cell">Links</th>
-                      <th className="text-center px-3 py-2 md:px-4 md:py-3 font-medium hidden md:table-cell">Featured</th>
-                      <th className="text-center px-3 py-2 md:px-4 md:py-3 font-medium hidden md:table-cell">Indexed</th>
-                      <th className="text-center px-3 py-2 md:px-4 md:py-3 font-medium hidden md:table-cell">Actions</th>
+                      <th className="text-left px-4 py-3 font-medium">Tool</th>
+                      <th className="text-left px-4 py-3 font-medium">Engine</th>
+                      <th className="text-left px-4 py-3 font-medium">Pillar</th>
+                      <th className="text-center px-4 py-3 font-medium">Clouds</th>
+                      <th className="text-center px-4 py-3 font-medium">Tier</th>
+                      <th className="text-center px-4 py-3 font-medium">Links</th>
+                      <th className="text-center px-4 py-3 font-medium">Featured</th>
+                      <th className="text-center px-4 py-3 font-medium">Indexed</th>
+                      <th className="text-center px-4 py-3 font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {paginatedTools.map((tool) => (
                       <tr key={tool.slug} className={`hover:bg-gray-50 ${selectedTools.has(tool.slug) ? "bg-orange-50" : ""}`}>
-                        <td className="px-3 py-2 md:px-4 md:py-3">
+                        <td className="px-4 py-3">
                           <input
                             type="checkbox"
                             checked={selectedTools.has(tool.slug)}
@@ -761,18 +761,18 @@ function ContentManagerInner() {
                             className="w-4 h-4 rounded border-gray-300"
                           />
                         </td>
-                        <td className="px-3 py-2 md:px-4 md:py-3">
-                          <div className="font-medium text-sm">{tool.name}</div>
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{tool.name}</div>
                           <div className="text-xs text-gray-400">{tool.slug}</div>
                         </td>
-                        <td className="px-3 py-2 md:px-4 md:py-3 hidden sm:table-cell">
+                        <td className="px-4 py-3">
                           <Badge variant="outline">{tool.engineType}</Badge>
                         </td>
-                        <td className="px-3 py-2 md:px-4 md:py-3">
+                        <td className="px-4 py-3">
                           <select
                             value={tool.clusterSlug || ""}
                             onChange={(e) => updateToolCluster(tool.slug, e.target.value)}
-                            className="text-sm border rounded px-2 py-1 w-full max-w-[150px] bg-white"
+                            className="text-sm border rounded px-2 py-1 w-full max-w-[200px] bg-white"
                           >
                             <option value="">— None —</option>
                             {pillars.map((pillar) => (
@@ -782,7 +782,7 @@ function ContentManagerInner() {
                             ))}
                           </select>
                         </td>
-                        <td className="px-3 py-2 md:px-4 md:py-3 text-center">
+                        <td className="px-4 py-3 text-center">
                           <button
                             onClick={() => setEditingCloudTags({ slug: tool.slug, tags: tool.cloudTags || [] })}
                             className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
@@ -796,7 +796,7 @@ function ContentManagerInner() {
                             {(tool.cloudTags?.length || 0) > 0 ? tool.cloudTags!.length : "0"}
                           </button>
                         </td>
-                        <td className="px-3 py-2 md:px-4 md:py-3 text-center">
+                        <td className="px-4 py-3 text-center">
                           <select
                             value={tool.requiredTier || "free"}
                             onChange={(e) => handleTierChange(tool.slug, e.target.value as EntitlementTier)}
@@ -816,10 +816,10 @@ function ContentManagerInner() {
                             <option value="enterprise">ENTERPRISE</option>
                           </select>
                         </td>
-                        <td className="px-3 py-2 md:px-4 md:py-3 text-center hidden md:table-cell">
+                        <td className="px-4 py-3 text-center">
                           {getLinkStatusIcon(tool.linkStatus.status)}
                         </td>
-                        <td className="px-3 py-2 md:px-4 md:py-3 text-center hidden md:table-cell">
+                        <td className="px-4 py-3 text-center">
                           <button
                             onClick={() => toggleToolFeatured(tool.slug, tool.isFeatured)}
                             className="inline-flex"
@@ -832,7 +832,7 @@ function ContentManagerInner() {
                             )}
                           </button>
                         </td>
-                        <td className="px-3 py-2 md:px-4 md:py-3 text-center hidden md:table-cell">
+                        <td className="px-4 py-3 text-center">
                           <button
                             onClick={() => toggleToolIndexed(tool.slug, tool.isIndexed)}
                             className="inline-flex"
@@ -844,7 +844,7 @@ function ContentManagerInner() {
                             )}
                           </button>
                         </td>
-                        <td className="px-3 py-2 md:px-4 md:py-3 text-center hidden md:table-cell">
+                        <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <Link href={`/tools/${tool.slug}`} target="_blank">
                               <Button variant="ghost" size="sm">
