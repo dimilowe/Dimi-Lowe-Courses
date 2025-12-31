@@ -232,11 +232,19 @@ Each VCM Cloud has a dedicated dashboard page at /clouds/[cloud-slug]:
 ### Cloud Entitlements System (SSoT Pattern)
 Controls user access to pro/AI features based on cloud subscription tier using Single Source of Truth pattern:
 
-#### SSoT Architecture (Dec 2025)
-- **toolsRegistry.ts**: Single source of truth for `cloud_ids: CloudId[]` and `required_tier: EntitlementTier`
-- **gateTool()**: Only gating function - tiles, pages, and APIs all call this
-- **OR Logic**: Tool is accessible if user has ANY of the cloud_ids at the required tier
+#### SSoT Architecture (Dec 2025 - Updated)
+- **Database (tools table)**: Single source of truth for `required_clouds text[]` and `required_tier TEXT`
+- **Tool Discovery**: `lib/tools/getToolsForDirectory.ts` queries DB for all tool listings
+- **gateTool()**: Only gating function - tiles, pages, and APIs all call this (reads from DB)
+- **OR Logic**: Tool is accessible if user has ANY of the required_clouds at the required tier
 - **Derived badges**: `getTierBadge(required_tier)` - no separate badge field
+- **Migration Complete**: All directory pages (main, /all, categories, clusters) now fetch from DB
+
+#### Tool Discovery Functions (lib/tools/getToolsForDirectory.ts)
+- **getToolsForDirectory()**: Main directory listing with in_directory=true filter
+- **getToolsForCategory(category)**: Filter by category column
+- **getToolsForCluster(clusterSlug, toolSlugs?)**: Cluster page with fallback for registry-defined slugs
+- **getAllToolsForAdmin()**: Admin listing without in_directory filter
 
 #### Key Files
 - **Gate module**: `lib/entitlements/gate.ts` - gateTool(), GateResult, GateReason

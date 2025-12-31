@@ -44,16 +44,12 @@ import {
   LucideIcon
 } from "lucide-react";
 import { 
-  toolsRegistry, 
   CATEGORY_INFO, 
-  CATEGORY_ORDER,
   TAG_INFO,
-  getToolsByCategory,
-  getToolsByTag,
-  type Tool,
   type ToolCategory,
   type ToolTag
 } from "@/data/toolsRegistry";
+import type { DirectoryTool as Tool } from "@/lib/tools/getToolsForDirectory";
 
 const CREATOR_CATEGORIES: ToolCategory[] = [
   "creator",
@@ -189,29 +185,36 @@ function CategorySection({ category, tools, showViewAll = true }: { category: To
   );
 }
 
-export default function ToolsDirectoryClient() {
+interface ToolsDirectoryClientProps {
+  tools: Tool[];
+}
+
+export default function ToolsDirectoryClient({ tools }: ToolsDirectoryClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTag, setActiveTag] = useState<ToolTag | null>(null);
   
-  const toolCount = toolsRegistry.length;
+  const toolCount = tools.length;
+  
+  const getToolsByCategory = (category: ToolCategory) => 
+    tools.filter(t => t.category === category);
   
   const filteredTools = useMemo(() => {
-    let tools = [...toolsRegistry];
+    let filteredList = [...tools];
     
     if (activeTag) {
       if (activeTag === "trending") {
-        tools = tools.filter(t => t.isTrending);
+        filteredList = filteredList.filter(t => t.isTrending);
       } else if (activeTag === "new") {
-        tools = tools.filter(t => t.isNew);
+        filteredList = filteredList.filter(t => t.isNew);
       } else {
-        tools = tools.filter(t => t.tags.includes(activeTag));
+        filteredList = filteredList.filter(t => t.tags.includes(activeTag));
       }
     }
     
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       
-      const scoredTools = tools
+      const scoredTools = filteredList
         .map(t => {
           let score = 0;
           const nameLower = t.name.toLowerCase();
@@ -253,8 +256,8 @@ export default function ToolsDirectoryClient() {
       return scoredTools;
     }
     
-    return tools.sort((a, b) => b.priority - a.priority);
-  }, [searchQuery, activeTag]);
+    return filteredList.sort((a, b) => b.priority - a.priority);
+  }, [tools, searchQuery, activeTag]);
   
   const isFiltering = searchQuery.trim() || activeTag;
   

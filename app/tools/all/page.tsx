@@ -1,8 +1,8 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import { getAllCmsTools, ENGINE_TO_CATEGORY } from "@/lib/cms/getCmsToolBySlug";
-import { toolsRegistry, CATEGORY_INFO } from "@/data/toolsRegistry";
+import { CATEGORY_INFO } from "@/data/toolsRegistry";
+import { getToolsForDirectory as getToolsFromDB } from "@/lib/tools/getToolsForDirectory";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,39 +18,22 @@ interface ToolForDirectory {
   slug: string;
   description: string;
   categoryLabel: string;
-  source: 'cms' | 'legacy';
 }
 
 async function getToolsForDirectory(): Promise<ToolForDirectory[]> {
-  const cmsTools = await getAllCmsTools({ includeDrafts: false });
+  const dbTools = await getToolsFromDB();
   
-  const cmsSlugs = new Set(cmsTools.map(t => t.slug));
-  
-  const cmsToolsFormatted: ToolForDirectory[] = cmsTools.map(tool => ({
-    id: `cms-${tool.slug}`,
+  const toolsFormatted: ToolForDirectory[] = dbTools.map(tool => ({
+    id: tool.id,
     name: tool.name,
     slug: tool.slug,
     description: tool.description,
-    categoryLabel: ENGINE_TO_CATEGORY[tool.engine]?.label || 'Tools',
-    source: 'cms' as const,
+    categoryLabel: CATEGORY_INFO[tool.category]?.label || 'Tools',
   }));
   
-  const legacyToolsFormatted: ToolForDirectory[] = toolsRegistry
-    .filter(tool => !cmsSlugs.has(tool.slug))
-    .map(tool => ({
-      id: tool.id,
-      name: tool.name,
-      slug: tool.slug,
-      description: tool.description,
-      categoryLabel: CATEGORY_INFO[tool.category]?.label || 'Tools',
-      source: 'legacy' as const,
-    }));
+  toolsFormatted.sort((a, b) => a.name.localeCompare(b.name));
   
-  const allTools = [...cmsToolsFormatted, ...legacyToolsFormatted];
-  
-  allTools.sort((a, b) => a.name.localeCompare(b.name));
-  
-  return allTools;
+  return toolsFormatted;
 }
 
 function generateSchemaMarkup(tools: ToolForDirectory[]) {

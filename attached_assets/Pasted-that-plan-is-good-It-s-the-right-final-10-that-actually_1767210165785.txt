@@ -1,0 +1,50 @@
+that plan is good. It’s the right “final 10%” that actually finishes the migration.
+But tighten two things so Replit doesn’t accidentally create new drift or SEO regressions.
+What’s good
+✅ Single DB query function (getToolsForDirectory) = correct abstraction
+✅ Updating all listing surfaces to DB = eliminates split-brain
+✅ in_directory = true AND deleted_at IS NULL = clean inclusion rule
+✅ Badges/locks derived from DB entitlement fields = consistent
+Two critical additions (don’t skip)
+1) Add a “public status” filter (or you’ll leak drafts)
+Right now you’re only filtering by in_directory. That’s good if you always manage it correctly, but mistakes happen.
+Add one more guard:
+status != 'draft' (or status = 'published' if you have it)
+So the public query becomes:
+in_directory = true
+deleted_at IS NULL
+status != 'draft'
+This prevents “oops I toggled in_directory on a half-built tool.”
+If you truly want in_directory to be the sole switch, fine — but then be disciplined. I’d still add the status guard.
+2) Keep a stable return shape for the client
+Directory pages likely assume a certain shape from the registry. If you change the shape, you’ll chase UI bugs.
+So make getToolsForDirectory() return an explicit mapped object like:
+slug, name, description, icon, iconBg, priority, category, segment, featured, requiredTier, requiredClouds
+Even if DB column names differ (icon_bg, required_tier, required_clouds), normalize in the function.
+That way every page uses the same shape and the UI doesn’t care where it came from.
+One more “gotcha” to catch early
+Category/cluster pages currently might be using registry-defined grouping that doesn’t exist in DB for all tools.
+Before Replit updates category/cluster pages, have them confirm:
+category is consistently populated in DB
+cluster and/or pillar_slug are populated where needed
+if not, add safe fallbacks (e.g., hide empty groups)
+Acceptance tests (tell Replit to run these)
+Create DB-only tool: in_directory=true, status='published', required_tier='pro', required_clouds=['video']
+shows up in /tools and /tools/all
+locks correctly for non-entitled user
+Same tool with status='draft'
+does not show up publicly
+Remove registry entry for an existing tool
+tool still appears in directory (DB is canonical)
+Verdict
+Yes, it’s a good plan. Add the status guard and normalized return shape, and it becomes bulletproof.
+If you want the exact query skeleton to hand Replit, here it is (Postgres-ish pseudo):
+SELECT
+  slug, name, description, icon, icon_bg, priority, category, segment, featured,
+  required_tier, required_clouds
+FROM tools
+WHERE in_directory = true
+  AND deleted_at IS NULL
+  AND status <> 'draft'
+ORDER BY featured DESC, priority ASC, name ASC;
+That’s the path.

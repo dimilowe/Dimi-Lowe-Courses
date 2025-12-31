@@ -1,8 +1,8 @@
 import { Metadata } from "next";
 import ToolsDirectoryClient from "./ToolsDirectoryClient";
-import { toolsRegistry, CATEGORY_INFO, CATEGORY_ORDER } from "@/data/toolsRegistry";
 import { getAllIndexedPillars } from "@/lib/cms/getPillarBySlug";
 import { PillarCollections } from "@/components/tools/PillarCollections";
+import { getToolsForDirectory, type DirectoryTool } from "@/lib/tools/getToolsForDirectory";
 
 export const metadata: Metadata = {
   title: "VCM Tools Explorer — 50+ Free Creator Tools",
@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   }
 };
 
-function generateSchemaMarkup() {
-  const itemListElements = toolsRegistry.map((tool, index) => ({
+function generateSchemaMarkup(tools: DirectoryTool[]) {
+  const itemListElements = tools.map((tool, index) => ({
     "@type": "ListItem",
     "position": index + 1,
     "item": {
@@ -52,7 +52,7 @@ function generateSchemaMarkup() {
         "@type": "ItemList",
         "name": "VCM Suite Tools Directory",
         "description": "Complete list of free creator tools and utilities",
-        "numberOfItems": toolsRegistry.length,
+        "numberOfItems": tools.length,
         "itemListElement": itemListElements
       },
       {
@@ -68,8 +68,9 @@ function generateSchemaMarkup() {
 }
 
 export default async function ToolsPage() {
-  const schema = generateSchemaMarkup();
-  const toolCount = toolsRegistry.length;
+  const tools = await getToolsForDirectory();
+  const schema = generateSchemaMarkup(tools);
+  const toolCount = tools.length;
   const pillars = await getAllIndexedPillars();
   
   return (
@@ -94,7 +95,7 @@ export default async function ToolsPage() {
             <PillarCollections pillars={pillars} />
           )}
 
-          <ToolsDirectoryClient />
+          <ToolsDirectoryClient tools={tools} />
         </div>
       </div>
     </>

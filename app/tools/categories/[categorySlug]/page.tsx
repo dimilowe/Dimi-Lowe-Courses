@@ -2,8 +2,8 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Wrench } from "lucide-react";
 import { notFound } from "next/navigation";
-import { toolsRegistry, CATEGORY_INFO, ToolCategory, Tool } from "@/data/toolsRegistry";
-import { getAllToolSkins, ToolSkin } from "@/data/engineKeywordMatrix";
+import { CATEGORY_INFO, ToolCategory } from "@/data/toolsRegistry";
+import { getToolsForDirectory } from "@/lib/tools/getToolsForDirectory";
 
 interface PageProps {
   params: Promise<{ categorySlug: string }>;
@@ -38,39 +38,15 @@ export function generateStaticParams() {
   }));
 }
 
-function getToolsForCategory(category: ToolCategory): { slug: string; name: string; description: string }[] {
-  const registryTools = toolsRegistry
+async function getToolsForCategory(category: ToolCategory): Promise<{ slug: string; name: string; description: string }[]> {
+  const allTools = await getToolsForDirectory();
+  return allTools
     .filter(t => t.category === category)
     .map(t => ({
       slug: t.slug,
       name: t.name,
       description: t.description,
     }));
-
-  const skinTools = getAllToolSkins()
-    .filter(s => {
-      const engineToCategory: Record<string, ToolCategory> = {
-        "platform-resizer": "image",
-        "image-compress": "image",
-        "image-convert": "image",
-        "calculator": "calculators",
-        "ai-analysis": "ai",
-        "ai-generate": "ai",
-        "text-transform": "writing",
-        "text-analysis": "writing",
-        "file-convert": "file",
-        "file-edit": "file",
-      };
-      return engineToCategory[s.engineType] === category;
-    })
-    .filter(s => !registryTools.some(rt => rt.slug === s.slug))
-    .map(s => ({
-      slug: s.slug,
-      name: s.name,
-      description: s.introCopy,
-    }));
-
-  return [...registryTools, ...skinTools];
 }
 
 export default async function CategoryPage({ params }: PageProps) {
@@ -82,7 +58,7 @@ export default async function CategoryPage({ params }: PageProps) {
 
   const category = categorySlug as ToolCategory;
   const categoryInfo = CATEGORY_INFO[category];
-  const tools = getToolsForCategory(category);
+  const tools = await getToolsForCategory(category);
 
   const schema = {
     "@context": "https://schema.org",

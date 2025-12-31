@@ -3,9 +3,8 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight, Wrench, BookOpen, List, Table } from "lucide-react";
 import { notFound } from "next/navigation";
 import { CLUSTER_REGISTRY, getClusterById } from "@/data/clusterRegistry";
-import { toolsRegistry, CATEGORY_INFO } from "@/data/toolsRegistry";
-import { getToolSkinBySlug } from "@/data/engineKeywordMatrix";
-import { query } from "@/lib/db";
+import { CATEGORY_INFO } from "@/data/toolsRegistry";
+import { getToolsForCluster } from "@/lib/tools/getToolsForDirectory";
 
 interface PageProps {
   params: Promise<{ clusterSlug: string }>;
@@ -223,30 +222,6 @@ export function generateStaticParams() {
   }));
 }
 
-function getToolData(slug: string) {
-  const registryTool = toolsRegistry.find(t => t.slug === slug);
-  if (registryTool) {
-    return {
-      slug: registryTool.slug,
-      name: registryTool.name,
-      description: registryTool.description,
-      category: registryTool.category,
-    };
-  }
-  
-  const skin = getToolSkinBySlug(slug);
-  if (skin) {
-    return {
-      slug: skin.slug,
-      name: skin.name,
-      description: skin.introCopy,
-      category: "calculators" as const,
-    };
-  }
-  
-  return null;
-}
-
 export default async function ClusterPillarPage({ params }: PageProps) {
   const { clusterSlug } = await params;
   const cluster = getClusterById(clusterSlug);
@@ -255,31 +230,7 @@ export default async function ClusterPillarPage({ params }: PageProps) {
     notFound();
   }
 
-  const registryTools = cluster.toolSlugs
-    .map(slug => getToolData(slug))
-    .filter((t): t is NonNullable<ReturnType<typeof getToolData>> => t !== null);
-
-  const cmsToolsResult = await query(
-    `SELECT 
-       slug,
-       data->>'name' as name,
-       data->>'description' as description
-     FROM cms_objects
-     WHERE type = 'tool' AND (pillar_slug = $1 OR cluster_slug = $1)`,
-    [clusterSlug]
-  );
-
-  const cmsTools = cmsToolsResult.rows.map((row) => ({
-    slug: row.slug,
-    name: row.name || row.slug,
-    description: row.description || "",
-    category: "tools" as const,
-  }));
-
-  const registrySlugs = new Set(registryTools.map(t => t.slug));
-  const uniqueCmsTools = cmsTools.filter(t => !registrySlugs.has(t.slug));
-  
-  const tools = [...registryTools, ...uniqueCmsTools];
+  const tools = await getToolsForCluster(clusterSlug, cluster.toolSlugs);
 
   const referenceData = CLUSTER_REFERENCE_DATA[clusterSlug];
 
