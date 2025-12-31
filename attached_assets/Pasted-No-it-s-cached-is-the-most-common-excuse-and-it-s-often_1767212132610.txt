@@ -1,0 +1,43 @@
+No — “it’s cached” is the most common excuse and it’s often wrong. Your screenshot shows you’re on a Replit dev domain; those bundles change constantly, but if the server is actually serving the new build, a hard refresh or incognito should show it immediately.
+Here’s how to prove what’s true in 60 seconds and force the fix.
+Step 1: Confirm you’re even hitting the route they edited
+They claim they changed app/admin/tools/page.tsx.
+Your screenshot shows:
+Top nav: VCM Admin → Content
+URL is not visible, but this page looks like the “Content tools list” page.
+If this page is actually /admin/content (or /admin), then editing /admin/tools won’t affect it.
+Do this:
+Click in the address bar and check the path.
+Then manually visit:
+/admin/tools
+/admin/content
+/admin
+One of these is what you’re actually viewing.
+If the Tier column appears on /admin/tools but not on the page you’re using, then Replit edited the wrong page. Period.
+Step 2: Bypass cache with a URL fingerprint (no guessing)
+If you want to nuke caching without arguing:
+Append a query string: ?v=123
+Example: /admin/tools?v=123
+Browsers treat that as a “new” resource path and re-fetch JS chunks in many setups.
+If Tier still doesn’t show, it’s not your cache.
+Step 3: Verify deployment by checking the HTML
+Open DevTools → Elements and search for the literal string Tier in the table header.
+If the <th>Tier</th> isn’t in the DOM, the server is not serving that code.
+If it is in the DOM but not visible, then it’s CSS/layout or conditional rendering.
+Step 4: The one check that ends the debate
+Open DevTools → Network → click the document request for the page and look at:
+response headers (cache-control)
+the HTML payload (does it include Tier column markup?)
+If the HTML doesn’t include it, then the code isn’t deployed to the environment you’re viewing.
+The most likely root cause
+They edited the wrong file/route.
+Because your screenshot table columns are:
+Tool | Engine | Pillar | Clouds | Links | Featured | Indexed | Actions
+They’re claiming a table that has:
+Clouds | Tier | Link Status
+That’s a different table variant.
+So either:
+you’re on a different admin page than app/admin/tools/page.tsx, or
+the real page is pulling from a shared table component and their edits aren’t used.
+What you should tell Replit (verbatim)
+“I’m not accepting ‘cache’ until we confirm route + deployment. What is the exact URL path for the page in my screenshot? If it’s not /admin/tools, your change won’t show. Please add the Tier column to the component actually rendering the Tools table used under the Content tab. Also confirm by screenshot of /admin/tools and /admin/content after deploy.”
