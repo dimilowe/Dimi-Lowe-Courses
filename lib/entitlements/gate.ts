@@ -101,12 +101,28 @@ export function gateTool(params: {
         .sort((a, b) => TIER_ORDER.indexOf(b) - TIER_ORDER.indexOf(a))[0]
     : null;
 
+  // Smart upgrade_cloud_id selection:
+  // 1. Prefer a cloud where user already has an entitlement (closer to upgrade)
+  // 2. Fallback to first cloud in the tool's list
+  let upgradeCloudId: CloudId | null = null;
+  
+  if (activeEntitlements.length > 0) {
+    // User has entitlements in some tool clouds - pick the highest tier one for upgrade
+    const sorted = activeEntitlements.sort(
+      (a, b) => TIER_ORDER.indexOf(b.tier) - TIER_ORDER.indexOf(a.tier)
+    );
+    upgradeCloudId = sorted[0].cloud_id;
+  } else {
+    // No existing entitlements in tool clouds - fallback to first cloud
+    upgradeCloudId = tool.cloud_ids[0] ?? null;
+  }
+
   return {
     allowed: false,
     reason: activeEntitlements.length > 0 ? 'tier_too_low' : 'no_entitlement',
     required_tier: tool.required_tier,
     user_tier_best: userTierBest,
-    upgrade_cloud_id: tool.cloud_ids[0] ?? null,
+    upgrade_cloud_id: upgradeCloudId,
     checked_cloud_ids: tool.cloud_ids
   };
 }

@@ -3,6 +3,7 @@ import ImageToPromptClient from './ImageToPromptClient';
 import ExploreMoreTools from '@/components/ExploreMoreTools';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
+import ToolServerGate from '@/components/entitlements/ToolServerGate';
 
 export const metadata: Metadata = {
   title: 'Free Image to Prompt Generator | Reverse Image Prompt Builder',
@@ -114,7 +115,11 @@ const faqSchema = {
 
 export default function ImageToPromptPage() {
   return (
-    <>
+    <ToolServerGate
+      slug="image-to-prompt"
+      toolName="Image to Prompt Generator"
+      toolDescription="Upload any image and get AI-generated prompts to recreate it."
+    >
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
@@ -351,6 +356,6 @@ export default function ImageToPromptPage() {
           </div>
         </section>
       </main>
-    </>
+    </ToolServerGate>
   );
 }

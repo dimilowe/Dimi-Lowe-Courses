@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import ThumbnailCoachClient from "./ThumbnailCoachClient";
 import ExploreMoreTools from "@/components/ExploreMoreTools";
+import ToolServerGate from "@/components/entitlements/ToolServerGate";
 
 export const metadata: Metadata = {
   title: "Free YouTube Thumbnail Analyzer & Generator Coach | AI Thumbnail Checker",
@@ -244,7 +245,11 @@ const faqs = [
 
 export default function AIThumbnailCoachPage() {
   return (
-    <>
+    <ToolServerGate 
+      slug="ai-thumbnail-coach"
+      toolName="AI YouTube Thumbnail Coach"
+      toolDescription="Upload your thumbnail and get instant AI analysis with actionable feedback."
+    >
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -588,6 +593,6 @@ export default function AIThumbnailCoachPage() {
           </div>
         </div>
       </div>
-    </>
+    </ToolServerGate>
   );
 }
