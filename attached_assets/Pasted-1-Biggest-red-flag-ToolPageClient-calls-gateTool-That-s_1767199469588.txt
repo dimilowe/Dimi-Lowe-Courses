@@ -1,0 +1,40 @@
+1) Biggest red flag: “ToolPageClient calls gateTool()”
+That sounds like client-side gating.
+Client-side gating is fine for UX, but it’s not “real page protection” unless you also gate:
+server-side (middleware / server component / route handler), or
+every action via API (which they say they did)
+What to confirm
+If I’m not entitled and I hit /tools/some-pro-tool directly, do I get:
+an UpgradeWall before the tool UI loads, and
+no tool API can be executed?
+If the tool can run without calling a gated API route, you still have a hole.
+Tight fix: put the gate check in the server path too (Next.js server component or route guard) so the page never renders the tool for unauthorized users, even briefly.
+2) Confirm EVERY tool action is behind an API route using withToolGate()
+Replit says “API middleware created” — good. But this only matters if:
+all tool execution flows through those API routes
+there aren’t any “pure client tools” that do the valuable thing fully in-browser
+What to confirm
+Pick a Pro tool and try:
+open devtools → Network
+trigger the tool action
+ensure the request hits /api/tools/...
+ensure that route is wrapped by withToolGate()
+If any Pro tool does its core value client-only, it’s effectively ungated (people can clone the front-end behavior).
+3) OR-logic across clouds: make sure upsell targeting isn’t dumb
+They did OR access (any cloud_ids works). Good.
+But their UpgradeWall copy uses:
+“Subscribe to [Cloud]…” or “Upgrade to [Tier]…”
+What to confirm
+When a tool belongs to Video + Writing, and the user has Writing Basic but needs Pro:
+it should say “Upgrade Writing to Pro” (best path),
+not “Subscribe to Video” just because it’s first in the array.
+Minimum acceptable v1: pick first cloud id.
+Better (still easy): pick the cloud where the user is closest to access:
+if user has any entitlement in one of the tool’s clouds, upsell that one
+else pick first
+If they didn’t implement this, it’s not broken—just less conversion-efficient.
+What I’d ask Replit for (no new info from you needed)
+Have them reply with:
+Where validateToolsRegistry() is called (exact file + when it runs)
+Whether tool pages are gated server-side or only in ToolPageClient
+A list of all API routes wrapped with withToolGate() (or confirmation it’s enforced via a shared handler pattern)

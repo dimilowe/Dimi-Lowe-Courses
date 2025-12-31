@@ -1,0 +1,74 @@
+Task 0 — Wire validation so drift can’t return
+Goal: crash fast in dev/CI if toolsRegistry is misconfigured.
+Do:
+Ensure validateToolsRegistry(toolsRegistry) is called exactly once at startup.
+Best spots:
+app/layout.tsx (server) or
+a lib/startup.ts imported by layout, or
+the toolsRegistry module itself (top-level), as long as it won’t run multiple times in weird ways.
+Acceptance:
+If any non-free tool has empty cloud_ids, dev server refuses to boot.
+If any tool missing required_tier, dev server refuses to boot.
+Task 1 — Server-side gating on tool pages (no flash, no bypass)
+Client-side gating is leaky and looks amateur. Fix it.
+Preferred implementation (Next.js App Router)
+In app/tools/[slug]/page.tsx (server component):
+Load tool by slug
+Load session (userId)
+Fetch entitlements if logged in
+Run gateTool()
+If denied:
+render <UpgradeWall gate=... tool=... /> server-side
+do not render the tool client component
+Notes
+You can still keep client-side gating as a “defense in depth,” but it should be redundant.
+Acceptance:
+When blocked, the tool client component never mounts.
+No UI flash.
+Viewing page source shows upgrade wall, not tool UI.
+Task 2 — API gating must be systematic (or you’re still ungated)
+Right now you have a wrapper but it’s not enforced everywhere. That’s a hole.
+Step A: Define “gated tool APIs”
+Create a rule:
+Any route under /api/tools/** must use withToolGate() unless the tool is required_tier: 'free'.
+Step B: Apply it
+Wrap every existing /api/tools/<tool>/... endpoint with withToolGate().
+If you have shared generic tool endpoints, wrap those too.
+Step C: Add a fail-safe
+Add a dev-only assertion inside withToolGate() usage patterns, or create a helper:
+export const toolHandler = withToolGate(async (req, ctx) => { ... })
+So nobody “forgets” in the future.
+Acceptance:
+Any attempt to hit a Pro tool API without entitlement returns 403 + GateResult.
+A free tool API still works without entitlement.
+Task 3 — Identify “pure client” Pro tools and fix them
+If a Pro tool runs entirely in the browser (no API), it’s not truly gateable.
+You have two choices:
+Make it free (required_tier='free'), or
+Move the valuable computation/export behind a gated API.
+Acceptance:
+No Pro tool provides its core value purely client-side.
+This is the part most people skip, and it’s where paywalls quietly fail.
+Task 4 — Improve upsell targeting (cheap win)
+Your OR-logic is correct; the upsell target is dumb.
+Update gate result selection:
+If user has any active/trial entitlement among tool.cloud_ids:
+choose that cloud for upgrade (closest path)
+if multiple, choose the one with highest current tier (closest to required)
+Else:
+default to first cloud_id
+Acceptance:
+User with Writing Basic sees “Upgrade Writing → Pro” instead of “Buy Video.”
+Task 5 — Lock the UI to SSoT (no hidden badge logic)
+Make sure badges are fully derived and no tier labels exist elsewhere.
+Acceptance:
+Searching codebase for “PRO”/“BASIC” doesn’t show manual badge conditionals (except display strings in one place).
+The 5 tests you run after (non-negotiable)
+Logged out → visit a Pro tool URL → server renders UpgradeWall
+Logged in Free → Pro tool URL → server renders UpgradeWall
+Blocked state → attempt tool action → API returns 403 GateResult
+Pro user in Writing only → tool in Writing+Video Pro → allowed
+Writing Basic user → tool requires Pro → UpgradeWall suggests Writing upgrade, not Video
+If those pass, the system is actually secure and consistent.
+Answer to Replit’s “Would you like a task list?”
+Yes. Use the list above. Do it in that order.
