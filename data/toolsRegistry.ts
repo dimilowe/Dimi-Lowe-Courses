@@ -1244,3 +1244,11 @@ export function getAllToolsAlphabetically(): Tool[] {
 export function getToolCount(): number {
   return toolsRegistry.length;
 }
+
+// Validate registry at module load time - crash fast if misconfigured
+import { assertValidToolsRegistry } from '@/lib/entitlements/validate';
+
+if (typeof window === 'undefined') {
+  // Only run on server to avoid duplicate checks
+  assertValidToolsRegistry(toolsRegistry);
+}

@@ -6,6 +6,8 @@ import { isEngineSupported } from '@/lib/engineRegistry';
 import ToolPageClient from './ToolPageClient';
 import { FreeToolsBlock } from '@/components/FreeToolsBlock';
 import { ToolBreadcrumb } from '@/components/tools/ToolBreadcrumb';
+import UpgradeWall from '@/components/entitlements/UpgradeWall';
+import { getServerGate } from '@/lib/entitlements/getServerGate';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -41,6 +43,18 @@ export default async function ToolPage({ params }: PageProps) {
 
   if (!tool) {
     return notFound();
+  }
+
+  const { gate } = await getServerGate({ slug });
+  
+  if (!gate.allowed) {
+    return (
+      <UpgradeWall
+        gate={gate}
+        toolName={tool.name}
+        toolDescription={tool.description}
+      />
+    );
   }
 
   const hasEngine = isEngineSupported(tool.engine);

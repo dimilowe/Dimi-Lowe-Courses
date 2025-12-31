@@ -256,6 +256,15 @@ interface GateResult {
 }
 ```
 
+#### Routing Architecture Issue (Critical)
+- **~70 dedicated tool pages** exist at `app/tools/[specific-tool]/page.tsx` (e.g., `app/tools/ai-thumbnail-coach/page.tsx`)
+- These dedicated pages have rich SEO metadata, JSON-LD, FAQs (500+ lines each)
+- **Next.js routing precedence**: Dedicated pages take priority over dynamic `[slug]` route
+- **Result**: The dynamic route's `getServerGate()` is ONLY used for tools without dedicated pages
+- **Impact**: Server-side gating must be added individually to each dedicated tool page
+- **Approach**: For Pro tools with dedicated pages, add getServerGate() + UpgradeWall wrapper
+- **Server-side helper**: `lib/entitlements/getServerGate.ts` provides session-aware gating for server components
+
 #### Legacy Infrastructure (still used)
 - **Database**: `cloud_entitlements` table with unique constraint on (user_id, cloud_id)
 - **Types**: `lib/types/cloudEntitlements.ts` defines CloudId, EntitlementTier, CloudEntitlement

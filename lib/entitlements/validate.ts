@@ -1,5 +1,4 @@
-import { toolsRegistry, type Tool } from '@/data/toolsRegistry';
-import { CLOUD_IDS, ENTITLEMENT_TIERS } from '@/lib/types/cloudEntitlements';
+import { CLOUD_IDS, ENTITLEMENT_TIERS, type CloudId, type EntitlementTier } from '@/lib/types/cloudEntitlements';
 
 export interface ValidationError {
   toolId: string;
@@ -7,12 +6,19 @@ export interface ValidationError {
   message: string;
 }
 
-export function validateToolsRegistry(): ValidationError[] {
+export interface ValidatableTool {
+  id: string;
+  slug?: string;
+  cloud_ids?: CloudId[];
+  required_tier?: EntitlementTier;
+}
+
+export function validateToolsRegistry(registry: ValidatableTool[]): ValidationError[] {
   const errors: ValidationError[] = [];
   const cloudIdSet = new Set(CLOUD_IDS);
   const tierSet = new Set(ENTITLEMENT_TIERS);
 
-  for (const tool of toolsRegistry) {
+  for (const tool of registry) {
     if (!tool.cloud_ids) {
       errors.push({
         toolId: tool.id,
@@ -69,30 +75,11 @@ export function validateToolsRegistry(): ValidationError[] {
   return errors;
 }
 
-export function assertValidToolsRegistry(): void {
-  const errors = validateToolsRegistry();
+export function assertValidToolsRegistry(registry: ValidatableTool[]): void {
+  const errors = validateToolsRegistry(registry);
   
   if (errors.length > 0) {
     const errorMessages = errors.map(e => `  - ${e.message}`).join('\n');
     throw new Error(`Tools registry validation failed:\n${errorMessages}`);
   }
-}
-
-export function logValidationWarnings(): void {
-  const errors = validateToolsRegistry();
-  
-  if (errors.length > 0 && process.env.NODE_ENV === 'development') {
-    console.warn('[ToolsRegistry] Validation warnings:');
-    for (const error of errors) {
-      console.warn(`  - ${error.message}`);
-    }
-  }
-}
-
-export function getToolBySlug(slug: string): Tool | undefined {
-  return toolsRegistry.find(t => t.slug === slug);
-}
-
-export function getToolById(id: string): Tool | undefined {
-  return toolsRegistry.find(t => t.id === id);
 }
