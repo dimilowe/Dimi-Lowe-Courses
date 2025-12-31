@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import type { CloudDashboardEngineConfig, CMSObject } from "@/lib/types/cms";
+import type { CloudId, EntitlementTier } from "@/lib/types/cloudEntitlements";
 import { getCloudTheme, resolveCloudId } from "@/lib/cloudTheme";
 import CloudDashboardLayout from "@/components/clouds/CloudDashboardLayout";
 import CloudHero from "@/components/clouds/CloudHero";
@@ -16,18 +17,14 @@ type CloudDashboardProps = {
   cms: CMSObject & { engine_config: CloudDashboardEngineConfig };
 };
 
-type HeavyMode = 'none' | 'single' | 'multi';
-
 type TaggedTool = {
   slug: string;
   title: string;
   description: string;
   featured: boolean;
   segment?: string;
-  heavyMode?: HeavyMode;
-  hasAi?: boolean;
-  requiredCloud?: string | null;
-  requiredTier?: string | null;
+  cloud_id: CloudId;
+  required_tier: EntitlementTier;
 };
 
 interface WorkspaceItem {
@@ -131,11 +128,8 @@ export default function CloudDashboardEngine({ cms }: CloudDashboardProps) {
     slug: tool.slug,
     title: tool.title,
     description: tool.description,
-    isPro: tool.featured,
-    heavyMode: tool.heavyMode,
-    hasAi: tool.hasAi,
-    requiredCloud: tool.requiredCloud as FeaturedTool['requiredCloud'],
-    requiredTier: tool.requiredTier as FeaturedTool['requiredTier'],
+    cloud_id: tool.cloud_id,
+    required_tier: tool.required_tier,
   }));
 
   return (

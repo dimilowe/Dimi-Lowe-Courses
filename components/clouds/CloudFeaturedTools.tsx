@@ -3,21 +3,18 @@
 import Link from 'next/link';
 import { Sparkles, ArrowRight, Lock } from 'lucide-react';
 import { useUIStore } from '@/lib/state/uiStore';
-import { getToolLockState, type HeavyMode } from '@/lib/tools/getToolLockState';
-import type { CloudId, ToolAccessTier } from '@/lib/types/cloudEntitlements';
+import { gateTool, getTierBadge } from '@/lib/entitlements/gate';
+import type { CloudId, EntitlementTier, CloudEntitlement } from '@/lib/types/cloudEntitlements';
 
 export interface FeaturedTool {
   slug: string;
   title: string;
   description?: string;
-  isPro?: boolean;
   thumbnailUrl?: string;
   appLabel?: string;
   gradient?: string;
-  heavyMode?: HeavyMode;
-  hasAi?: boolean;
-  requiredCloud?: CloudId | null;
-  requiredTier?: ToolAccessTier | null;
+  cloud_id: CloudId;
+  required_tier: EntitlementTier;
 }
 
 interface CloudFeaturedToolsProps {
@@ -34,18 +31,29 @@ const PLACEHOLDER_GRADIENTS = [
   'from-indigo-400 to-purple-500',
 ];
 
-function getTierLabel(tier: string | null): string {
-  if (tier === 'starter') return 'Starter';
-  if (tier === 'basic') return 'Basic';
-  if (tier === 'pro') return 'Pro';
-  return '';
+function entitlementsMapToArray(map: Record<string, string> | undefined): CloudEntitlement[] {
+  if (!map) return [];
+  return Object.entries(map).map(([cloud_id, tier]) => ({
+    id: '',
+    user_id: 0,
+    cloud_id: cloud_id as CloudId,
+    tier: tier as EntitlementTier,
+    source: 'manual_grant' as const,
+    status: 'active' as const,
+    valid_from: '',
+    valid_to: null,
+    created_at: '',
+    updated_at: '',
+  }));
 }
 
 export default function CloudFeaturedTools({ 
   tools, 
   title = 'Featured Tools' 
 }: CloudFeaturedToolsProps) {
-  const { userTier, cloudEntitlements, openUpgradeModal } = useUIStore();
+  const { cloudEntitlements, openUpgradeModal } = useUIStore();
+  const isLoggedIn = Object.keys(cloudEntitlements || {}).length > 0;
+  const entitlementsArray = entitlementsMapToArray(cloudEntitlements);
 
   if (tools.length === 0) return null;
 
@@ -59,22 +67,17 @@ export default function CloudFeaturedTools({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {tools.map((tool, idx) => {
           const gradient = tool.gradient || PLACEHOLDER_GRADIENTS[idx % PLACEHOLDER_GRADIENTS.length];
-          const lockState = getToolLockState(
-            userTier, 
-            { 
-              heavyMode: tool.heavyMode, 
-              hasAi: tool.hasAi,
-              requiredCloud: tool.requiredCloud,
-              requiredTier: tool.requiredTier,
-            },
-            cloudEntitlements
+          const gateResult = gateTool(
+            { cloud_id: tool.cloud_id, required_tier: tool.required_tier },
+            entitlementsArray,
+            isLoggedIn
           );
+          const badge = getTierBadge(tool.required_tier);
 
           const handleClick = (e: React.MouseEvent) => {
-            if (lockState.locked && lockState.requiredTier && lockState.requiredTier !== 'free') {
+            if (!gateResult.allowed && gateResult.required_tier !== 'free') {
               e.preventDefault();
-              const feature = lockState.feature === 'heavyTool' ? 'heavyTools' : lockState.feature;
-              openUpgradeModal(feature, lockState.requiredTier as 'starter' | 'basic' | 'pro', lockState.requiredCloud);
+              openUpgradeModal('cloud', gateResult.required_tier as 'basic' | 'pro', gateResult.cloud_id);
             }
           };
           
@@ -102,14 +105,14 @@ export default function CloudFeaturedTools({
                 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
                 
-                {lockState.locked ? (
+                {!gateResult.allowed && badge ? (
                   <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-zinc-800/80 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide shadow-sm">
                     <Lock className="w-3 h-3" />
-                    {getTierLabel(lockState.requiredTier)}
+                    {badge}
                   </span>
-                ) : tool.isPro ? (
+                ) : badge ? (
                   <span className="absolute top-3 right-3 inline-flex items-center rounded-full bg-amber-400 text-amber-900 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide shadow-sm">
-                    PRO
+                    {badge}
                   </span>
                 ) : null}
                 
@@ -132,7 +135,7 @@ export default function CloudFeaturedTools({
                   )}
                 </div>
 
-                {lockState.locked && (
+                {!gateResult.allowed && (
                   <div className="absolute inset-0 bg-white/40 pointer-events-none" />
                 )}
               </div>
