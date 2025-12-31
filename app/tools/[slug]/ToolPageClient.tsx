@@ -59,7 +59,7 @@ export default function ToolPageClient({ tool, hasEngine }: ToolPageClientProps)
 
   const required_clouds: CloudId[] = (tool.requiredClouds as CloudId[]) || 
     (tool.cloudTags?.map(tag => cloudSlugToId(tag)).filter((id): id is CloudId => id !== null) || []);
-  const required_tier = tool.requiredTier || 'free';
+  const required_tier: EntitlementTier = (tool.requiredTier as EntitlementTier) || 'free';
 
   const gateResult: GateResult | null = !entitlementsLoading ? gateTool({
     tool: { required_clouds, required_tier },
