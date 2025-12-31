@@ -33,7 +33,7 @@ interface LinkStatus {
   details: string[];
 }
 
-type EntitlementTier = "free" | "basic" | "pro" | "enterprise";
+type EntitlementTier = "free" | "starter" | "basic" | "pro";
 
 interface ToolSkin {
   slug: string;
@@ -616,12 +616,12 @@ export default function AdminToolsPage() {
                                 requiredTier: tool.requiredTier || "free" 
                               })}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${
-                                tool.requiredTier === "enterprise"
-                                  ? "bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200"
-                                  : tool.requiredTier === "pro"
+                                tool.requiredTier === "pro"
                                   ? "bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200"
                                   : tool.requiredTier === "basic"
                                   ? "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200"
+                                  : tool.requiredTier === "starter"
+                                  ? "bg-green-100 text-green-700 border-green-200 hover:bg-green-200"
                                   : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
                               }`}
                               title="Click to edit tier and required clouds"
@@ -922,9 +922,9 @@ export default function AdminToolsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                 >
                   <option value="free">Free (no subscription required)</option>
+                  <option value="starter">Starter</option>
                   <option value="basic">Basic</option>
                   <option value="pro">Pro</option>
-                  <option value="enterprise">Enterprise</option>
                 </select>
               </div>
               

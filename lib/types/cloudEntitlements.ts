@@ -21,7 +21,7 @@ export const PUBLIC_CLOUD_IDS: CloudId[] = CLOUD_IDS.filter(
   (id) => !DEPRECATED_CLOUD_IDS.has(id)
 );
 
-export const ENTITLEMENT_TIERS = ['free', 'basic', 'pro', 'enterprise'] as const;
+export const ENTITLEMENT_TIERS = ['free', 'starter', 'basic', 'pro'] as const;
 export type EntitlementTier = (typeof ENTITLEMENT_TIERS)[number];
 
 export const TOOL_ACCESS_TIERS = ['starter', 'basic', 'pro'] as const;

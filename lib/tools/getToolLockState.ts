@@ -21,7 +21,7 @@ export type ToolAccessMeta = {
   requiredTier?: ToolAccessTier | null;
 };
 
-const TIER_ORDER: (EntitlementTier | ToolAccessTier)[] = ['free', 'starter', 'basic', 'pro', 'enterprise'];
+const TIER_ORDER: (EntitlementTier | ToolAccessTier)[] = ['free', 'starter', 'basic', 'pro'];
 
 function hasCloudAccess(
   cloudEntitlements: CloudEntitlementsMap | undefined,

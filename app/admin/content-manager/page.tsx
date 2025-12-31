@@ -32,7 +32,7 @@ import {
 import Link from "next/link";
 import { CLOUDS, type CloudSlug } from "@/lib/clouds";
 
-type EntitlementTier = "free" | "basic" | "pro" | "enterprise";
+type EntitlementTier = "free" | "starter" | "basic" | "pro";
 
 interface ToolSkin {
   slug: string;
@@ -801,19 +801,19 @@ function ContentManagerInner() {
                             value={tool.requiredTier || "free"}
                             onChange={(e) => handleTierChange(tool.slug, e.target.value as EntitlementTier)}
                             className={`text-xs font-semibold px-2 py-1 rounded-lg border cursor-pointer ${
-                              tool.requiredTier === "enterprise"
-                                ? "bg-purple-100 text-purple-700 border-purple-200"
-                                : tool.requiredTier === "pro"
+                              tool.requiredTier === "pro"
                                 ? "bg-amber-100 text-amber-700 border-amber-200"
                                 : tool.requiredTier === "basic"
                                 ? "bg-blue-100 text-blue-700 border-blue-200"
+                                : tool.requiredTier === "starter"
+                                ? "bg-green-100 text-green-700 border-green-200"
                                 : "bg-gray-100 text-gray-500 border-gray-200"
                             }`}
                           >
                             <option value="free">FREE</option>
+                            <option value="starter">STARTER</option>
                             <option value="basic">BASIC</option>
                             <option value="pro">PRO</option>
-                            <option value="enterprise">ENTERPRISE</option>
                           </select>
                         </td>
                         <td className="px-4 py-3 text-center">

@@ -21,7 +21,12 @@ export interface ToolAccess {
   required_tier: EntitlementTier;
 }
 
-const TIER_ORDER: EntitlementTier[] = ['free', 'basic', 'pro', 'enterprise'];
+const TIER_ORDER: EntitlementTier[] = ['free', 'starter', 'basic', 'pro'];
+
+function tierIndex(t: string): number {
+  const i = TIER_ORDER.indexOf(t as EntitlementTier);
+  return i === -1 ? -1 : i;
+}
 
 function hasAccess(
   entitlements: CloudEntitlement[] | undefined,
@@ -32,7 +37,17 @@ function hasAccess(
     e => e.cloud_id === cloud && (e.status === 'active' || e.status === 'trial')
   );
   if (!record) return false;
-  return TIER_ORDER.indexOf(record.tier) >= TIER_ORDER.indexOf(required);
+
+  const userIdx = tierIndex(record.tier);
+  const reqIdx = tierIndex(required);
+
+  // If required tier is unknown, fail closed
+  if (reqIdx === -1) return false;
+
+  // If user tier is unknown, treat as no access
+  if (userIdx === -1) return false;
+
+  return userIdx >= reqIdx;
 }
 
 export function gateTool(params: {

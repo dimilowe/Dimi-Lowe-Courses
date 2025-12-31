@@ -77,10 +77,10 @@ async function recomputeEffectiveEntitlement(userId: number, cloudId: string) {
      ORDER BY 
        CASE status WHEN 'active' THEN 2 WHEN 'trial' THEN 1 WHEN 'past_due' THEN 0 END DESC,
        CASE tier 
-         WHEN 'enterprise' THEN 4
-         WHEN 'pro' THEN 3
-         WHEN 'basic' THEN 2
-         WHEN 'starter' THEN 1
+         WHEN 'pro' THEN 4
+         WHEN 'basic' THEN 3
+         WHEN 'starter' THEN 2
+         WHEN 'free' THEN 1
          ELSE 0
        END DESC
      LIMIT 1`,
