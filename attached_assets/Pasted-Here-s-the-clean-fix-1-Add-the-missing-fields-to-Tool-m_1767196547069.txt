@@ -1,0 +1,129 @@
+Here’s the clean fix.
+1) Add the missing fields to Tool (minimum)
+You need two new fields on every tool:
+cloud_id: CloudId;              // 'video' | 'writing' | ...
+required_tier: EntitlementTier; // 'free' | 'basic' | 'pro' | 'enterprise'
+And I’d strongly recommend you keep category for browsing UX, but stop pretending it’s entitlement scope.
+Updated interface
+export interface Tool {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+
+  category: ToolCategory; // UI grouping ONLY
+  cloud_id: CloudId;      // entitlement scope (SSoT)
+  required_tier: EntitlementTier; // SSoT for gating
+
+  tags: ToolTag[];
+  icon: string;
+  iconBg: string;
+  priority: number;
+  isNew?: boolean;
+  isTrending?: boolean;
+  isMBB?: boolean;
+  engineType: EngineType;
+  inputType: InputType;
+  outputType: OutputType;
+  relatedTools: string[];
+  relatedArticles: string[];
+}
+If you do only this, the mismatch issue goes away because the tile/page/api can all read the same truth.
+2) Stop hardcoding badges. Derive them from required_tier
+Badge logic becomes:
+if required_tier === 'free' → no badge (or “FREE” if you want)
+else badge label = required_tier.toUpperCase()
+That’s it. No more “pro” tag, no more badge config.
+3) Replace hasAccess() with a single gateTool() (still uses your entitlements)
+Your current hasAccess() is fine as a primitive, but you need a single gate function that returns a rich result so nobody re-implements logic.
+export type GateReason = 'allowed' | 'not_logged_in' | 'no_entitlement' | 'tier_too_low';
+
+export interface GateResult {
+  allowed: boolean;
+  reason: GateReason;
+  cloud_id: CloudId;
+  required_tier: EntitlementTier;
+  user_tier: EntitlementTier | null;
+}
+
+const TIER_ORDER: EntitlementTier[] = ['free', 'basic', 'pro', 'enterprise'];
+
+export function gateTool(
+  tool: Pick<Tool, 'cloud_id' | 'required_tier'>,
+  entitlements: CloudEntitlement[] | undefined,
+  isLoggedIn: boolean
+): GateResult {
+  if (tool.required_tier === 'free') {
+    return { allowed: true, reason: 'allowed', cloud_id: tool.cloud_id, required_tier: tool.required_tier, user_tier: null };
+  }
+
+  if (!isLoggedIn) {
+    return { allowed: false, reason: 'not_logged_in', cloud_id: tool.cloud_id, required_tier: tool.required_tier, user_tier: null };
+  }
+
+  const record = entitlements?.find(
+    e => e.cloud_id === tool.cloud_id && (e.status === 'active' || e.status === 'trial')
+  );
+
+  if (!record) {
+    return { allowed: false, reason: 'no_entitlement', cloud_id: tool.cloud_id, required_tier: tool.required_tier, user_tier: 'free' };
+  }
+
+  const allowed = TIER_ORDER.indexOf(record.tier) >= TIER_ORDER.indexOf(tool.required_tier);
+
+  return {
+    allowed,
+    reason: allowed ? 'allowed' : 'tier_too_low',
+    cloud_id: tool.cloud_id,
+    required_tier: tool.required_tier,
+    user_tier: record.tier
+  };
+}
+Now tiles/pages/APIs can all call one function and never “decide access” again.
+4) Where each enforcement happens (no more leaks)
+Tiles (UX)
+const gate = gateTool(tool, entitlements, isLoggedIn)
+If !gate.allowed: fade, lock icon, CTA
+Tool page (real gate)
+On /tools/[slug]:
+load tool by slug
+call gateTool
+if not allowed: render upgrade wall (or redirect)
+API route (realest gate)
+Every tool API handler:
+loads tool by slug/id
+calls gateTool
+if not allowed: return 403 with GateResult payload
+If you only do tiles + pages, you still have endpoint bypass.
+5) Solve the “category ≠ cloud” gap cleanly
+You already know this: category is too granular / mismatched.
+So:
+category = discoverability + UI tabs (image/video/writing)
+cloud_id = entitlement product bucket (creation/video/writing-seo/etc.)
+A tool can be category: "video" but cloud_id: "creation" if you ever need that. No conflict.
+6) Registry validation (fail fast)
+Add a validator that runs at startup (dev + CI build):
+Rules:
+Every tool must have cloud_id
+Every tool must have required_tier
+required_tier must be one of allowed enums
+If a tool has a badge field anywhere → error (because badge must be derived)
+Optional: enforce “video category tools should map to video cloud unless explicitly overridden”
+This prevents drift from ever coming back.
+7) One unavoidable migration task
+You’ll need to assign cloud_id + required_tier for every tool.
+Do it once, and you’re done.
+Practical approach:
+default required_tier = 'free' for everything
+then explicitly mark the gated tools as basic/pro
+map cloud by current page grouping (Video Cloud page → cloud_id: 'video'), then override exceptions
+Your current hasAccess() — keep it or kill it?
+Keep it as an internal helper if you want, but the rest of the app should stop calling it directly. Everything calls gateTool().
+Bottom line
+To get SSoT gating in VCM Suite, you must add:
+cloud_id to Tool
+required_tier to Tool
+Then:
+derive badges from required_tier
+enforce access through one gateTool() used by tiles + pages + APIs
+validate registry at startup to prevent drift
