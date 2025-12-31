@@ -32,6 +32,8 @@ import {
 import Link from "next/link";
 import { CLOUDS, type CloudSlug } from "@/lib/clouds";
 
+type EntitlementTier = "free" | "basic" | "pro" | "enterprise";
+
 interface ToolSkin {
   slug: string;
   name: string;
@@ -39,6 +41,8 @@ interface ToolSkin {
   segment: string;
   clusterSlug: string;
   cloudTags?: CloudSlug[];
+  requiredTier: EntitlementTier;
+  requiredClouds: string[];
   isIndexed: boolean;
   isFeatured: boolean;
   inDirectory: boolean;
@@ -122,6 +126,7 @@ function ContentManagerInner() {
   const [savingCloudTags, setSavingCloudTags] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ slug: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingTierChange, setPendingTierChange] = useState<{ slug: string; tier: EntitlementTier } | null>(null);
   const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
@@ -292,9 +297,15 @@ function ContentManagerInner() {
 
   const saveCloudTags = async () => {
     if (!editingCloudTags) return;
+    
+    if (pendingTierChange && editingCloudTags.tags.length === 0) {
+      alert("You must select at least one cloud for non-free tiers.");
+      return;
+    }
+    
     setSavingCloudTags(true);
     try {
-      const res = await fetch("/api/admin/tools/update", {
+      const cloudTagsRes = await fetch("/api/admin/tools/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -304,20 +315,103 @@ function ContentManagerInner() {
         }),
         credentials: "include",
       });
-      if (res.ok) {
-        setTools((prev) =>
-          prev.map((t) => (t.slug === editingCloudTags.slug ? { ...t, cloudTags: editingCloudTags.tags } : t))
-        );
-        setEditingCloudTags(null);
-      } else {
-        const data = await res.json();
+      
+      if (!cloudTagsRes.ok) {
+        const data = await cloudTagsRes.json();
         alert(data.error || "Failed to save cloud tags");
+        return;
       }
+      
+      const requiredCloudsRes = await fetch("/api/admin/tools/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          slug: editingCloudTags.slug, 
+          field: "requiredClouds", 
+          value: editingCloudTags.tags 
+        }),
+        credentials: "include",
+      });
+      
+      if (!requiredCloudsRes.ok) {
+        const data = await requiredCloudsRes.json();
+        alert(data.error || "Failed to save required clouds");
+        return;
+      }
+      
+      let updatedTier: EntitlementTier | undefined;
+      
+      if (pendingTierChange && pendingTierChange.slug === editingCloudTags.slug) {
+        const tierRes = await fetch("/api/admin/tools/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            slug: pendingTierChange.slug, 
+            field: "requiredTier", 
+            value: pendingTierChange.tier 
+          }),
+          credentials: "include",
+        });
+        
+        if (!tierRes.ok) {
+          const data = await tierRes.json();
+          alert(data.error || "Failed to save tier");
+          return;
+        }
+        updatedTier = pendingTierChange.tier;
+        setPendingTierChange(null);
+      }
+      
+      setTools((prev) =>
+        prev.map((t) => {
+          if (t.slug === editingCloudTags.slug) {
+            return { 
+              ...t, 
+              cloudTags: editingCloudTags.tags,
+              requiredClouds: editingCloudTags.tags,
+              ...(updatedTier ? { requiredTier: updatedTier } : {})
+            };
+          }
+          return t;
+        })
+      );
+      setEditingCloudTags(null);
     } catch (error) {
       console.error("Failed to save cloud tags:", error);
       alert("Failed to save cloud tags");
     } finally {
       setSavingCloudTags(false);
+    }
+  };
+
+  const handleTierChange = async (slug: string, newTier: EntitlementTier) => {
+    const tool = tools.find(t => t.slug === slug);
+    if (!tool) return;
+    
+    if (newTier !== "free" && (!tool.requiredClouds || tool.requiredClouds.length === 0)) {
+      setPendingTierChange({ slug, tier: newTier });
+      setEditingCloudTags({ slug, tags: (tool.cloudTags || []) as CloudSlug[] });
+      return;
+    }
+    
+    try {
+      const res = await fetch("/api/admin/tools/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, field: "requiredTier", value: newTier }),
+        credentials: "include",
+      });
+      if (res.ok) {
+        setTools((prev) =>
+          prev.map((t) => (t.slug === slug ? { ...t, requiredTier: newTier } : t))
+        );
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to update tier");
+      }
+    } catch (error) {
+      console.error("Failed to update tier:", error);
+      alert("Failed to update tier");
     }
   };
 
@@ -649,6 +743,7 @@ function ContentManagerInner() {
                       <th className="text-left px-4 py-3 font-medium">Engine</th>
                       <th className="text-left px-4 py-3 font-medium">Pillar</th>
                       <th className="text-center px-4 py-3 font-medium">Clouds</th>
+                      <th className="text-center px-4 py-3 font-medium">Tier</th>
                       <th className="text-center px-4 py-3 font-medium">Links</th>
                       <th className="text-center px-4 py-3 font-medium">Featured</th>
                       <th className="text-center px-4 py-3 font-medium">Indexed</th>
@@ -700,6 +795,26 @@ function ContentManagerInner() {
                             <Cloud className="w-3 h-3" />
                             {(tool.cloudTags?.length || 0) > 0 ? tool.cloudTags!.length : "0"}
                           </button>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <select
+                            value={tool.requiredTier || "free"}
+                            onChange={(e) => handleTierChange(tool.slug, e.target.value as EntitlementTier)}
+                            className={`text-xs font-semibold px-2 py-1 rounded-lg border cursor-pointer ${
+                              tool.requiredTier === "enterprise"
+                                ? "bg-purple-100 text-purple-700 border-purple-200"
+                                : tool.requiredTier === "pro"
+                                ? "bg-amber-100 text-amber-700 border-amber-200"
+                                : tool.requiredTier === "basic"
+                                ? "bg-blue-100 text-blue-700 border-blue-200"
+                                : "bg-gray-100 text-gray-500 border-gray-200"
+                            }`}
+                          >
+                            <option value="free">FREE</option>
+                            <option value="basic">BASIC</option>
+                            <option value="pro">PRO</option>
+                            <option value="enterprise">ENTERPRISE</option>
+                          </select>
                         </td>
                         <td className="px-4 py-3 text-center">
                           {getLinkStatusIcon(tool.linkStatus.status)}
@@ -887,12 +1002,22 @@ function ContentManagerInner() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-auto">
             <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-lg font-semibold">Edit Cloud Tags</h3>
-              <button onClick={() => setEditingCloudTags(null)} className="text-gray-400 hover:text-gray-600">
+              <h3 className="text-lg font-semibold">
+                {pendingTierChange ? "Select Required Clouds" : "Edit Cloud Tags"}
+              </h3>
+              <button onClick={() => { setEditingCloudTags(null); setPendingTierChange(null); }} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4">
+              {pendingTierChange && (
+                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-700">
+                    Setting tier to <strong className="uppercase">{pendingTierChange.tier}</strong> requires at least one cloud.
+                    Select the clouds users need to access this tool.
+                  </p>
+                </div>
+              )}
               <p className="text-sm text-gray-500 mb-4">
                 Assign this tool to one or more Creator Clouds.
               </p>
@@ -943,7 +1068,7 @@ function ContentManagerInner() {
               </div>
             </div>
             <div className="flex justify-end gap-2 p-4 border-t bg-gray-50">
-              <Button variant="outline" onClick={() => setEditingCloudTags(null)}>
+              <Button variant="outline" onClick={() => { setEditingCloudTags(null); setPendingTierChange(null); }}>
                 Cancel
               </Button>
               <Button
