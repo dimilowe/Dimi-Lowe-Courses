@@ -13,7 +13,7 @@ export interface FeaturedTool {
   thumbnailUrl?: string;
   appLabel?: string;
   gradient?: string;
-  cloud_id: CloudId;
+  cloud_ids: CloudId[];
   required_tier: EntitlementTier;
 }
 
@@ -67,17 +67,18 @@ export default function CloudFeaturedTools({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {tools.map((tool, idx) => {
           const gradient = tool.gradient || PLACEHOLDER_GRADIENTS[idx % PLACEHOLDER_GRADIENTS.length];
-          const gateResult = gateTool(
-            { cloud_id: tool.cloud_id, required_tier: tool.required_tier },
-            entitlementsArray,
+          const gateResult = gateTool({
+            tool: { cloud_ids: tool.cloud_ids, required_tier: tool.required_tier },
+            entitlements: entitlementsArray,
             isLoggedIn
-          );
+          });
           const badge = getTierBadge(tool.required_tier);
 
           const handleClick = (e: React.MouseEvent) => {
             if (!gateResult.allowed && gateResult.required_tier !== 'free') {
               e.preventDefault();
-              openUpgradeModal('cloud', gateResult.required_tier as 'basic' | 'pro', gateResult.cloud_id);
+              const upgradeCloud = gateResult.upgrade_cloud_id || tool.cloud_ids[0];
+              openUpgradeModal('cloud', gateResult.required_tier as 'basic' | 'pro', upgradeCloud);
             }
           };
           

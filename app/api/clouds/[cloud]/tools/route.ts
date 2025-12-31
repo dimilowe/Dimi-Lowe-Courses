@@ -60,7 +60,7 @@ export async function GET(
           description: row.description,
           featured: row.featured || false,
           segment: row.segment,
-          cloud_id: registryTool?.cloud_id || targetCloudId,
+          cloud_ids: registryTool?.cloud_ids || [targetCloudId],
           required_tier: registryTool?.required_tier || 'free' as EntitlementTier,
         };
       })

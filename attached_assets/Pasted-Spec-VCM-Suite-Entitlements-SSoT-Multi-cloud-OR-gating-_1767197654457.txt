@@ -1,0 +1,217 @@
+Spec: VCM Suite Entitlements SSoT (Multi-cloud OR gating)
+Goal
+Single source of truth for gating:
+Tool tiles
+Tool pages
+Tool API routes
+One gate function. No custom logic anywhere else.
+Data model changes
+Update Tool interface
+Replace “category-only” entitlement logic with cloud_ids + required_tier.
+export type EntitlementTier = 'free' | 'basic' | 'pro' | 'enterprise';
+
+export interface Tool {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+
+  category: ToolCategory;         // UI grouping only
+  cloud_ids: CloudId[];           // SSoT: which cloud subscriptions can unlock this tool (OR logic)
+  required_tier: EntitlementTier; // SSoT: minimum tier required
+
+  tags: ToolTag[];
+  icon: string;
+  iconBg: string;
+  priority: number;
+  isNew?: boolean;
+  isTrending?: boolean;
+  isMBB?: boolean;
+  engineType: EngineType;
+  inputType: InputType;
+  outputType: OutputType;
+  relatedTools: string[];
+  relatedArticles: string[];
+}
+Migration defaults
+If a tool currently has cloud tags in admin → set cloud_ids = those tags
+If not tagged → set cloud_ids = [] and block publish until fixed
+Set required_tier = 'free' for all existing tools initially
+Central gating module (SSoT runtime)
+Keep your existing hasAccess() helper
+No change needed, but it will be used internally.
+const TIER_ORDER: EntitlementTier[] = ['free', 'basic', 'pro', 'enterprise'];
+
+export function hasAccess(
+  entitlements: CloudEntitlement[] | undefined,
+  cloud: CloudId,
+  required: EntitlementTier
+): boolean {
+  const record = entitlements?.find(e => e.cloud_id === cloud && (e.status === 'active' || e.status === 'trial'));
+  if (!record) return false;
+  return TIER_ORDER.indexOf(record.tier) >= TIER_ORDER.indexOf(required);
+}
+Add gateTool() (the only gate anyone calls)
+Create lib/entitlements/gateTool.ts:
+export type GateReason =
+  | 'allowed'
+  | 'not_logged_in'
+  | 'no_entitlement'
+  | 'tier_too_low'
+  | 'misconfigured_tool';
+
+export interface GateResult {
+  allowed: boolean;
+  reason: GateReason;
+
+  required_tier: EntitlementTier;
+  user_tier_best: EntitlementTier | null;
+
+  // For UX / upgrade
+  upgrade_cloud_id: CloudId | null;
+
+  // Debug
+  checked_cloud_ids: CloudId[];
+}
+
+export function gateTool(params: {
+  tool: Pick<Tool, 'cloud_ids' | 'required_tier'>;
+  entitlements: CloudEntitlement[] | undefined;
+  isLoggedIn: boolean;
+}): GateResult {
+  const { tool, entitlements, isLoggedIn } = params;
+
+  // Misconfig protection
+  if (!tool.cloud_ids || tool.cloud_ids.length === 0) {
+    return {
+      allowed: tool.required_tier === 'free', // free tools can be accessible even if untagged (optional)
+      reason: tool.required_tier === 'free' ? 'allowed' : 'misconfigured_tool',
+      required_tier: tool.required_tier,
+      user_tier_best: null,
+      upgrade_cloud_id: null,
+      checked_cloud_ids: tool.cloud_ids ?? []
+    };
+  }
+
+  // Free tier tools are always allowed
+  if (tool.required_tier === 'free') {
+    return {
+      allowed: true,
+      reason: 'allowed',
+      required_tier: tool.required_tier,
+      user_tier_best: null,
+      upgrade_cloud_id: null,
+      checked_cloud_ids: tool.cloud_ids
+    };
+  }
+
+  if (!isLoggedIn) {
+    return {
+      allowed: false,
+      reason: 'not_logged_in',
+      required_tier: tool.required_tier,
+      user_tier_best: null,
+      upgrade_cloud_id: tool.cloud_ids[0] ?? null,
+      checked_cloud_ids: tool.cloud_ids
+    };
+  }
+
+  // OR logic across clouds
+  const ok = tool.cloud_ids.some(cloudId => hasAccess(entitlements, cloudId, tool.required_tier));
+
+  if (ok) {
+    // optional: compute best tier user has across the tool clouds for display
+    const active = entitlements?.filter(e => tool.cloud_ids.includes(e.cloud_id) && (e.status === 'active' || e.status === 'trial')) ?? [];
+    const best = active
+      .map(e => e.tier)
+      .sort((a, b) => TIER_ORDER.indexOf(b) - TIER_ORDER.indexOf(a))[0] ?? null;
+
+    return {
+      allowed: true,
+      reason: 'allowed',
+      required_tier: tool.required_tier,
+      user_tier_best: best,
+      upgrade_cloud_id: null,
+      checked_cloud_ids: tool.cloud_ids
+    };
+  }
+
+  // Decide best upsell target (simple v1: first cloud)
+  return {
+    allowed: false,
+    reason: entitlements?.some(e => tool.cloud_ids.includes(e.cloud_id) && (e.status === 'active' || e.status === 'trial'))
+      ? 'tier_too_low'
+      : 'no_entitlement',
+    required_tier: tool.required_tier,
+    user_tier_best: 'free',
+    upgrade_cloud_id: tool.cloud_ids[0] ?? null,
+    checked_cloud_ids: tool.cloud_ids
+  };
+}
+Rule: tiles/pages/APIs call gateTool() only.
+Admin UI changes (Content → Tools)
+You already have the “Edit Cloud Tags” modal with checkboxes.
+Extend it to also include:
+Required Tier selector
+Add a “Required Tier” section:
+Radio buttons or dropdown:
+Free
+Basic
+Pro
+Enterprise
+When saving, persist:
+cloud_ids = selected clouds
+required_tier = selected tier
+Admin validations
+On save:
+If required_tier !== 'free' and cloud_ids.length === 0 → block save with error
+Optional: If required_tier === 'free' and cloud_ids.length === 0 → warn (tool won’t show in any cloud page)
+Frontend tool tiles (Featured/Cloud pages)
+Badge rendering (derived)
+Remove any hardcoded “PRO/BASIC/STARTER” logic.
+Compute:
+const badge = tool.required_tier === 'free' ? null : tool.required_tier.toUpperCase();
+Lock/fade behavior (derived)
+Call gateTool with:
+tool
+entitlements
+isLoggedIn
+If not allowed:
+fade tile
+disable click
+show “Unlock with {upgrade_cloud_id} {required_tier}”
+Tool page route protection (must have)
+In ToolPageWrapper (or wherever you render tool by slug):
+Fetch tool
+Fetch user session
+Fetch entitlements if logged in
+Call gateTool()
+If not allowed:
+Render <UpgradeWall gate={gateResult} tool={tool} />
+DO NOT render tool UI
+API route protection (must have)
+Create a wrapper:
+export function withToolGate(handler) {
+  return async (req, res) => {
+    const tool = await getToolFromReq(req); // slug param
+    const session = await getSession(req);
+    const entitlements = session ? await getCloudEntitlementsForUser(session.userId) : undefined;
+
+    const gate = gateTool({ tool, entitlements, isLoggedIn: !!session });
+
+    if (!gate.allowed) {
+      return res.status(403).json({ ok: false, gate });
+    }
+
+    return handler(req, res, { tool, session, entitlements });
+  };
+}
+All tool APIs use it.
+Startup validation (prevent drift forever)
+At app startup (dev + CI):
+Iterate all tools
+Assert:
+required_tier exists and valid enum
+cloud_ids exists (can be empty only if required_tier is free, if you allow that)
+There is no “badgeTier” field anywhere
+If invalid → throw and crash.

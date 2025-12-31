@@ -23,7 +23,7 @@ type TaggedTool = {
   description: string;
   featured: boolean;
   segment?: string;
-  cloud_id: CloudId;
+  cloud_ids: CloudId[];
   required_tier: EntitlementTier;
 };
 
@@ -128,7 +128,7 @@ export default function CloudDashboardEngine({ cms }: CloudDashboardProps) {
     slug: tool.slug,
     title: tool.title,
     description: tool.description,
-    cloud_id: tool.cloud_id,
+    cloud_ids: tool.cloud_ids,
     required_tier: tool.required_tier,
   }));
 

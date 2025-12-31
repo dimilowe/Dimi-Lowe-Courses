@@ -13,18 +13,34 @@ export function validateToolsRegistry(): ValidationError[] {
   const tierSet = new Set(ENTITLEMENT_TIERS);
 
   for (const tool of toolsRegistry) {
-    if (!tool.cloud_id) {
+    if (!tool.cloud_ids) {
       errors.push({
         toolId: tool.id,
-        field: 'cloud_id',
-        message: `Tool "${tool.id}" is missing cloud_id`
+        field: 'cloud_ids',
+        message: `Tool "${tool.id}" is missing cloud_ids`
       });
-    } else if (!cloudIdSet.has(tool.cloud_id)) {
+    } else if (!Array.isArray(tool.cloud_ids)) {
       errors.push({
         toolId: tool.id,
-        field: 'cloud_id',
-        message: `Tool "${tool.id}" has invalid cloud_id: "${tool.cloud_id}"`
+        field: 'cloud_ids',
+        message: `Tool "${tool.id}" cloud_ids must be an array`
       });
+    } else if (tool.cloud_ids.length === 0 && tool.required_tier !== 'free') {
+      errors.push({
+        toolId: tool.id,
+        field: 'cloud_ids',
+        message: `Tool "${tool.id}" has non-free tier but empty cloud_ids (misconfigured)`
+      });
+    } else {
+      for (const cloudId of tool.cloud_ids) {
+        if (!cloudIdSet.has(cloudId)) {
+          errors.push({
+            toolId: tool.id,
+            field: 'cloud_ids',
+            message: `Tool "${tool.id}" has invalid cloud_id in array: "${cloudId}"`
+          });
+        }
+      }
     }
 
     if (!tool.required_tier) {
