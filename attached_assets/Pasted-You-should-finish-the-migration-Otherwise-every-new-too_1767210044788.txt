@@ -1,0 +1,56 @@
+You should finish the migration. Otherwise every new tool will require two writes (DB + registry) and drift comes back.
+What to do
+Make the DB the only source for tool listing pages:
+/tools
+/tools/all
+category pages
+cluster pages
+Registry should become seed-only or legacy reference, not used for rendering.
+Implementation plan (minimal changes, no SEO breakage)
+Task 1 — Create one DB “tools listing” function
+Create something like:
+lib/tools/getToolsForDirectory.ts
+It should:
+query tools table
+filter out deleted tools (deleted_at IS NULL)
+filter to “published-ish” tools (whatever you use: status != 'draft' OR in_directory = true)
+return everything the directory needs: slug, name, description, icon, icon_bg, priority, category, tags, required_tier, required_clouds, featured, is_new, is_trending, etc.
+Important: Use DB fields already in schema. Don’t add new ones.
+Task 2 — Replace registry usage in directory pages
+Update:
+app/tools/page.tsx
+app/tools/all/page.tsx
+any category pages
+any cluster pages
+So they render from the DB result instead of toolsRegistry.
+Task 3 — Keep ordering + filters consistent
+If the registry had custom sort order:
+replicate with ORDER BY priority ASC, featured DESC, ...
+or whatever you want.
+If you had “group by category/cluster” logic:
+derive it from DB columns category, cluster, pillar_slug, etc.
+Task 4 — Keep gating UI consistent
+Directory tiles should show:
+badge from required_tier (DB)
+lock state from gateTool() using DB fields + user entitlements
+Now discovery and gating align automatically.
+Decide your “directory inclusion” rule (so you don’t accidentally show drafts)
+You already have fields that can control this:
+in_directory boolean
+status varchar (draft/published)
+link_status etc.
+Pick one clear rule and enforce it everywhere.
+My recommendation:
+Directory pages show in_directory = true and deleted_at IS NULL
+“All tools” admin view shows everything
+That keeps SEO pages from leaking half-built stuff.
+Acceptance tests
+Create a tool row in DB only (no registry)
+set in_directory=true
+it appears in /tools and /tools/all
+Set its required_tier='pro' and required_clouds=['video']
+tile locks for non-pro users
+page gates server-side
+API gates with 403
+Remove or ignore registry entry for an existing tool
+tool still appears because DB is canonical
