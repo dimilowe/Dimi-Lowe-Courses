@@ -5,8 +5,11 @@ import { ToolForRenderer } from '@/lib/cms/getCmsToolBySlug';
 import { getEngineLoader, EngineComponentProps } from '@/lib/engineRegistry';
 import ToolComingSoon from '@/components/engines/ToolComingSoon';
 import { CloudUpsellBlock } from '@/components/clouds/CloudUpsellBlock';
+import UpgradeWall from '@/components/entitlements/UpgradeWall';
+import { gateTool, getTierBadge, GateResult } from '@/lib/entitlements/gate';
 import { hasAccess, cloudSlugToId } from '@/lib/cloudEntitlements.client';
-import type { CloudEntitlement } from '@/lib/types/cloudEntitlements';
+import { toolsRegistry } from '@/data/toolsRegistry';
+import type { CloudEntitlement, CloudId } from '@/lib/types/cloudEntitlements';
 
 interface ToolPageClientProps {
   tool: ToolForRenderer;
@@ -18,12 +21,14 @@ export default function ToolPageClient({ tool, hasEngine }: ToolPageClientProps)
   const [loading, setLoading] = useState(hasEngine);
   const [entitlements, setEntitlements] = useState<CloudEntitlement[]>([]);
   const [entitlementsLoading, setEntitlementsLoading] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     fetch('/api/user/entitlements')
       .then(res => res.json())
       .then(data => {
         setEntitlements(data.entitlements || []);
+        setIsLoggedIn(data.isLoggedIn ?? false);
         setEntitlementsLoading(false);
       })
       .catch(() => {
@@ -53,12 +58,22 @@ export default function ToolPageClient({ tool, hasEngine }: ToolPageClientProps)
       });
   }, [hasEngine, tool.engine]);
 
-  const primaryCloudTag = tool.cloudTags?.[0];
-  const primaryCloudId = primaryCloudTag ? cloudSlugToId(primaryCloudTag) : null;
+  const registryTool = toolsRegistry.find(t => t.slug === tool.slug);
+  const cloud_ids: CloudId[] = registryTool?.cloud_ids || 
+    (tool.cloudTags?.map(tag => cloudSlugToId(tag)).filter((id): id is CloudId => id !== null) || []);
+  const required_tier = registryTool?.required_tier || 'free';
+
+  const gateResult: GateResult | null = !entitlementsLoading ? gateTool({
+    tool: { cloud_ids, required_tier },
+    entitlements,
+    isLoggedIn
+  }) : null;
+
+  const primaryCloudId = cloud_ids[0] || null;
   const canUsePro = primaryCloudId && hasAccess(entitlements, primaryCloudId, 'pro');
   const canUseBasic = primaryCloudId && hasAccess(entitlements, primaryCloudId, 'basic');
 
-  if (loading) {
+  if (loading || entitlementsLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-pulse">
@@ -66,6 +81,16 @@ export default function ToolPageClient({ tool, hasEngine }: ToolPageClientProps)
           <div className="h-4 bg-gray-200 rounded w-48" />
         </div>
       </div>
+    );
+  }
+
+  if (gateResult && !gateResult.allowed) {
+    return (
+      <UpgradeWall
+        gate={gateResult}
+        toolName={tool.name}
+        toolDescription={tool.description}
+      />
     );
   }
 
