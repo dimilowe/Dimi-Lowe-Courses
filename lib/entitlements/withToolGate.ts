@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
-import { toolsRegistry, type Tool } from '@/data/toolsRegistry';
-import { gateTool, type GateResult } from '@/lib/entitlements/gate';
+import { getToolBySlug, ToolRecord } from '@/lib/toolsRepo';
+import { gateTool, type GateResult, type ToolAccess } from '@/lib/entitlements/gate';
 import { getCloudEntitlementsForUser } from '@/lib/cloudEntitlements';
-import type { CloudEntitlement } from '@/lib/types/cloudEntitlements';
+import type { CloudEntitlement, CloudId, EntitlementTier } from '@/lib/types/cloudEntitlements';
 
 interface SessionData {
   userId?: number;
@@ -20,7 +20,7 @@ const sessionOptions = {
 };
 
 export interface GatedContext {
-  tool: Tool;
+  tool: ToolRecord;
   session: SessionData | null;
   entitlements: CloudEntitlement[];
   gate: GateResult;
@@ -35,7 +35,7 @@ export function withToolGate(handler: GatedHandler) {
   return async (req: NextRequest, { params }: { params: Promise<{ slug: string }> }) => {
     const { slug } = await params;
 
-    const tool = toolsRegistry.find(t => t.slug === slug);
+    const tool = await getToolBySlug(slug);
     if (!tool) {
       return NextResponse.json(
         { ok: false, error: 'Tool not found' },
@@ -52,8 +52,13 @@ export function withToolGate(handler: GatedHandler) {
       entitlements = await getCloudEntitlementsForUser(session.userId);
     }
 
+    const toolAccess: ToolAccess = {
+      required_clouds: (tool.requiredClouds ?? []) as CloudId[],
+      required_tier: (tool.requiredTier ?? 'free') as EntitlementTier
+    };
+
     const gate = gateTool({
-      tool: { cloud_ids: tool.cloud_ids, required_tier: tool.required_tier },
+      tool: toolAccess,
       entitlements,
       isLoggedIn
     });
@@ -76,8 +81,8 @@ export function withToolGate(handler: GatedHandler) {
 
 export async function gateToolForRequest(
   slug: string
-): Promise<{ allowed: true; tool: Tool; entitlements: CloudEntitlement[]; gate: GateResult } | { allowed: false; gate: GateResult; response: NextResponse }> {
-  const tool = toolsRegistry.find(t => t.slug === slug);
+): Promise<{ allowed: true; tool: ToolRecord; entitlements: CloudEntitlement[]; gate: GateResult } | { allowed: false; gate: GateResult; response: NextResponse }> {
+  const tool = await getToolBySlug(slug);
   if (!tool) {
     const gate: GateResult = {
       allowed: false,
@@ -103,8 +108,13 @@ export async function gateToolForRequest(
     entitlements = await getCloudEntitlementsForUser(session.userId);
   }
 
+  const toolAccess: ToolAccess = {
+    required_clouds: (tool.requiredClouds ?? []) as CloudId[],
+    required_tier: (tool.requiredTier ?? 'free') as EntitlementTier
+  };
+
   const gate = gateTool({
-    tool: { cloud_ids: tool.cloud_ids, required_tier: tool.required_tier },
+    tool: toolAccess,
     entitlements,
     isLoggedIn
   });

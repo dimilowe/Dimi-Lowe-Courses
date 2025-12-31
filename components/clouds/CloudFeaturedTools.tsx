@@ -68,7 +68,7 @@ export default function CloudFeaturedTools({
         {tools.map((tool, idx) => {
           const gradient = tool.gradient || PLACEHOLDER_GRADIENTS[idx % PLACEHOLDER_GRADIENTS.length];
           const gateResult = gateTool({
-            tool: { cloud_ids: tool.cloud_ids, required_tier: tool.required_tier },
+            tool: { required_clouds: tool.cloud_ids, required_tier: tool.required_tier },
             entitlements: entitlementsArray,
             isLoggedIn
           });

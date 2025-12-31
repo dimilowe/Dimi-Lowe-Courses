@@ -2,9 +2,9 @@ import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import { getCloudEntitlementsForUser } from "@/lib/cloudEntitlements";
-import { gateTool, GateResult } from "./gate";
-import { toolsRegistry, type Tool } from "@/data/toolsRegistry";
-import type { CloudEntitlement, CloudId } from "@/lib/types/cloudEntitlements";
+import { gateTool, GateResult, ToolAccess } from "./gate";
+import { getToolBySlug, ToolRecord } from "@/lib/toolsRepo";
+import type { CloudEntitlement, CloudId, EntitlementTier } from "@/lib/types/cloudEntitlements";
 
 export interface ServerGateParams {
   slug: string;
@@ -14,19 +14,19 @@ export interface ServerGateResult {
   gate: GateResult;
   isLoggedIn: boolean;
   entitlements: CloudEntitlement[];
-  registryTool: Tool | undefined;
+  dbTool: ToolRecord | null;
 }
 
 export async function getServerGate(params: ServerGateParams): Promise<ServerGateResult> {
   console.log(`[ServerGate] ENTERED with params:`, JSON.stringify(params));
   const { slug } = params;
   
-  const registryTool = toolsRegistry.find(t => t.slug === slug);
+  const dbTool = await getToolBySlug(slug);
   
-  console.log(`[ServerGate] slug=${slug}, found=${!!registryTool}, required_tier=${registryTool?.required_tier || 'free'}`);
+  const required_clouds: CloudId[] = (dbTool?.requiredClouds ?? []) as CloudId[];
+  const required_tier: EntitlementTier = (dbTool?.requiredTier ?? 'free') as EntitlementTier;
   
-  const cloud_ids: CloudId[] = registryTool?.cloud_ids || [];
-  const required_tier = registryTool?.required_tier || 'free';
+  console.log(`[ServerGate] slug=${slug}, found=${!!dbTool}, required_tier=${required_tier}`);
   
   let isLoggedIn = false;
   let entitlements: CloudEntitlement[] = [];
@@ -42,8 +42,10 @@ export async function getServerGate(params: ServerGateParams): Promise<ServerGat
     console.error("[ServerGate] Error getting session:", error);
   }
   
+  const toolAccess: ToolAccess = { required_clouds, required_tier };
+  
   const gate = gateTool({
-    tool: { cloud_ids, required_tier },
+    tool: toolAccess,
     entitlements,
     isLoggedIn
   });
@@ -54,6 +56,6 @@ export async function getServerGate(params: ServerGateParams): Promise<ServerGat
     gate,
     isLoggedIn,
     entitlements,
-    registryTool
+    dbTool
   };
 }

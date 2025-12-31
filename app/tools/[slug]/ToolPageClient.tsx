@@ -6,10 +6,9 @@ import { getEngineLoader, EngineComponentProps } from '@/lib/engineRegistry';
 import ToolComingSoon from '@/components/engines/ToolComingSoon';
 import { CloudUpsellBlock } from '@/components/clouds/CloudUpsellBlock';
 import UpgradeWall from '@/components/entitlements/UpgradeWall';
-import { gateTool, getTierBadge, GateResult } from '@/lib/entitlements/gate';
+import { gateTool, GateResult } from '@/lib/entitlements/gate';
 import { hasAccess, cloudSlugToId } from '@/lib/cloudEntitlements.client';
-import { toolsRegistry } from '@/data/toolsRegistry';
-import type { CloudEntitlement, CloudId } from '@/lib/types/cloudEntitlements';
+import type { CloudEntitlement, CloudId, EntitlementTier } from '@/lib/types/cloudEntitlements';
 
 interface ToolPageClientProps {
   tool: ToolForRenderer;
@@ -58,18 +57,17 @@ export default function ToolPageClient({ tool, hasEngine }: ToolPageClientProps)
       });
   }, [hasEngine, tool.engine]);
 
-  const registryTool = toolsRegistry.find(t => t.slug === tool.slug);
-  const cloud_ids: CloudId[] = registryTool?.cloud_ids || 
+  const required_clouds: CloudId[] = (tool.requiredClouds as CloudId[]) || 
     (tool.cloudTags?.map(tag => cloudSlugToId(tag)).filter((id): id is CloudId => id !== null) || []);
-  const required_tier = registryTool?.required_tier || 'free';
+  const required_tier = tool.requiredTier || 'free';
 
   const gateResult: GateResult | null = !entitlementsLoading ? gateTool({
-    tool: { cloud_ids, required_tier },
+    tool: { required_clouds, required_tier },
     entitlements,
     isLoggedIn
   }) : null;
 
-  const primaryCloudId = cloud_ids[0] || null;
+  const primaryCloudId = required_clouds[0] || null;
   const canUsePro = primaryCloudId && hasAccess(entitlements, primaryCloudId, 'pro');
   const canUseBasic = primaryCloudId && hasAccess(entitlements, primaryCloudId, 'basic');
 

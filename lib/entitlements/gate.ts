@@ -1,5 +1,4 @@
 import type { CloudId, EntitlementTier, CloudEntitlement } from '@/lib/types/cloudEntitlements';
-import type { Tool } from '@/data/toolsRegistry';
 
 export type GateReason =
   | 'allowed'
@@ -17,6 +16,11 @@ export interface GateResult {
   checked_cloud_ids: CloudId[];
 }
 
+export interface ToolAccess {
+  required_clouds: CloudId[];
+  required_tier: EntitlementTier;
+}
+
 const TIER_ORDER: EntitlementTier[] = ['free', 'basic', 'pro', 'enterprise'];
 
 function hasAccess(
@@ -32,20 +36,21 @@ function hasAccess(
 }
 
 export function gateTool(params: {
-  tool: Pick<Tool, 'cloud_ids' | 'required_tier'>;
+  tool: ToolAccess;
   entitlements: CloudEntitlement[] | undefined;
   isLoggedIn: boolean;
 }): GateResult {
   const { tool, entitlements, isLoggedIn } = params;
+  const cloudIds = tool.required_clouds;
 
-  if (!tool.cloud_ids || tool.cloud_ids.length === 0) {
+  if (!cloudIds || cloudIds.length === 0) {
     return {
       allowed: tool.required_tier === 'free',
       reason: tool.required_tier === 'free' ? 'allowed' : 'misconfigured_tool',
       required_tier: tool.required_tier,
       user_tier_best: null,
       upgrade_cloud_id: null,
-      checked_cloud_ids: tool.cloud_ids ?? []
+      checked_cloud_ids: cloudIds ?? []
     };
   }
 
@@ -56,7 +61,7 @@ export function gateTool(params: {
       required_tier: tool.required_tier,
       user_tier_best: null,
       upgrade_cloud_id: null,
-      checked_cloud_ids: tool.cloud_ids
+      checked_cloud_ids: cloudIds
     };
   }
 
@@ -66,16 +71,16 @@ export function gateTool(params: {
       reason: 'not_logged_in',
       required_tier: tool.required_tier,
       user_tier_best: null,
-      upgrade_cloud_id: tool.cloud_ids[0] ?? null,
-      checked_cloud_ids: tool.cloud_ids
+      upgrade_cloud_id: cloudIds[0] ?? null,
+      checked_cloud_ids: cloudIds
     };
   }
 
-  const ok = tool.cloud_ids.some(cloudId => hasAccess(entitlements, cloudId, tool.required_tier));
+  const ok = cloudIds.some(cloudId => hasAccess(entitlements, cloudId, tool.required_tier));
 
   if (ok) {
     const active = entitlements?.filter(
-      e => tool.cloud_ids.includes(e.cloud_id) && (e.status === 'active' || e.status === 'trial')
+      e => cloudIds.includes(e.cloud_id) && (e.status === 'active' || e.status === 'trial')
     ) ?? [];
     const best = active
       .map(e => e.tier)
@@ -87,12 +92,12 @@ export function gateTool(params: {
       required_tier: tool.required_tier,
       user_tier_best: best,
       upgrade_cloud_id: null,
-      checked_cloud_ids: tool.cloud_ids
+      checked_cloud_ids: cloudIds
     };
   }
 
   const activeEntitlements = entitlements?.filter(
-    e => tool.cloud_ids.includes(e.cloud_id) && (e.status === 'active' || e.status === 'trial')
+    e => cloudIds.includes(e.cloud_id) && (e.status === 'active' || e.status === 'trial')
   ) ?? [];
   
   const userTierBest = activeEntitlements.length > 0
@@ -101,20 +106,15 @@ export function gateTool(params: {
         .sort((a, b) => TIER_ORDER.indexOf(b) - TIER_ORDER.indexOf(a))[0]
     : null;
 
-  // Smart upgrade_cloud_id selection:
-  // 1. Prefer a cloud where user already has an entitlement (closer to upgrade)
-  // 2. Fallback to first cloud in the tool's list
   let upgradeCloudId: CloudId | null = null;
   
   if (activeEntitlements.length > 0) {
-    // User has entitlements in some tool clouds - pick the highest tier one for upgrade
     const sorted = activeEntitlements.sort(
       (a, b) => TIER_ORDER.indexOf(b.tier) - TIER_ORDER.indexOf(a.tier)
     );
     upgradeCloudId = sorted[0].cloud_id;
   } else {
-    // No existing entitlements in tool clouds - fallback to first cloud
-    upgradeCloudId = tool.cloud_ids[0] ?? null;
+    upgradeCloudId = cloudIds[0] ?? null;
   }
 
   return {
@@ -123,7 +123,7 @@ export function gateTool(params: {
     required_tier: tool.required_tier,
     user_tier_best: userTierBest,
     upgrade_cloud_id: upgradeCloudId,
-    checked_cloud_ids: tool.cloud_ids
+    checked_cloud_ids: cloudIds
   };
 }
 
@@ -134,4 +134,8 @@ export function getTierBadge(required_tier: EntitlementTier): string | null {
 
 export function compareTiers(a: EntitlementTier, b: EntitlementTier): number {
   return TIER_ORDER.indexOf(a) - TIER_ORDER.indexOf(b);
+}
+
+export function isValidTier(tier: string): tier is EntitlementTier {
+  return TIER_ORDER.includes(tier as EntitlementTier);
 }

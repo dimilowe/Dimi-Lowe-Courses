@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing slug or field" }, { status: 400 });
     }
 
-    const allowedFields = ["isIndexed", "isFeatured", "inDirectory", "segment", "clusterSlug", "cloudTags"];
+    const allowedFields = ["isIndexed", "isFeatured", "inDirectory", "segment", "clusterSlug", "cloudTags", "requiredClouds", "requiredTier"];
     if (!allowedFields.includes(field)) {
       return NextResponse.json({ error: "Invalid field" }, { status: 400 });
     }
@@ -75,6 +75,12 @@ export async function POST(request: NextRequest) {
       if (!toolsTableUpdated && !cmsUpdated) {
         return NextResponse.json({ error: "Tool not found" }, { status: 404 });
       }
+    } else if (field === "requiredClouds") {
+      const clouds = Array.isArray(value) ? value : [];
+      await updateTool(slug, { requiredClouds: clouds });
+    } else if (field === "requiredTier") {
+      const tier = value || "free";
+      await updateTool(slug, { requiredTier: tier });
     } else {
       const fieldMap: Record<string, string> = {
         isFeatured: "featured",

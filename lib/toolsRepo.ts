@@ -51,6 +51,8 @@ export interface ToolRecord {
   relatedTools: string[] | null;
   relatedArticles: string[] | null;
   source: string | null;
+  requiredClouds: string[];
+  requiredTier: string;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
@@ -89,6 +91,8 @@ export interface NewToolInput {
   relatedTools?: string[];
   relatedArticles?: string[];
   source?: string;
+  requiredClouds?: string[];
+  requiredTier?: string;
 }
 
 function mapRowToTool(row: any): ToolRecord {
@@ -127,6 +131,8 @@ function mapRowToTool(row: any): ToolRecord {
     relatedTools: row.related_tools,
     relatedArticles: row.related_articles,
     source: row.source,
+    requiredClouds: row.required_clouds ?? [],
+    requiredTier: row.required_tier ?? 'free',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -248,10 +254,12 @@ export async function createTool(data: NewToolInput): Promise<ToolRecord> {
       category, tags, icon, icon_bg, priority, is_new, is_trending, is_mbb,
       input_type, output_type, primary_keyword, secondary_keywords, search_intent,
       pillar_slug, recommended_tools, recommended_articles, related_tools, related_articles, source,
+      required_clouds, required_tier,
       created_at, updated_at
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
       $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33,
+      $34, $35,
       NOW(), NOW()
     ) RETURNING *`,
     [
@@ -288,6 +296,8 @@ export async function createTool(data: NewToolInput): Promise<ToolRecord> {
       data.relatedTools || null,
       data.relatedArticles || null,
       data.source || 'manual',
+      data.requiredClouds ?? [],
+      data.requiredTier ?? 'free',
     ]
   );
   const tool = mapRowToTool(result.rows[0]);
@@ -336,6 +346,8 @@ export async function updateTool(
     relatedTools: 'related_tools',
     relatedArticles: 'related_articles',
     source: 'source',
+    requiredClouds: 'required_clouds',
+    requiredTier: 'required_tier',
   };
 
   for (const [key, column] of Object.entries(fieldMap)) {

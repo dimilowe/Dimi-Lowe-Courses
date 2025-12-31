@@ -1,7 +1,6 @@
 import { ReactNode } from 'react';
 import { getServerGate } from '@/lib/entitlements/getServerGate';
 import UpgradeWall from './UpgradeWall';
-import { toolsRegistry } from '@/data/toolsRegistry';
 
 interface ToolServerGateProps {
   slug: string;
@@ -16,11 +15,11 @@ export default async function ToolServerGate({
   toolDescription,
   children,
 }: ToolServerGateProps) {
-  const { gate, registryTool } = await getServerGate({ slug });
+  const { gate, dbTool } = await getServerGate({ slug });
 
   if (!gate.allowed) {
-    const name = toolName || registryTool?.name || 'Premium Tool';
-    const description = toolDescription || registryTool?.description;
+    const name = toolName || dbTool?.name || 'Premium Tool';
+    const description = toolDescription || dbTool?.description || undefined;
     
     return (
       <UpgradeWall

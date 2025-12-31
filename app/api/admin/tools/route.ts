@@ -31,19 +31,27 @@ export async function GET() {
   try {
     const dbTools = await listTools();
     
-    // Also fetch tools from cms_objects
+    // Also fetch tools from cms_objects, joining with tools table for entitlement data
     // Use a try-catch to handle missing 'featured' column in production
     let cmsResult;
     let hasFeaturedColumn = true;
     try {
       cmsResult = await query(
-        `SELECT slug, cluster_slug, pillar_slug, COALESCE(cloud_tags, '{}') AS cloud_tags, data, featured FROM cms_objects WHERE type = 'tool'`
+        `SELECT co.slug, co.cluster_slug, co.pillar_slug, COALESCE(co.cloud_tags, '{}') AS cloud_tags, co.data, co.featured,
+                COALESCE(t.required_clouds, '{}') AS required_clouds, COALESCE(t.required_tier, 'free') AS required_tier
+         FROM cms_objects co
+         LEFT JOIN tools t ON t.slug = co.slug
+         WHERE co.type = 'tool'`
       );
     } catch (err) {
       // Fallback query without featured column if it doesn't exist
       hasFeaturedColumn = false;
       cmsResult = await query(
-        `SELECT slug, cluster_slug, pillar_slug, COALESCE(cloud_tags, '{}') AS cloud_tags, data FROM cms_objects WHERE type = 'tool'`
+        `SELECT co.slug, co.cluster_slug, co.pillar_slug, COALESCE(co.cloud_tags, '{}') AS cloud_tags, co.data,
+                COALESCE(t.required_clouds, '{}') AS required_clouds, COALESCE(t.required_tier, 'free') AS required_tier
+         FROM cms_objects co
+         LEFT JOIN tools t ON t.slug = co.slug
+         WHERE co.type = 'tool'`
       );
     }
     const cmsToolSlugs = new Set(cmsResult.rows.map((r: { slug: string }) => r.slug));
@@ -100,11 +108,13 @@ export async function GET() {
           status: tool.status,
           source: tool.source,
           category: tool.category,
+          requiredClouds: tool.requiredClouds || [],
+          requiredTier: tool.requiredTier || "free",
         };
       });
     
     // Map CMS tools
-    const cmsTools = cmsResult.rows.map((row: { slug: string; cluster_slug: string | null; pillar_slug: string | null; cloud_tags: string[]; data: CmsToolData; featured?: boolean }) => {
+    const cmsTools = cmsResult.rows.map((row: { slug: string; cluster_slug: string | null; pillar_slug: string | null; cloud_tags: string[]; data: CmsToolData; featured?: boolean; required_clouds: string[]; required_tier: string }) => {
       const data = row.data;
       const toolUrl = `/tools/${row.slug}`;
       const isIndexed = indexStatusMap.get(toolUrl) ?? data.isIndexed ?? false;
@@ -126,6 +136,8 @@ export async function GET() {
         status: "active",
         source: "cms",
         category: "file",
+        requiredClouds: row.required_clouds || [],
+        requiredTier: row.required_tier || "free",
       };
     });
     

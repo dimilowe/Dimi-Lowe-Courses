@@ -61,6 +61,8 @@ export interface ToolForRenderer {
   interlinkParent?: string;
   interlinkSiblings?: string[];
   interlinkTools?: string[];
+  requiredClouds?: string[];
+  requiredTier?: string;
 }
 
 export const ENGINE_TO_CATEGORY: Record<string, { label: string; key: string }> = {

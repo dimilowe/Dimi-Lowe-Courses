@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { toolsRegistry } from "@/data/toolsRegistry";
 import type { CloudId, EntitlementTier } from "@/lib/types/cloudEntitlements";
 
 const CLOUD_SLUG_TO_ID: Record<string, CloudId> = {
@@ -40,7 +39,9 @@ export async function GET(
         COALESCE(co.data->>'title', co.slug) as title,
         COALESCE(co.data->>'description', '') as description,
         t.featured,
-        t.segment
+        t.segment,
+        COALESCE(t.required_clouds, '{}') as required_clouds,
+        COALESCE(t.required_tier, 'free') as required_tier
       FROM cms_objects co
       LEFT JOIN tools t ON t.slug = co.slug
       WHERE $1 = ANY(co.cloud_tags)
@@ -52,7 +53,7 @@ export async function GET(
     
     return NextResponse.json({ 
       tools: result.rows.map(row => {
-        const registryTool = toolsRegistry.find(t => t.slug === row.slug);
+        const requiredClouds = row.required_clouds || [];
         
         return {
           slug: row.slug,
@@ -60,8 +61,8 @@ export async function GET(
           description: row.description,
           featured: row.featured || false,
           segment: row.segment,
-          cloud_ids: registryTool?.cloud_ids || [targetCloudId],
-          required_tier: registryTool?.required_tier || 'free' as EntitlementTier,
+          cloud_ids: requiredClouds.length > 0 ? requiredClouds : [targetCloudId],
+          required_tier: (row.required_tier || 'free') as EntitlementTier,
         };
       })
     });

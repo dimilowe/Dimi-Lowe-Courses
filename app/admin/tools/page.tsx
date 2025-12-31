@@ -33,6 +33,8 @@ interface LinkStatus {
   details: string[];
 }
 
+type EntitlementTier = "free" | "basic" | "pro" | "enterprise";
+
 interface ToolSkin {
   slug: string;
   name: string;
@@ -40,6 +42,8 @@ interface ToolSkin {
   segment: string;
   clusterSlug: string;
   cloudTags?: CloudSlug[];
+  requiredClouds?: string[];
+  requiredTier?: EntitlementTier;
   isIndexed: boolean;
   isFeatured: boolean;
   inDirectory: boolean;
@@ -90,6 +94,9 @@ export default function AdminToolsPage() {
 
   const [editingCloudTags, setEditingCloudTags] = useState<{ slug: string; tags: CloudSlug[] } | null>(null);
   const [savingCloudTags, setSavingCloudTags] = useState(false);
+  
+  const [editingEntitlements, setEditingEntitlements] = useState<{ slug: string; requiredClouds: string[]; requiredTier: EntitlementTier } | null>(null);
+  const [savingEntitlements, setSavingEntitlements] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -257,6 +264,58 @@ export default function AdminToolsPage() {
       alert("Failed to save cloud tags");
     } finally {
       setSavingCloudTags(false);
+    }
+  };
+
+  const saveEntitlements = async () => {
+    if (!editingEntitlements) return;
+    
+    if (editingEntitlements.requiredTier !== "free" && editingEntitlements.requiredClouds.length === 0) {
+      alert("Non-free tier requires at least one cloud to be selected");
+      return;
+    }
+    
+    setSavingEntitlements(true);
+    try {
+      const cloudsRes = await fetch("/api/admin/tools/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          slug: editingEntitlements.slug, 
+          field: "requiredClouds", 
+          value: editingEntitlements.requiredClouds 
+        }),
+        credentials: "include",
+      });
+      
+      const tierRes = await fetch("/api/admin/tools/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          slug: editingEntitlements.slug, 
+          field: "requiredTier", 
+          value: editingEntitlements.requiredTier 
+        }),
+        credentials: "include",
+      });
+      
+      if (cloudsRes.ok && tierRes.ok) {
+        setTools((prev) =>
+          prev.map((t) => (t.slug === editingEntitlements.slug 
+            ? { ...t, requiredClouds: editingEntitlements.requiredClouds, requiredTier: editingEntitlements.requiredTier } 
+            : t))
+        );
+        setEditingEntitlements(null);
+      } else {
+        const cloudData = await cloudsRes.json().catch(() => ({}));
+        const tierData = await tierRes.json().catch(() => ({}));
+        alert(cloudData.error || tierData.error || "Failed to save entitlements");
+      }
+    } catch (error) {
+      console.error("Failed to save entitlements:", error);
+      alert("Failed to save entitlements");
+    } finally {
+      setSavingEntitlements(false);
     }
   };
 
@@ -501,6 +560,7 @@ export default function AdminToolsPage() {
                         <th className="text-left p-4 font-medium text-gray-600">Engine</th>
                         <th className="text-left p-4 font-medium text-gray-600">Cluster</th>
                         <th className="text-center p-4 font-medium text-gray-600">Clouds</th>
+                        <th className="text-center p-4 font-medium text-gray-600">Entitlements</th>
                         <th className="text-center p-4 font-medium text-gray-600">Link Status</th>
                         <th className="text-center p-4 font-medium text-gray-600">Indexed</th>
                         <th className="text-center p-4 font-medium text-gray-600">Featured</th>
@@ -547,6 +607,24 @@ export default function AdminToolsPage() {
                             ) : (
                               <span className="text-xs text-gray-400">-</span>
                             )}
+                          </td>
+                          <td className="p-4 text-center">
+                            <button
+                              onClick={() => setEditingEntitlements({ 
+                                slug: tool.slug, 
+                                requiredClouds: tool.requiredClouds || [], 
+                                requiredTier: tool.requiredTier || "free" 
+                              })}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                                tool.requiredTier && tool.requiredTier !== "free"
+                                  ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                              }`}
+                              title="Edit entitlements"
+                            >
+                              {tool.requiredTier && tool.requiredTier !== "free" ? tool.requiredTier : "free"}
+                              {(tool.requiredClouds?.length || 0) > 0 && ` (${tool.requiredClouds!.length})`}
+                            </button>
                           </td>
                           <td className="p-4 text-center">
                             <div 
@@ -798,6 +876,114 @@ export default function AdminToolsPage() {
                 className="bg-purple-600 hover:bg-purple-700"
               >
                 {savingCloudTags ? "Saving..." : "Save Cloud Tags"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingEntitlements && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div>
+                <h3 className="font-semibold text-gray-900">Edit Entitlements</h3>
+                <p className="text-sm text-gray-500">{editingEntitlements.slug}</p>
+              </div>
+              <button
+                onClick={() => setEditingEntitlements(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Required Tier</label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Set the minimum subscription tier required to access this tool.
+                </p>
+                <select
+                  value={editingEntitlements.requiredTier}
+                  onChange={(e) => setEditingEntitlements({
+                    ...editingEntitlements,
+                    requiredTier: e.target.value as EntitlementTier
+                  })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                >
+                  <option value="free">Free (no subscription required)</option>
+                  <option value="basic">Basic</option>
+                  <option value="pro">Pro</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
+              
+              {editingEntitlements.requiredTier !== "free" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Required Clouds</label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    User must have at least one of these clouds at the required tier (OR logic).
+                  </p>
+                  {editingEntitlements.requiredClouds.length === 0 && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg mb-3">
+                      <p className="text-sm text-amber-700">
+                        At least one cloud must be selected for non-free tiers.
+                      </p>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    {CLOUDS.map((cloud) => {
+                      const checked = editingEntitlements.requiredClouds.includes(cloud.slug);
+                      return (
+                        <label
+                          key={cloud.slug}
+                          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            checked ? "bg-amber-50 border-amber-300" : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 w-4 h-4 accent-amber-500"
+                            checked={checked}
+                            onChange={() => {
+                              if (checked) {
+                                setEditingEntitlements({
+                                  ...editingEntitlements,
+                                  requiredClouds: editingEntitlements.requiredClouds.filter((c) => c !== cloud.slug),
+                                });
+                              } else {
+                                setEditingEntitlements({
+                                  ...editingEntitlements,
+                                  requiredClouds: [...editingEntitlements.requiredClouds, cloud.slug],
+                                });
+                              }
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm text-gray-900">{cloud.name}</div>
+                            <div className="text-xs text-gray-500">{cloud.shortDescription}</div>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 p-4 border-t bg-gray-50 rounded-b-xl">
+              <Button
+                variant="outline"
+                onClick={() => setEditingEntitlements(null)}
+                disabled={savingEntitlements}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={saveEntitlements}
+                disabled={savingEntitlements || (editingEntitlements.requiredTier !== "free" && editingEntitlements.requiredClouds.length === 0)}
+                className="bg-amber-600 hover:bg-amber-700"
+              >
+                {savingEntitlements ? "Saving..." : "Save Entitlements"}
               </Button>
             </div>
           </div>

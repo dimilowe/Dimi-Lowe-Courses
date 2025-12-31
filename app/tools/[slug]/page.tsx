@@ -8,6 +8,7 @@ import { FreeToolsBlock } from '@/components/FreeToolsBlock';
 import { ToolBreadcrumb } from '@/components/tools/ToolBreadcrumb';
 import UpgradeWall from '@/components/entitlements/UpgradeWall';
 import { getServerGate } from '@/lib/entitlements/getServerGate';
+import { getToolBySlug } from '@/lib/toolsRepo';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -39,9 +40,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ToolPage({ params }: PageProps) {
   const { slug } = await params;
-  const tool = await getCmsToolBySlug(slug, { includeDrafts: true });
+  const [cmsTool, dbTool] = await Promise.all([
+    getCmsToolBySlug(slug, { includeDrafts: true }),
+    getToolBySlug(slug)
+  ]);
 
-  if (!tool) {
+  if (!cmsTool) {
     return notFound();
   }
 
@@ -51,11 +55,17 @@ export default async function ToolPage({ params }: PageProps) {
     return (
       <UpgradeWall
         gate={gate}
-        toolName={tool.name}
-        toolDescription={tool.description}
+        toolName={cmsTool.name}
+        toolDescription={cmsTool.description}
       />
     );
   }
+
+  const tool = {
+    ...cmsTool,
+    requiredClouds: dbTool?.requiredClouds ?? [],
+    requiredTier: dbTool?.requiredTier ?? 'free',
+  };
 
   const hasEngine = isEngineSupported(tool.engine);
   
