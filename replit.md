@@ -229,15 +229,40 @@ Each VCM Cloud has a dedicated dashboard page at /clouds/[cloud-slug]:
 - **Seeded dashboards**: All 8 clouds have CMS objects (creation-cloud, video-cloud, writing-seo-cloud, etc.)
 - **Funnel flow**: Tool → CloudUpsellBlock → Cloud Dashboard → Product/Store page
 
-### Cloud Entitlements System
-Controls user access to pro/AI features based on cloud subscription tier:
+### Cloud Entitlements System (SSoT Pattern)
+Controls user access to pro/AI features based on cloud subscription tier using Single Source of Truth pattern:
+
+#### SSoT Architecture (Dec 2025)
+- **toolsRegistry.ts**: Single source of truth for `cloud_ids: CloudId[]` and `required_tier: EntitlementTier`
+- **gateTool()**: Only gating function - tiles, pages, and APIs all call this
+- **OR Logic**: Tool is accessible if user has ANY of the cloud_ids at the required tier
+- **Derived badges**: `getTierBadge(required_tier)` - no separate badge field
+
+#### Key Files
+- **Gate module**: `lib/entitlements/gate.ts` - gateTool(), GateResult, GateReason
+- **Validation**: `lib/entitlements/validate.ts` - startup validator for registry
+- **API middleware**: `lib/entitlements/withToolGate.ts` - protects tool APIs with 403 + GateResult
+- **UpgradeWall**: `components/entitlements/UpgradeWall.tsx` - page-level protection UI
+
+#### GateResult Interface
+```typescript
+interface GateResult {
+  allowed: boolean;
+  reason: 'allowed' | 'not_logged_in' | 'no_entitlement' | 'tier_too_low' | 'misconfigured_tool';
+  required_tier: EntitlementTier;
+  user_tier_best: EntitlementTier | null;
+  upgrade_cloud_id: CloudId | null;
+  checked_cloud_ids: CloudId[];
+}
+```
+
+#### Legacy Infrastructure (still used)
 - **Database**: `cloud_entitlements` table with unique constraint on (user_id, cloud_id)
 - **Types**: `lib/types/cloudEntitlements.ts` defines CloudId, EntitlementTier, CloudEntitlement
 - **Helpers**: `lib/cloudEntitlements.ts` provides hasAccess(), getCloudEntitlementsForUser(), grantCloudEntitlement()
-- **Client helpers**: `lib/cloudEntitlements.client.ts` provides client-safe hasAccess(), cloudSlugToId() for use in 'use client' components
+- **Client helpers**: `lib/cloudEntitlements.client.ts` provides client-safe hasAccess(), cloudSlugToId()
 - **Offer mapping**: `lib/offers.ts` contains CLOUD_OFFER_MAP linking offer_keys to cloud entitlements
 - **API**: `/api/user/entitlements` endpoint (session-protected) returns current user's entitlements
-- **Tool integration**: ToolPageClient fetches entitlements and passes canUsePro/canUseBasic to engine components
 - **Tiers**: free → basic → pro → enterprise (hierarchical access)
 - **Statuses**: active, trial (both grant access), past_due, canceled
 - **Sources**: stripe, manual_grant, bundle, promotion
