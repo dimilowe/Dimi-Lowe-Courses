@@ -560,7 +560,7 @@ export default function AdminToolsPage() {
                         <th className="text-left p-4 font-medium text-gray-600">Engine</th>
                         <th className="text-left p-4 font-medium text-gray-600">Cluster</th>
                         <th className="text-center p-4 font-medium text-gray-600">Clouds</th>
-                        <th className="text-center p-4 font-medium text-gray-600">Entitlements</th>
+                        <th className="text-center p-4 font-medium text-gray-600">Tier</th>
                         <th className="text-center p-4 font-medium text-gray-600">Link Status</th>
                         <th className="text-center p-4 font-medium text-gray-600">Indexed</th>
                         <th className="text-center p-4 font-medium text-gray-600">Featured</th>
@@ -615,15 +615,25 @@ export default function AdminToolsPage() {
                                 requiredClouds: tool.requiredClouds || [], 
                                 requiredTier: tool.requiredTier || "free" 
                               })}
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                                tool.requiredTier && tool.requiredTier !== "free"
-                                  ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${
+                                tool.requiredTier === "enterprise"
+                                  ? "bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200"
+                                  : tool.requiredTier === "pro"
+                                  ? "bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200"
+                                  : tool.requiredTier === "basic"
+                                  ? "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200"
+                                  : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
                               }`}
-                              title="Edit entitlements"
+                              title="Click to edit tier and required clouds"
                             >
-                              {tool.requiredTier && tool.requiredTier !== "free" ? tool.requiredTier : "free"}
-                              {(tool.requiredClouds?.length || 0) > 0 && ` (${tool.requiredClouds!.length})`}
+                              <span className="uppercase tracking-wide">
+                                {tool.requiredTier || "free"}
+                              </span>
+                              {(tool.requiredClouds?.length || 0) > 0 && (
+                                <span className="opacity-70">
+                                  +{tool.requiredClouds!.length} cloud{tool.requiredClouds!.length > 1 ? 's' : ''}
+                                </span>
+                              )}
                             </button>
                           </td>
                           <td className="p-4 text-center">
