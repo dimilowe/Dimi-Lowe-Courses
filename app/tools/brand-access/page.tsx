@@ -54,6 +54,11 @@ const faqs = [
       "Yes. Use the 'Request a Brand' form at the bottom of the page. We review requests regularly and add entries when we can verify a public contact path exists.",
   },
   {
+    question: "Can I submit a brand to add?",
+    answer:
+      "Yes. Use the Contact Page Finder at the top of the page to find a brand's contact page, then submit the result for review. Submissions are reviewed by our team before being added to the directory.",
+  },
+  {
     question: "Why do I need Pro to see contact paths?",
     answer:
       "Brand Access is a Pro-tier tool inside Intelligence Cloud. Free users can preview entries and see brand names, but full contact URLs require an active Pro subscription.",
