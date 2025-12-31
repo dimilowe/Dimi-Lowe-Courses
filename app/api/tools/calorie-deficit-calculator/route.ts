@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { gateToolForRequest } from '@/lib/entitlements/withToolGate';
+
+const TOOL_SLUG = 'calorie-deficit-calculator';
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT = 15;
@@ -258,6 +261,12 @@ function calculateDeficit(foodCalories: number, health?: HealthAnalysis) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Gate check first
+    const gateResult = await gateToolForRequest(TOOL_SLUG);
+    if (!gateResult.allowed) {
+      return gateResult.response;
+    }
+
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
                request.headers.get('x-real-ip') || 
                'unknown';

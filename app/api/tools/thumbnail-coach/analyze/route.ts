@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { gateToolForRequest } from '@/lib/entitlements/withToolGate';
+
+const TOOL_SLUG = 'ai-thumbnail-coach';
 
 export const maxDuration = 60;
 
@@ -19,6 +22,12 @@ function ensureStringArray(value: unknown): string[] {
 
 export async function POST(request: NextRequest) {
   try {
+    // Gate check first
+    const gateResult = await gateToolForRequest(TOOL_SLUG);
+    if (!gateResult.allowed) {
+      return gateResult.response;
+    }
+
     const formData = await request.formData();
     const file = formData.get("thumbnail") as File | null;
 
