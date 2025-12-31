@@ -1,0 +1,219 @@
+Implement a user-facing “Contact Path Finder” inside Brand Access that can resolve a contact page for ANY website, BUT DO NOT allow users to publish directly to the shared directory. Use a request → resolve → admin approve pipeline.
+
+This is an add-on to the existing Brand Access tool you already built.
+
+========================
+GOALS
+========================
+1) Pro users can use Brand Access directory as-is.
+2) Any user (free or Pro) can use a “Find Contact Page” mini-tool:
+   - Input: brand name + website URL (or email)
+   - Output: best contact page URL found + confidence
+3) Users can click “Submit to Brand Access” which creates a request record containing the found URL.
+4) Admins can review requests in an admin panel and “Publish” to brand_access_entries with one click.
+5) Prevent abuse: throttling + caching + bounded fetches.
+
+========================
+A) DATABASE CHANGES
+========================
+
+1) Add fields to brand_access_requests (or create a new table if you prefer).
+Add columns:
+- resolved_website_url text
+- resolved_contact_url text
+- resolve_confidence text not null default 'low'       -- high | medium | low
+- resolver_method text                                 -- homepage_links | common_paths | none
+- admin_notes text
+- reviewed_by uuid
+- reviewed_at timestamptz
+- published_entry_id uuid references brand_access_entries(id)
+
+2) OPTIONAL: add a small “resolver_cache” table to avoid repeated crawling:
+resolver_cache
+- id uuid pk default gen_random_uuid()
+- domain text not null unique
+- website_url text
+- contact_url text
+- confidence text not null default 'low'
+- method text
+- expires_at timestamptz not null
+- created_at timestamptz not null default now()
+
+If you already have a caching system (kv, redis, etc.), use that instead.
+
+========================
+B) RESOLVER LOGIC (SERVER-SIDE ONLY)
+========================
+
+Create: lib/brandAccess/resolver.ts
+
+Core algorithm (bounded and polite):
+1) Normalize input → base domain URL
+   - If website_url provided, use it and normalize to origin (https://domain)
+   - Else if email provided, infer https://<domain> (ignore gmail/yahoo/outlook)
+2) Cache check:
+   - If domain in resolver_cache and expires_at > now() return cached result.
+3) Homepage link discovery:
+   - Fetch homepage HTML ONCE (GET base, 8s timeout, user-agent set)
+   - Parse anchors <a href="..."> with a lightweight regex or cheerio (if already used)
+   - Collect candidate links that contain one of:
+     contact, contact-us, support, help, customer-service, press, media, partnerships, affiliate, influencer, collab, pr
+   - Normalize relative → absolute
+   - Score candidates (contact > support > press > partnerships > affiliate, etc.)
+   - Validate top N (max 5) by HEAD/GET and accept first 200/3xx.
+4) Fallback common paths (max 12):
+   /contact
+   /contact-us
+   /pages/contact
+   /pages/contact-us
+   /support
+   /help
+   /customer-service
+   /customer-service/contact-us
+   /hc/en-us/requests/new
+   /en-us/contact
+   /pages/help
+   /pages/faq?hcUrl=%2Fen-US%2Fcontact
+   Validate each by HEAD/GET, accept first 200/3xx.
+5) Output:
+   - resolved_website_url
+   - resolved_contact_url (or null)
+   - confidence: high if homepage link matched & validated, medium if common path validated, low otherwise
+   - resolver_method: homepage_links | common_paths | none
+6) Write cache row with expires_at = now()+7days.
+
+ABSOLUTE LIMITS PER REQUEST:
+- 1 homepage fetch
+- up to 5 candidate validations
+- or up to 12 common path validations
+No more.
+
+Use a single fetch helper with:
+- timeout
+- follow redirects
+- basic headers:
+  User-Agent: "VCMSuiteBot/1.0 (+contact: support@vcmsuite.com)"
+  Accept: text/html,*/*
+Do NOT bypass bot protections. If blocked, return confidence=low.
+
+========================
+C) API ROUTES
+========================
+
+1) POST /api/tools/brand-access/resolve
+- Public route (no auth required) BUT rate limited by IP.
+- Body:
+  { brand_name?: string, website_url?: string, email?: string }
+- Returns:
+  { website_url, contact_url, confidence, method }
+- Throttle:
+  - 10 requests/hour/IP (or reuse existing limiter)
+- Also validate inputs:
+  - website_url must be http(s)
+  - email basic format
+  - max lengths
+
+2) POST /api/tools/brand-access/request
+Modify existing request route:
+- Accept optional resolved payload:
+  { requested_brand_name, requested_website_url?, request_reason?, user_email?, resolved_website_url?, resolved_contact_url?, resolve_confidence?, resolver_method? }
+- If resolved_... provided, store in brand_access_requests.
+- Status remains 'new'.
+
+3) ADMIN ONLY:
+Create /api/admin/brand-access/requests/list (GET)
+- Returns newest requests (status=new|reviewed) with resolved fields.
+
+Create /api/admin/brand-access/requests/publish (POST)
+- Input: { request_id }
+- Behavior:
+  - Load request
+  - Require resolved_contact_url present OR admin supplies manual contact_url
+  - Upsert into brand_access_entries:
+      brand_name = requested_brand_name
+      website_url = resolved_website_url OR requested_website_url
+      contact_url = resolved_contact_url
+      contact_type = 'brand' (default; admin can edit later)
+      tags = ['user-requested'] + (optional category)
+      notes = request_reason (trim)
+      is_active = true
+      last_verified = null
+  - Update request:
+      status='added'
+      published_entry_id=<new entry id>
+      reviewed_at=now()
+      reviewed_by=admin id
+Return ok.
+
+Create /api/admin/brand-access/requests/reject (POST)
+- Input: { request_id, admin_notes? }
+- Update request:
+  status='rejected'
+  reviewed_at, reviewed_by, admin_notes
+
+Admin auth:
+- Use existing admin role check.
+- If none exists, require an env var secret header:
+  X-VCM-ADMIN-SECRET must match process.env.VCM_ADMIN_SECRET
+
+========================
+D) FRONTEND CHANGES
+========================
+
+Inside BrandAccessClient:
+Add a new “Find Contact Page” section ABOVE the directory list (or as a tab).
+
+UI:
+- Inputs:
+  Brand name (optional)
+  Website URL (required OR email)
+  Email (optional)
+- Button: “Find contact page”
+- When clicked:
+  call POST /api/tools/brand-access/resolve
+  show result card:
+    - Contact page (clickable)
+    - Confidence badge (High/Medium/Low)
+    - Method label (Found on homepage / Common contact path / Not found)
+- Button: “Submit to Brand Access”
+  - calls POST /api/tools/brand-access/request with resolved fields included
+  - show toast: “Submitted for review.”
+
+Important:
+- Make it clear users do NOT publish directly:
+  “Submissions are reviewed before being added.”
+
+Admin panel:
+Create: app/admin/brand-access/page.tsx (admin-protected)
+- Table of requests:
+  Brand | Website | Suggested Contact | Confidence | Reason | Submitted | Actions
+- Actions:
+  Publish
+  Reject
+- On publish: calls admin publish API.
+
+========================
+E) DO NOT BREAK SEO / TOOL PAGE
+========================
+
+No changes to Brand Access SEO sections required, but add 1 FAQ entry:
+Q: “Can I submit a brand to add?”
+A: “Yes. Use the Contact Page Finder and submit the result for review.”
+
+========================
+F) DELIVERABLES
+========================
+Provide complete code for:
+- lib/brandAccess/resolver.ts
+- new API routes:
+  - app/api/tools/brand-access/resolve/route.ts
+  - app/api/admin/brand-access/requests/list/route.ts
+  - app/api/admin/brand-access/requests/publish/route.ts
+  - app/api/admin/brand-access/requests/reject/route.ts
+- update app/api/tools/brand-access/request/route.ts
+- update BrandAccessClient.tsx to include the finder + submit flow
+- new admin page: app/admin/brand-access/page.tsx
+- SQL migration for added columns + optional resolver_cache table
+- Ensure rate limiting is applied (reuse existing middleware if present)
+
+Proceed now.
