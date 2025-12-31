@@ -265,6 +265,45 @@ interface GateResult {
 - **Approach**: For Pro tools with dedicated pages, add getServerGate() + UpgradeWall wrapper
 - **Server-side helper**: `lib/entitlements/getServerGate.ts` provides session-aware gating for server components
 
+#### ToolServerGate Conversion Pattern (Dec 2025)
+When adding entitlement gating to dedicated tool pages, follow this pattern:
+
+1. **Rename** `app/tools/[tool]/page.tsx` to `app/tools/[tool]/[ToolName]Client.tsx`
+2. **Update** the renamed file's export: `export default function [ToolName]Client()`
+3. **Create** new `app/tools/[tool]/page.tsx` server component:
+
+```typescript
+import { Metadata } from 'next';
+import ToolServerGate from '@/components/entitlements/ToolServerGate';
+import [ToolName]Client from './[ToolName]Client';
+
+export const metadata: Metadata = {
+  title: '[Tool Title]',
+  description: '[Tool Description]',
+};
+
+export default function [ToolName]Page() {
+  return (
+    <ToolServerGate
+      slug="[tool-slug]"
+      toolName="[Tool Name]"
+      toolDescription="[Description]"
+    >
+      <[ToolName]Client />
+    </ToolServerGate>
+  );
+}
+```
+
+**ToolServerGate** (`components/entitlements/ToolServerGate.tsx`):
+- Server component wrapper that loads session + entitlements
+- Calls `gateTool()` and renders `UpgradeWall` if blocked
+- Passes through children if allowed
+
+**Smart Upsell**: `upgrade_cloud_id` prefers clouds where user already has entitlements (even at lower tier) for better conversion.
+
+**Converted Pages** (Dec 2025): ai-thumbnail-coach, image-to-prompt, summarizer, logo-generator, keyword-finder, horoscope-of-the-day, visualization, outfit-ideas, calorie-deficit-calculator, ai-humanizer-free, reach-grabber-tool, ad-copy-analyzer, internal-link-seo-audit, producer-tag-generator, affirmation-about-self-love, gif-maker, youtube-title-split-test, maker-quotes-generator
+
 #### Legacy Infrastructure (still used)
 - **Database**: `cloud_entitlements` table with unique constraint on (user_id, cloud_id)
 - **Types**: `lib/types/cloudEntitlements.ts` defines CloudId, EntitlementTier, CloudEntitlement
