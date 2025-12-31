@@ -42,6 +42,9 @@ export interface BrandAccessEntryPreview {
   locked: true;
 }
 
+export type ResolveConfidence = 'high' | 'medium' | 'low';
+export type ResolverMethod = 'homepage_links' | 'common_paths' | 'none';
+
 export interface BrandAccessRequest {
   id: string;
   requested_brand_name: string;
@@ -50,6 +53,32 @@ export interface BrandAccessRequest {
   user_email: string | null;
   user_id: number | null;
   status: RequestStatus;
+  created_at: string;
+  resolved_website_url: string | null;
+  resolved_contact_url: string | null;
+  resolve_confidence: ResolveConfidence;
+  resolver_method: ResolverMethod | null;
+  admin_notes: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  published_entry_id: string | null;
+}
+
+export interface ResolverResult {
+  website_url: string;
+  contact_url: string | null;
+  confidence: ResolveConfidence;
+  method: ResolverMethod;
+}
+
+export interface ResolverCacheEntry {
+  id: string;
+  domain: string;
+  website_url: string | null;
+  contact_url: string | null;
+  confidence: ResolveConfidence;
+  method: ResolverMethod | null;
+  expires_at: string;
   created_at: string;
 }
 
@@ -66,4 +95,8 @@ export interface CreateRequestParams {
   request_reason?: string;
   user_email?: string;
   user_id?: number;
+  resolved_website_url?: string;
+  resolved_contact_url?: string;
+  resolve_confidence?: ResolveConfidence;
+  resolver_method?: ResolverMethod;
 }
