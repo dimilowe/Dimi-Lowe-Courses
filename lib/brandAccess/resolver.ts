@@ -216,25 +216,21 @@ export async function resolveContactPage(input: {
   try {
     const response = await fetchWithTimeout(baseUrl);
     if (!response.ok) {
-      const result: ResolverResult = {
+      return {
         website_url: baseUrl,
         contact_url: null,
         confidence: 'low',
         method: 'none'
       };
-      await writeCache(domain, result);
-      return result;
     }
     html = await response.text();
   } catch {
-    const result: ResolverResult = {
+    return {
       website_url: baseUrl,
       contact_url: null,
       confidence: 'low',
       method: 'none'
     };
-    await writeCache(domain, result);
-    return result;
   }
   
   const candidates = extractCandidateLinks(html, baseUrl);
@@ -272,12 +268,10 @@ export async function resolveContactPage(input: {
     }
   }
   
-  const result: ResolverResult = {
+  return {
     website_url: baseUrl,
     contact_url: null,
     confidence: 'low',
     method: 'none'
   };
-  await writeCache(domain, result);
-  return result;
 }

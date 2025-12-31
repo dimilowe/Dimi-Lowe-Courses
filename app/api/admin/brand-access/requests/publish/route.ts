@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     await updateRequestStatus(
       request_id,
       'added',
-      'admin',
+      session.adminId || 'admin',
       undefined,
       entryId
     );

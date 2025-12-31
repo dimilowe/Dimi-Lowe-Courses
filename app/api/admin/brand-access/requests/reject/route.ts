@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     await updateRequestStatus(
       request_id,
       'rejected',
-      'admin',
+      session.adminId || 'admin',
       admin_notes || null
     );
 

@@ -2,6 +2,7 @@ import { SessionOptions } from "iron-session";
 
 export interface AdminSessionData {
   isAdmin: boolean;
+  adminId?: string;
 }
 
 export const sessionOptions: SessionOptions = {
