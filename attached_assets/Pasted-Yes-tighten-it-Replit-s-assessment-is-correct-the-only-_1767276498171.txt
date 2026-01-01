@@ -1,0 +1,71 @@
+Yes — tighten it. Replit’s assessment is correct: the only real problems left are abuse limits + no max shots cap. Fix those now or you’ll get wrecked.
+Here’s exactly what to change (minimal, surgical, no drift).
+1) Add a hard cap: MAX_SHOTS
+In lib/musicVideoParser/constants.ts
+Add:
+export const MAX_SHOTS = 500; // MVP safety cap
+In parser.ts after you compute shots
+Truncate deterministically (and store that you truncated):
+if (shots.length > MAX_SHOTS) {
+  shots = shots.slice(0, MAX_SHOTS);
+  await appendMeta(jobId, { truncated: true, max_shots: MAX_SHOTS });
+}
+Also adjust cuts to match truncated shots (so durations don’t reference missing frames). If your shots are derived from cuts, easiest is: slice the shots, and recompute end times based on the last kept shot.
+If you’re storing cuts, also store cuts_truncated = cuts.slice(0, MAX_SHOTS) (or however your mapping works).
+Goal: never extract 2000 frames because of strobes.
+2) Tier-based limits (don’t hardcode “free” in copy, but you can enforce limits in code)
+You already have gating and tool record from DB. Use it.
+Strategy
+For free: small demo value, no abuse risk
+For starter/basic/pro: loosen progressively
+Add in constants (or a limits.ts)
+export const LIMITS_BY_TIER = {
+  free:   { maxDurationSec: 90,  maxSizeBytes: 100 * 1024 * 1024, maxShots: 200 },
+  starter:{ maxDurationSec: 240, maxSizeBytes: 300 * 1024 * 1024, maxShots: 400 },
+  basic:  { maxDurationSec: 600, maxSizeBytes: 1024 * 1024 * 1024, maxShots: 800 },
+  pro:    { maxDurationSec: 900, maxSizeBytes: 2 * 1024 * 1024 * 1024, maxShots: 1200 }
+} as const;
+Then in start route, use gateResult.tool.requiredTier (or the tier from the tool record) to pick limits.
+If that’s annoying: simplest is just tighten defaults immediately:
+MAX_DURATION_SEC = 180
+MAX_SIZE_BYTES = 250MB
+MAX_SHOTS = 500
+But tier-based is cleaner since DB is SSoT.
+3) Rate limiting (do at least one)
+You don’t have a job limit system yet. Minimum viable protection:
+A) Per-IP rate limit (cheap)
+If you already have checkRateLimit(ip) pattern, apply it to:
+/start
+/run (less strict)
+B) Per-user jobs/day (better)
+Add a column:
+user_id on tool_jobs
+Then enforce:
+free: 5/day
+starter: 20/day
+basic: 50/day
+pro: 200/day
+This can be done with one SQL query count on created_at::date.
+If you don’t want to touch schema now, start with IP-based.
+4) Fix the “microcut merge” bug risk (subtle)
+Replit’s merge logic if gap >= MIN_SHOT_LEN_SEC push cut is not a full merge; it drops cuts, which is okay, but make sure it always includes:
+0.0
+final duration_sec
+If it doesn’t include the end, your last shot duration will be wrong.
+So ensure after normalization:
+start cuts: [0, ...]
+and you always compute final segment end as duration_sec
+My call on tier
+If you want this to be a Video/Music Cloud value lever, set it to starter and let free users run a “preview parse” (first 30–60 seconds only).
+That keeps the tool valuable and keeps infra safe.
+What to tell Replit (copy/paste)
+Yes, tighten limits now.
+
+Implement:
+1) Add MAX_SHOTS constant (default 500) and enforce truncation in cuts/shots stage so frames extraction never exceeds max shots.
+2) Reduce defaults: MAX_DURATION_SEC to 180 and MAX_SIZE_BYTES to 250MB OR implement tier-based limits (free: 90s/100MB/200 shots).
+3) Add rate limiting to /start (reuse existing checkRateLimit if available).
+4) Verify normalization always includes cut at 0.0 and uses duration_sec as final end so last shot duration is correct.
+
+Do not add any new features beyond limits/protection.
+Do that, and yes — then it’s genuinely shippable.
