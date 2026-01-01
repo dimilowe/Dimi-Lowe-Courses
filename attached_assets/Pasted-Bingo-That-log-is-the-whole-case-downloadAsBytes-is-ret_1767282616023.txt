@@ -1,0 +1,60 @@
+Bingo. That log is the whole case:
+downloadAsBytes(...) is returning Array len=1, not a Buffer/Uint8Array.
+That means the stored object is not raw bytes. It’s some serialized structure.
+Your “5MB uploaded” log only proves bytes passed through your counter, not that object storage persisted them as bytes.
+And yes: the most likely cause is exactly what you said — uploadFromStream + Readable.fromWeb(req.body) is not producing the kind of Node stream Replit’s object storage client expects, so it stores garbage (or a single array element).
+So the fix is simple and brutal:
+Stop using uploadFromStream for chunk uploads.
+Use req.arrayBuffer() → Buffer.from() → uploadFromBytes().
+That guarantees what comes back from downloadAsBytes() is real bytes.
+Why this is safe
+Your chunk size is 5MB. Buffering 5MB in memory per request is fine.
+You’re already chunking specifically to stay under limits.
+Autoscale-safe: object storage is still the source of truth.
+Exact fix for /upload-part
+Do not use Readable.fromWeb + uploadFromStream.
+Do this:
+export const runtime = "nodejs";
+
+export async function PUT(req: NextRequest) {
+  const jobId = req.nextUrl.searchParams.get("jobId");
+  const part = req.nextUrl.searchParams.get("part");
+  if (!jobId || !part) return NextResponse.json({ ok:false, error:"Missing jobId/part" }, { status: 400 });
+
+  // Optional: enforce chunk size max (e.g. 5MB)
+  const ab = await req.arrayBuffer();
+  const buf = Buffer.from(ab);
+
+  console.log("[chunk] received bytes=", buf.length);
+
+  const key = `music-video-parser/${jobId}/chunks/part-${String(part).padStart(4,"0")}`;
+  await client.uploadFromBytes(key, buf);
+
+  return NextResponse.json({ ok:true, bytes: buf.length, key });
+}
+Add an integrity check immediately after upload
+Right after uploading, download the first few bytes and confirm:
+const verify = await client.downloadAsBytes(key);
+console.log("[chunk] verify type", verify?.constructor?.name, "len", verify?.length, "hex16", Buffer.from(verify).subarray(0,16).toString("hex"));
+If verify shows real length (~5MB) and hex isn’t 00, you’re done.
+Finalize step should now work
+Because your finalize is already using downloadAsBytes() and you’ll now be pulling actual byte buffers.
+One more guardrail: fix getObjectBuffer
+Your log says constructor=Array. That means you’re not normalizing what comes back.
+Even after the fix, keep getObjectBuffer defensive:
+const raw = await client.downloadAsBytes(key);
+const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+return buf;
+What to tell Replit (copy/paste)
+Smoking gun confirmed: chunk objects are not bytes. downloadAsBytes returns Array len=1.
+
+Root cause is uploadFromStream + Readable.fromWeb(req.body) incompatibility with @replit/object-storage.
+
+Fix: for /upload-part, stop streaming. Buffer the request and use uploadFromBytes:
+
+const buf = Buffer.from(await req.arrayBuffer());
+await client.uploadFromBytes(key, buf);
+
+Add post-upload verify: downloadAsBytes(key) -> log constructor + length + first16 hex.
+Once chunks store real bytes, finalize+probe will work.
+This should unblock the entire pipeline immediately.
