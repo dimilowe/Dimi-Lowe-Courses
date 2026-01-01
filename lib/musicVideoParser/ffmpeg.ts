@@ -37,17 +37,49 @@ function runCommand(
   });
 }
 
-export async function ffprobeMetadata(inputPath: string): Promise<ProbeMetadata> {
+export async function ffprobeMetadata(inputPath: string, fileSize?: number): Promise<ProbeMetadata> {
   const args = [
-    "-v", "quiet",
+    "-v", "error",
+    "-hide_banner",
     "-print_format", "json",
     "-show_format",
     "-show_streams",
     inputPath
   ];
 
-  const { stdout } = await runCommand("ffprobe", args);
-  const data = JSON.parse(stdout);
+  const fs = await import("fs");
+  const fileExists = fs.existsSync(inputPath);
+  const actualSize = fileExists ? fs.statSync(inputPath).size : 0;
+
+  let result;
+  try {
+    result = await runCommand("ffprobe", args);
+  } catch (err: any) {
+    throw new Error(
+      `ffprobe failed. localPath=${inputPath}, fileExists=${fileExists}, ` +
+      `fileSize=${actualSize}, expectedSize=${fileSize ?? "unknown"}, ` +
+      `error=${err.message || err}`
+    );
+  }
+
+  const { stdout, stderr } = result;
+  
+  if (!stdout || stdout.trim() === "") {
+    throw new Error(
+      `ffprobe returned empty output. localPath=${inputPath}, fileExists=${fileExists}, ` +
+      `fileSize=${actualSize}, stderr=${stderr}`
+    );
+  }
+
+  let data;
+  try {
+    data = JSON.parse(stdout);
+  } catch (parseErr) {
+    throw new Error(
+      `ffprobe output is not valid JSON. localPath=${inputPath}, ` +
+      `stdout=${stdout.slice(0, 200)}, stderr=${stderr}`
+    );
+  }
 
   const videoStream = data.streams?.find(
     (s: any) => s.codec_type === "video"

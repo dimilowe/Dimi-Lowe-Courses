@@ -41,23 +41,78 @@ function cleanupJobDir(jobId: string): void {
   }
 }
 
-async function ensureInputVideo(job: ToolJob): Promise<string> {
-  const jobDir = getJobDir(job.id);
-  ensureDir(jobDir);
-  const inputPath = path.join(jobDir, "input.mp4");
-  
-  if (!fs.existsSync(inputPath)) {
-    const data = await getObjectBuffer(job.input_key!);
-    fs.writeFileSync(inputPath, Buffer.from(data));
+function cleanupInputFile(jobId: string): void {
+  const inputPath = `/tmp/${jobId}-input`;
+  try {
+    if (fs.existsSync(inputPath)) {
+      fs.unlinkSync(inputPath);
+    }
+  } catch (err) {
+    console.error(`Failed to cleanup input file ${inputPath}:`, err);
   }
+}
+
+interface InputVideoResult {
+  path: string;
+  size: number;
+}
+
+async function ensureInputVideo(job: ToolJob): Promise<InputVideoResult> {
+  const inputKey = job.meta_json?.input_key || job.input_key;
   
-  return inputPath;
+  if (!inputKey) {
+    throw new Error(`No input_key found for job ${job.id}`);
+  }
+
+  const localPath = `/tmp/${job.id}-input`;
+  
+  if (fs.existsSync(localPath)) {
+    const stat = fs.statSync(localPath);
+    if (stat.size > 0) {
+      return { path: localPath, size: stat.size };
+    }
+    fs.unlinkSync(localPath);
+  }
+
+  let data: Uint8Array;
+  try {
+    data = await getObjectBuffer(inputKey);
+  } catch (err: any) {
+    throw new Error(
+      `Failed to download input from object storage. ` +
+      `input_key=${inputKey}, jobId=${job.id}, error=${err.message || err}`
+    );
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error(
+      `Downloaded input is empty. input_key=${inputKey}, jobId=${job.id}`
+    );
+  }
+
+  fs.writeFileSync(localPath, Buffer.from(data));
+
+  const stat = fs.statSync(localPath);
+  if (stat.size === 0) {
+    throw new Error(
+      `Downloaded input file is empty after write. input_key=${inputKey}, jobId=${job.id}`
+    );
+  }
+
+  const hexPrefix = Buffer.from(data.slice(0, 32)).toString("hex");
+  console.log(`[ensureInputVideo] jobId=${job.id}, size=${stat.size}, hexPrefix=${hexPrefix}`);
+
+  return { path: localPath, size: stat.size };
 }
 
 async function stageProbe(job: ToolJob): Promise<void> {
-  const inputPath = await ensureInputVideo(job);
+  const input = await ensureInputVideo(job);
 
-  const probe = await ffprobeMetadata(inputPath);
+  if (input.size === 0) {
+    throw new Error(`Input file is empty (0 bytes), cannot probe. jobId=${job.id}`);
+  }
+
+  const probe = await ffprobeMetadata(input.path, input.size);
 
   if (probe.duration_sec > MAX_DURATION_SEC) {
     throw new Error(`Video too long: ${probe.duration_sec}s exceeds ${MAX_DURATION_SEC}s limit`);
@@ -68,7 +123,8 @@ async function stageProbe(job: ToolJob): Promise<void> {
 }
 
 async function stageCuts(job: ToolJob): Promise<void> {
-  const inputPath = await ensureInputVideo(job);
+  const input = await ensureInputVideo(job);
+  const inputPath = input.path;
 
   const rawCuts = await detectCuts(inputPath);
   const probe = job.meta_json?.probe;
@@ -117,7 +173,8 @@ async function stageCuts(job: ToolJob): Promise<void> {
 }
 
 async function stageFrames(job: ToolJob): Promise<void> {
-  const inputPath = await ensureInputVideo(job);
+  const input = await ensureInputVideo(job);
+  const inputPath = input.path;
   const jobDir = getJobDir(job.id);
   const framesDir = path.join(jobDir, "frames");
   ensureDir(framesDir);
@@ -224,6 +281,7 @@ async function stageCleanup(job: ToolJob): Promise<void> {
     await deleteObject(frameKey).catch(() => {});
   }
 
+  cleanupInputFile(job.id);
   cleanupJobDir(job.id);
 
   await updateJob(job.id, { status: "complete", progress: 100 });
@@ -275,6 +333,7 @@ export async function runNextStage(jobId: string): Promise<ToolJob> {
     if (job.input_key) {
       await deleteObject(job.input_key).catch(() => {});
     }
+    cleanupInputFile(jobId);
     cleanupJobDir(jobId);
 
     await updateJob(jobId, {
