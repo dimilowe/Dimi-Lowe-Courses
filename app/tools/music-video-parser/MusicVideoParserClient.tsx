@@ -1,31 +1,19 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 
-interface Shot {
-  shot_id: string;
-  timestamp_sec: number;
-  duration_sec: number;
-}
-
-interface JobStatus {
-  ok: boolean;
-  status: "pending" | "processing" | "complete" | "failed";
-  stage: string;
+interface BuildStatus {
+  stage: "idle" | "uploading" | "building" | "complete" | "failed";
   progress: number;
-  error: string | null;
-  hasOutput: boolean;
-  shots: Shot[] | null;
+  message: string;
 }
 
 export default function MusicVideoParserClient() {
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [status, setStatus] = useState<JobStatus | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [status, setStatus] = useState<BuildStatus>({ stage: "idle", progress: 0, message: "" });
   const [error, setError] = useState<string | null>(null);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -48,88 +36,17 @@ export default function MusicVideoParserClient() {
     }
   }, []);
 
-  const pollStatus = useCallback(async (id: string) => {
-    try {
-      const res = await fetch(`/api/tools/music-video-parser/status?jobId=${id}`);
-      const data: JobStatus = await res.json();
-      setStatus(data);
-
-      if (data.status === "complete" || data.status === "failed") {
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
-        return;
-      }
-
-      const runRes = await fetch("/api/tools/music-video-parser/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId: id })
-      });
-      const runData = await runRes.json();
-      if (runData.ok) {
-        setStatus(runData);
-      }
-    } catch (err) {
-      console.error("Polling error:", err);
-    }
-  }, []);
-
-  const startPolling = useCallback((id: string) => {
-    pollStatus(id);
-    pollingRef.current = setInterval(() => pollStatus(id), 2500);
-  }, [pollStatus]);
-
   const CHUNK_SIZE = 5 * 1024 * 1024;
-
-  const uploadChunked = async (jobId: string, file: File): Promise<boolean> => {
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-
-    for (let i = 0; i < totalChunks; i++) {
-      const start = i * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, file.size);
-      const chunk = file.slice(start, end);
-
-      const chunkRes = await fetch(
-        `/api/tools/music-video-parser/chunk?jobId=${jobId}&index=${i}&total=${totalChunks}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/octet-stream" },
-          body: chunk
-        }
-      );
-
-      const chunkData = await chunkRes.json();
-      if (!chunkRes.ok || !chunkData.ok) {
-        setError(chunkData.error || `Failed to upload chunk ${i + 1}/${totalChunks}`);
-        return false;
-      }
-    }
-
-    const finalizeRes = await fetch(
-      `/api/tools/music-video-parser/finalize?jobId=${jobId}`,
-      { method: "POST" }
-    );
-
-    const finalizeData = await finalizeRes.json();
-    if (!finalizeRes.ok || !finalizeData.ok) {
-      setError(finalizeData.error || "Failed to finalize upload");
-      return false;
-    }
-
-    return true;
-  };
 
   const handleUpload = async () => {
     if (!file) return;
 
-    setUploading(true);
     setError(null);
-    setStatus(null);
-    setJobId(null);
+    setDownloadUrl(null);
+    setStatus({ stage: "uploading", progress: 0, message: "Starting upload..." });
 
     try {
+      // Step 1: Start job
       const startRes = await fetch("/api/tools/music-video-parser/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -144,70 +61,82 @@ export default function MusicVideoParserClient() {
 
       if (!startData.ok) {
         setError(startData.error || "Failed to start processing");
-        setUploading(false);
+        setStatus({ stage: "failed", progress: 0, message: "" });
         return;
       }
 
-      const useChunked = file.size > CHUNK_SIZE;
+      const jobId = startData.jobId;
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
-      if (useChunked) {
-        const success = await uploadChunked(startData.jobId, file);
-        if (!success) {
-          setUploading(false);
-          return;
-        }
-      } else {
-        const uploadRes = await fetch(startData.uploadUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Type": file.type
-          },
-          body: file
+      // Step 2: Upload chunks
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
+
+        setStatus({ 
+          stage: "uploading", 
+          progress: Math.floor((i / totalChunks) * 50),
+          message: `Uploading chunk ${i + 1}/${totalChunks}...`
         });
 
-        const uploadData = await uploadRes.json();
+        const chunkRes = await fetch(
+          `/api/tools/music-video-parser/chunk?jobId=${jobId}&index=${i}&total=${totalChunks}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/octet-stream" },
+            body: chunk
+          }
+        );
 
-        if (!uploadRes.ok || !uploadData.ok) {
-          setError(uploadData.error || "Failed to upload video");
-          setUploading(false);
+        const chunkData = await chunkRes.json();
+        if (!chunkRes.ok || !chunkData.ok) {
+          setError(chunkData.error || `Failed to upload chunk ${i + 1}/${totalChunks}`);
+          setStatus({ stage: "failed", progress: 0, message: "" });
           return;
         }
       }
 
-      setJobId(startData.jobId);
-      startPolling(startData.jobId);
+      // Step 3: Call /build to process and get zip
+      setStatus({ stage: "building", progress: 55, message: "Processing video..." });
+
+      const buildRes = await fetch(`/api/tools/music-video-parser/build?jobId=${jobId}`, {
+        method: "POST"
+      });
+
+      if (!buildRes.ok) {
+        const errorData = await buildRes.json().catch(() => ({}));
+        setError(errorData.error || "Failed to build template pack");
+        setStatus({ stage: "failed", progress: 0, message: "" });
+        return;
+      }
+
+      // Step 4: Download the zip blob
+      setStatus({ stage: "building", progress: 90, message: "Preparing download..." });
+      
+      const blob = await buildRes.blob();
+      const url = URL.createObjectURL(blob);
+      setDownloadUrl(url);
+      
+      setStatus({ stage: "complete", progress: 100, message: "Template pack ready!" });
+
     } catch (err: any) {
       setError(err.message || "Upload failed");
-    } finally {
-      setUploading(false);
+      setStatus({ stage: "failed", progress: 0, message: "" });
     }
   };
 
   const handleReset = () => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
+    if (downloadUrl) {
+      URL.revokeObjectURL(downloadUrl);
     }
     setFile(null);
-    setJobId(null);
-    setStatus(null);
+    setStatus({ stage: "idle", progress: 0, message: "" });
     setError(null);
+    setDownloadUrl(null);
   };
 
-  useEffect(() => {
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
-    };
-  }, []);
-
-  const formatTime = (sec: number) => {
-    const mins = Math.floor(sec / 60);
-    const secs = Math.floor(sec % 60);
-    const ms = Math.floor((sec % 1) * 1000);
-    return `${mins}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(3, "0")}`;
-  };
+  const isProcessing = status.stage === "uploading" || status.stage === "building";
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
@@ -217,10 +146,10 @@ export default function MusicVideoParserClient() {
           Upload a video to extract shot boundaries and generate a template pack with storyboard frames.
         </p>
 
-        {!jobId && (
+        {status.stage === "idle" && (
           <>
             <div
-              className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+              className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors cursor-pointer ${
                 dragOver
                   ? "border-blue-500 bg-blue-500/10"
                   : "border-gray-600 hover:border-gray-500"
@@ -250,7 +179,7 @@ export default function MusicVideoParserClient() {
               ) : (
                 <div>
                   <p className="text-lg">Drop a video here or click to browse</p>
-                  <p className="text-gray-500 mt-2">MP4, MOV, or WebM (max 250MB)</p>
+                  <p className="text-gray-500 mt-2">MP4, MOV, or WebM (max 250MB, 90 seconds)</p>
                 </div>
               )}
             </div>
@@ -263,35 +192,27 @@ export default function MusicVideoParserClient() {
 
             <button
               onClick={handleUpload}
-              disabled={!file || uploading}
+              disabled={!file}
               className="mt-6 w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
             >
-              {uploading ? "Uploading..." : "Parse Video"}
+              Parse Video
             </button>
           </>
         )}
 
-        {jobId && status && (
+        {isProcessing && (
           <div className="space-y-6">
             <div className="bg-gray-800 rounded-lg p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">Processing Status</h2>
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    status.status === "complete"
-                      ? "bg-green-600"
-                      : status.status === "failed"
-                      ? "bg-red-600"
-                      : "bg-yellow-600"
-                  }`}
-                >
-                  {status.status}
+                <h2 className="text-xl font-semibold">Processing</h2>
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-600">
+                  {status.stage}
                 </span>
               </div>
 
               <div className="space-y-2">
                 <div className="flex justify-between text-sm text-gray-400">
-                  <span>Stage: {status.stage}</span>
+                  <span>{status.message}</span>
                   <span>{status.progress}%</span>
                 </div>
                 <div className="w-full bg-gray-700 rounded-full h-2">
@@ -301,50 +222,57 @@ export default function MusicVideoParserClient() {
                   />
                 </div>
               </div>
+            </div>
+          </div>
+        )}
 
-              {status.error && (
-                <div className="mt-4 p-3 bg-red-900/50 border border-red-700 rounded text-red-200 text-sm">
-                  {status.error}
+        {status.stage === "failed" && (
+          <div className="space-y-6">
+            <div className="bg-gray-800 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Processing Failed</h2>
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-600">
+                  failed
+                </span>
+              </div>
+
+              {error && (
+                <div className="p-3 bg-red-900/50 border border-red-700 rounded text-red-200 text-sm">
+                  {error}
                 </div>
               )}
             </div>
 
-            {status.status === "complete" && status.shots && (
-              <>
-                <div className="bg-gray-800 rounded-lg p-6">
-                  <h2 className="text-xl font-semibold mb-4">
-                    Detected Shots ({status.shots.length})
-                  </h2>
-                  <div className="max-h-64 overflow-y-auto">
-                    <table className="w-full text-sm">
-                      <thead className="text-gray-400 border-b border-gray-700">
-                        <tr>
-                          <th className="text-left py-2">Shot ID</th>
-                          <th className="text-left py-2">Timestamp</th>
-                          <th className="text-left py-2">Duration</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {status.shots.map((shot) => (
-                          <tr key={shot.shot_id} className="border-b border-gray-700/50">
-                            <td className="py-2 font-mono">{shot.shot_id}</td>
-                            <td className="py-2">{formatTime(shot.timestamp_sec)}</td>
-                            <td className="py-2">{shot.duration_sec.toFixed(2)}s</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+            <button
+              onClick={handleReset}
+              className="w-full py-3 px-6 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
 
-                <a
-                  href={`/api/tools/music-video-parser/download?jobId=${jobId}`}
-                  className="block w-full py-3 px-6 bg-green-600 hover:bg-green-700 rounded-lg font-medium text-center transition-colors"
-                >
-                  Download Template Pack (.zip)
-                </a>
-              </>
-            )}
+        {status.stage === "complete" && downloadUrl && (
+          <div className="space-y-6">
+            <div className="bg-gray-800 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Template Pack Ready!</h2>
+                <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-600">
+                  complete
+                </span>
+              </div>
+              <p className="text-gray-400">
+                Your template pack has been generated with shot boundaries and storyboard frames.
+              </p>
+            </div>
+
+            <a
+              href={downloadUrl}
+              download="template-pack.zip"
+              className="block w-full py-3 px-6 bg-green-600 hover:bg-green-700 rounded-lg font-medium text-center transition-colors"
+            >
+              Download Template Pack (.zip)
+            </a>
 
             <button
               onClick={handleReset}

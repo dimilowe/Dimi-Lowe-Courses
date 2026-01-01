@@ -63,16 +63,15 @@ export async function PUT(req: NextRequest) {
 
     console.log(`[chunk] Pre-upload: len=${buf.length}, hex16=${buf.subarray(0, 16).toString("hex")}`);
 
-    await client.uploadFromBytes(chunkKey, buf);
+    // Use base64 text storage (binary methods are broken)
+    const base64Data = buf.toString("base64");
+    await client.uploadFromText(chunkKey, base64Data);
 
-    const verifyResult = await client.downloadAsBytes(chunkKey);
+    // Verify by downloading as text and decoding
+    const verifyResult = await client.downloadAsText(chunkKey);
     if (verifyResult.ok) {
-      const raw = verifyResult.value;
-      const ctor = raw?.constructor?.name ?? "unknown";
-      const rawLen = (raw as any)?.length ?? 0;
-      const verifyBuf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw as any);
-      console.log(`[chunk] VERIFY: ctor=${ctor}, rawLen=${rawLen}, bufLen=${verifyBuf.length}, hex16=${verifyBuf.subarray(0, 16).toString("hex")}`);
-      console.log(`[chunk] Job ${jobId} chunk ${chunkIndex}/${totalChunks} uploaded: ${buf.length} bytes, verified: ${verifyBuf.length} bytes`);
+      const decodedLen = Buffer.from(verifyResult.value, "base64").length;
+      console.log(`[chunk] Job ${jobId} chunk ${chunkIndex}/${totalChunks} uploaded: ${buf.length} bytes, verified: ${decodedLen} bytes`);
     } else {
       console.log(`[chunk] Job ${jobId} chunk ${chunkIndex}/${totalChunks} uploaded: ${buf.length} bytes, verify FAILED: ${verifyResult.error}`);
     }
