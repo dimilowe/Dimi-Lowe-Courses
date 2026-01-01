@@ -8,6 +8,8 @@ interface BuildStatus {
   message: string;
 }
 
+type ExtractionMode = "frames" | "clips" | "both";
+
 export default function MusicVideoParserClient() {
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -16,6 +18,7 @@ export default function MusicVideoParserClient() {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [extractionMode, setExtractionMode] = useState<ExtractionMode>("frames");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -55,7 +58,8 @@ export default function MusicVideoParserClient() {
         body: JSON.stringify({
           filename: file.name,
           contentType: file.type,
-          sizeBytes: file.size
+          sizeBytes: file.size,
+          extraction_mode: extractionMode
         })
       });
 
@@ -200,6 +204,50 @@ export default function MusicVideoParserClient() {
                   <p className="text-gray-500 mt-2">MP4, MOV, or WebM (max 250MB, 90 seconds)</p>
                 </div>
               )}
+            </div>
+
+            <div className="mt-6 bg-gray-800 rounded-lg p-4">
+              <label className="block text-sm font-medium text-gray-300 mb-3">
+                Extraction Mode
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setExtractionMode("frames")}
+                  className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    extractionMode === "frames"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  }`}
+                >
+                  <div className="font-semibold">Frames Only</div>
+                  <div className="text-xs mt-1 opacity-75">Static slideshow</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExtractionMode("clips")}
+                  className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    extractionMode === "clips"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  }`}
+                >
+                  <div className="font-semibold">Clips Only</div>
+                  <div className="text-xs mt-1 opacity-75">Motion video</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExtractionMode("both")}
+                  className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    extractionMode === "both"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  }`}
+                >
+                  <div className="font-semibold">Both</div>
+                  <div className="text-xs mt-1 opacity-75">Frames + Clips</div>
+                </button>
+              </div>
             </div>
 
             {error && (
