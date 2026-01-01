@@ -61,14 +61,16 @@ export async function PUT(req: NextRequest) {
     const chunkKey = `music-video-parser/${jobId}/chunks/part-${String(chunkIndex).padStart(4, "0")}`;
     const client = getClient();
 
-    await client.uploadFromBytes(chunkKey, buf);
+    console.log(`[chunk] Pre-upload: len=${buf.length}, hex16=${buf.subarray(0, 16).toString("hex")}`);
 
-    const verifyResult = await client.downloadAsBytes(chunkKey);
+    const base64Data = buf.toString("base64");
+    await client.uploadFromText(chunkKey, base64Data);
+
+    const verifyResult = await client.downloadAsText(chunkKey);
     if (verifyResult.ok) {
-      const verifyBuf = Buffer.isBuffer(verifyResult.value) 
-        ? verifyResult.value 
-        : Buffer.from(verifyResult.value as any);
-      console.log(`[chunk] Job ${jobId} chunk ${chunkIndex}/${totalChunks} uploaded: ${buf.length} bytes, verified: ${verifyBuf.length} bytes, hex16=${verifyBuf.subarray(0, 16).toString("hex")}`);
+      const downloadedBase64 = verifyResult.value;
+      const decodedBuf = Buffer.from(downloadedBase64, "base64");
+      console.log(`[chunk] Job ${jobId} chunk ${chunkIndex}/${totalChunks} uploaded: ${buf.length} bytes, verified: ${decodedBuf.length} bytes, hex16=${decodedBuf.subarray(0, 16).toString("hex")}`);
     } else {
       console.log(`[chunk] Job ${jobId} chunk ${chunkIndex}/${totalChunks} uploaded: ${buf.length} bytes, verify failed`);
     }

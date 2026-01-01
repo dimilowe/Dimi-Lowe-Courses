@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PassThrough } from "stream";
 import { gateToolForRequest } from "@/lib/entitlements/withToolGate";
 import { getJob, updateJob, appendMeta } from "@/lib/toolJobs/toolJobs";
-import { getClient, getObjectBuffer } from "@/lib/objectStorage/client";
+import { getClient } from "@/lib/objectStorage/client";
 import { TOOL_SLUG } from "@/lib/musicVideoParser/constants";
 
 export const runtime = "nodejs";
@@ -19,13 +19,14 @@ async function streamAssembleToStorage(jobId: string, totalChunks: number): Prom
   for (let i = 0; i < totalChunks; i++) {
     const chunkKey = `music-video-parser/${jobId}/chunks/part-${String(i).padStart(4, "0")}`;
 
-    const buf = await getObjectBuffer(chunkKey);
-
-    console.log(`[finalize] part ${i}/${totalChunks} key=${chunkKey} isBuffer=${Buffer.isBuffer(buf)} len=${buf?.length} hex16=${Buffer.isBuffer(buf) ? buf.subarray(0, 16).toString("hex") : null}`);
-
-    if (!Buffer.isBuffer(buf)) {
-      throw new Error(`[finalize] not a buffer for ${chunkKey}`);
+    const textResult = await client.downloadAsText(chunkKey);
+    if (!textResult.ok) {
+      throw new Error(`[finalize] failed to download chunk ${chunkKey}`);
     }
+    const buf = Buffer.from(textResult.value, "base64");
+
+    console.log(`[finalize] part ${i}/${totalChunks} key=${chunkKey} len=${buf.length} hex16=${buf.subarray(0, 16).toString("hex")}`);
+
     if (buf.length === 0) {
       throw new Error(`[finalize] empty buffer for ${chunkKey}`);
     }
