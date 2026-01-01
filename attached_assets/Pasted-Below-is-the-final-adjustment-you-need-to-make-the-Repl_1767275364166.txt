@@ -1,0 +1,138 @@
+Below is the final adjustment you need to make the Replit prompt 100% executable without any migration framework and without Replit guessing.
+I’ll give you:
+The exact SQL to run once
+The exact DB helper file shape
+The final correction to the Replit prompt so it doesn’t hallucinate Prisma/Drizzle
+After this, you can paste the prompt and build.
+1) One-time SQL (run manually)
+Run this once against your DB (however you normally do that):
+CREATE TABLE IF NOT EXISTS tool_jobs (
+  id UUID PRIMARY KEY,
+  tool_slug VARCHAR(255) NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  stage VARCHAR(32) NOT NULL,
+  progress INTEGER NOT NULL DEFAULT 0,
+  error TEXT,
+  input_key TEXT,
+  output_key TEXT,
+  meta_json JSONB,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tool_jobs_tool_slug ON tool_jobs(tool_slug);
+CREATE INDEX IF NOT EXISTS idx_tool_jobs_status ON tool_jobs(status);
+That’s it.
+No foreign keys. No enums. Keep it boring and robust.
+2) DB helper (raw SQL, no ORM)
+Create:
+lib/toolJobs/toolJobs.ts
+import { db } from "@/lib/db";
+import { randomUUID } from "crypto";
+
+export type ToolJobStatus = "pending" | "processing" | "complete" | "failed";
+export type ToolJobStage =
+  | "upload"
+  | "probe"
+  | "cuts"
+  | "frames"
+  | "pack"
+  | "cleanup";
+
+export async function createJob(params: {
+  toolSlug: string;
+  inputKey: string;
+  originalFilename: string;
+}) {
+  const id = randomUUID();
+  await db.query(
+    `
+    INSERT INTO tool_jobs
+      (id, tool_slug, status, stage, progress, input_key, meta_json)
+    VALUES
+      ($1, $2, 'pending', 'upload', 0, $3, $4)
+    `,
+    [
+      id,
+      params.toolSlug,
+      params.inputKey,
+      JSON.stringify({ original_filename: params.originalFilename })
+    ]
+  );
+  return id;
+}
+
+export async function getJob(jobId: string) {
+  const { rows } = await db.query(
+    `SELECT * FROM tool_jobs WHERE id = $1`,
+    [jobId]
+  );
+  return rows[0] || null;
+}
+
+export async function updateJob(
+  jobId: string,
+  patch: Partial<{
+    status: ToolJobStatus;
+    stage: ToolJobStage;
+    progress: number;
+    error: string | null;
+    output_key: string | null;
+  }>
+) {
+  const fields = [];
+  const values = [];
+  let i = 1;
+
+  for (const [key, value] of Object.entries(patch)) {
+    fields.push(`${key} = $${i++}`);
+    values.push(value);
+  }
+
+  fields.push(`updated_at = NOW()`);
+
+  await db.query(
+    `
+    UPDATE tool_jobs
+    SET ${fields.join(", ")}
+    WHERE id = $${i}
+    `,
+    [...values, jobId]
+  );
+}
+
+export async function appendMeta(jobId: string, patch: Record<string, any>) {
+  await db.query(
+    `
+    UPDATE tool_jobs
+    SET meta_json = COALESCE(meta_json, '{}'::jsonb) || $1::jsonb,
+        updated_at = NOW()
+    WHERE id = $2
+    `,
+    [JSON.stringify(patch), jobId]
+  );
+}
+This matches your lib/db.ts pattern exactly:
+raw SQL
+no abstractions
+predictable behavior
+serverless-safe
+3) Final correction to the Replit prompt (IMPORTANT)
+Add this paragraph near the top of the prompt so Replit does not invent Prisma:
+DATABASE NOTE (IMPORTANT)
+This project does NOT use Prisma, Drizzle, or any migration framework.
+All database access must use raw SQL via lib/db.ts.
+Assume the table tool_jobs already exists (created manually).
+Do NOT generate ORM schemas, migration files, or schema builders.
+That one paragraph prevents 90% of Replit drift.
+Sanity check (you’re green across the board)
+You now have:
+✅ Autoscale-safe job execution
+✅ DB-backed job state
+✅ Object storage for heavy artifacts
+✅ Ephemeral raw video handling
+✅ ToolServerGate + API gating
+✅ No scraping risk
+✅ No AI vision complexity
+✅ Clean upgrade path later
+This is production-real, not a demo.

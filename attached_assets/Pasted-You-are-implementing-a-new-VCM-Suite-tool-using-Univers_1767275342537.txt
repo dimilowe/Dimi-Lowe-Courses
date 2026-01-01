@@ -1,0 +1,192 @@
+You are implementing a new VCM Suite tool using Universal Tool Template v2 (DB gating + fail-closed APIs). This tool MUST be upload-only (NO YouTube scraping, NO URL downloading, NO AI vision). It parses an uploaded video to extract shot boundaries and storyboard frames, and outputs a template pack zip.
+
+TOOL DETAILS
+- Tool slug: music-video-parser
+- Name/Description pulled from DB via ToolServerGate
+- Canonical tiers: free|starter|basic|pro (do NOT hardcode tier language in SEO copy)
+- All API routes must gate with gateToolForRequest(TOOL_SLUG) and fail closed.
+
+RUNTIME / DEPLOYMENT CONSTRAINTS
+- Replit Autoscale is serverless-style. Do NOT rely on in-memory job maps or fire-and-forget background tasks.
+- Implement a DB-backed job record and an idempotent /run endpoint that advances jobs stage-by-stage.
+- Use Replit Object Storage (@replit/object-storage) for uploaded videos and generated artifacts.
+- Always clean up raw video uploads after processing completes (or on failure) to control storage costs.
+
+WHAT TO BUILD (FILES TO CREATE/EDIT)
+
+1) Tool Page (server gated)
+Create:
+- app/tools/music-video-parser/page.tsx
+- app/tools/music-video-parser/MusicVideoParserClient.tsx
+
+page.tsx must wrap the client:
+<ToolServerGate slug="music-video-parser">
+  <MusicVideoParserClient />
+</ToolServerGate>
+
+Client UI requirements:
+- Drag/drop or file picker for video (mp4/mov/webm)
+- Button: "Parse Video"
+- Poll status every ~2 seconds
+- While status != complete, call POST /api/tools/music-video-parser/run with jobId periodically (e.g. every 2–3 seconds)
+- When complete: show storyboard preview grid (first ~24 frames), show a table of shots (shot_id, timestamp_sec, duration_sec), and a download link to /api/tools/music-video-parser/download?jobId=...
+- Display clear error state from job status
+
+2) DB: Jobs Table
+Create a migration or SQL in the place this project handles DB schema.
+Add a table named tool_jobs with columns:
+- id (uuid primary key)
+- tool_slug (varchar not null)
+- status (varchar not null) -- pending|processing|complete|failed
+- stage (varchar not null) -- upload|probe|cuts|frames|pack|cleanup
+- progress (int not null default 0)
+- error (text null)
+- input_key (text null)   -- object storage key for uploaded video
+- output_key (text null)  -- object storage key for generated zip
+- meta_json (jsonb null)  -- store probe data, cut timestamps, etc.
+- created_at (timestamp default now())
+- updated_at (timestamp default now())
+
+Provide minimal helper functions in:
+- lib/toolJobs/toolJobs.ts
+Functions:
+- createJob({ toolSlug, inputKey, originalFilename })
+- getJob(jobId)
+- updateJob(jobId, patch)
+- appendMeta(jobId, patch) (merge into meta_json)
+All queries must be simple and safe.
+
+3) Object Storage helper
+Create:
+- lib/objectStorage/client.ts
+Use @replit/object-storage
+Export helpers:
+- putObject(key: string, buffer: Buffer, contentType: string)
+- getObjectBuffer(key: string) -> Buffer
+- streamObject(key: string) -> Readable stream (or buffer fallback)
+- deleteObject(key: string)
+Use the default configured bucket. Use unique keys with prefix:
+music-video-parser/<jobId>/...
+
+4) Parser engine (FFmpeg)
+Create:
+- lib/musicVideoParser/constants.ts
+- lib/musicVideoParser/parser.ts
+- lib/musicVideoParser/ffmpeg.ts
+
+Assume ffmpeg and ffprobe are available in runtime. Use child_process.spawn.
+
+constants.ts:
+- SCENE_THRESHOLD = 0.35
+- MIN_SHOT_LEN_SEC = 0.35
+- OFFSET_MS = 50
+- FRAME_WIDTH = 1280
+- MAX_DURATION_SEC = 600
+- MAX_SIZE_BYTES = 1024*1024*1024
+
+ffmpeg.ts must implement:
+- ffprobeMetadata(inputPath) => { duration_sec, fps, width, height }
+- detectCuts(inputPath, sceneThreshold) => number[] (seconds)
+  Use: ffmpeg -i input -filter_complex "select='gt(scene,THRESH)',showinfo" -f null -
+  Parse stderr lines for pts_time:NN.NN
+- extractFrame(inputPath, tSec, outPath) using ffmpeg -ss ... -frames:v 1 ... -vf scale=FRAME_WIDTH:-1
+- zipFolder(jobDir, outZipPath) using a Node zip library already available OR implement with archiver if installed; add dependency if needed.
+
+parser.ts must implement an idempotent step runner:
+runNextStage(jobId: string)
+It reads job from DB and runs exactly one stage then updates job.
+
+Stages behavior:
+- upload: created by /start, then /run should move to probe.
+- probe:
+  1) download input video from object storage to local temp file (jobDir/input.mp4)
+  2) ffprobe metadata; if duration_sec > MAX_DURATION_SEC => fail job
+  3) store probe in meta_json.probe
+  4) stage -> cuts, progress ~15
+- cuts:
+  1) detectCuts -> rawCuts[]
+  2) normalize:
+     - include 0.0
+     - sort unique
+     - add end=duration_sec for convenience (store in meta)
+     - merge microcuts: remove cuts that create segments < MIN_SHOT_LEN_SEC by merging into previous
+  3) compute shots array with timestamp_sec and duration_sec
+  4) store in meta_json.shots (with shot_id, timestamp_sec, duration_sec) and meta_json.cuts
+  5) stage -> frames, progress ~40
+- frames:
+  1) for each shot, extract keyframe at timestamp_sec + OFFSET_MS/1000, clamped to duration
+  2) save frames to local jobDir/frames/b###.jpg
+  3) stage -> pack, progress ~70
+- pack:
+  1) write template.json to jobDir/template.json using frozen contract:
+     {
+       template_id: "mv_<jobId>",
+       created_at: ISO string,
+       source: { type:"upload", original_filename },
+       video: { duration_sec, fps, width, height },
+       settings: { scene_threshold, min_shot_len_sec, offset_ms },
+       shots: [{ shot_id, timestamp_sec, duration_sec, assets:{ keyframe:"frames/b###.jpg" } }]
+     }
+  2) write cuts.csv with columns: shot_id,timestamp_sec,duration_sec,frame
+  3) create template-pack.zip containing template.json, cuts.csv, frames/
+  4) upload zip to object storage at output_key: music-video-parser/<jobId>/template-pack.zip
+  5) save output_key in DB
+  6) stage -> cleanup, progress ~90
+- cleanup:
+  1) delete input video object from object storage (input_key)
+  2) delete local temp files best-effort
+  3) mark job status=complete, stage=cleanup, progress=100
+
+If any stage throws:
+- mark status=failed
+- set error string
+- best-effort delete input object to prevent storage leaks
+
+IMPORTANT: Do NOT add AI vision, shot taxonomy labeling, BPM analysis, or YouTube URL ingest.
+
+5) API routes (all gated)
+Create:
+- app/api/tools/music-video-parser/start/route.ts
+- app/api/tools/music-video-parser/run/route.ts
+- app/api/tools/music-video-parser/status/route.ts
+- app/api/tools/music-video-parser/download/route.ts
+
+All routes must use:
+const gateResult = await gateToolForRequest(TOOL_SLUG);
+if (!gateResult.allowed) return gateResult.response;
+
+start:
+- parse multipart formData, key "video"
+- validate type in [video/mp4, video/quicktime, video/webm]
+- validate size <= MAX_SIZE_BYTES
+- upload to object storage with key music-video-parser/<jobId>/input.mp4
+- create DB job row with status=pending, stage=upload, progress=0, input_key set, meta_json includes original_filename
+- return { ok:true, jobId }
+
+run:
+- accept JSON body: { jobId }
+- load job; verify tool_slug matches
+- if status is complete/failed => return current status
+- set status=processing
+- call runNextStage(jobId)
+- return updated status
+
+status:
+- query by jobId and return job fields: status, stage, progress, error, hasOutput (output_key != null)
+
+download:
+- only allow if status=complete and output_key exists
+- stream zip from object storage to response with Content-Type application/zip and Content-Disposition attachment
+
+6) Tool row in DB
+DO NOT hardcode tool tier in code. Assume admin creates tool row.
+But add a comment reminding that Admin must create tool row for slug.
+
+SUCCESS CRITERIA
+- Upload a 3–4 minute MP4 and receive a zip containing template.json, cuts.csv, and frames.
+- Job survives cold starts because state is in DB and artifacts in object storage.
+- Raw uploaded video is deleted from object storage after completion (cleanup stage).
+- All APIs are gated and fail closed.
+- No YouTube scraping functionality exists anywhere.
+
+Now implement the above exactly, creating the files and minimal helpers. Keep code readable and consistent with existing patterns.

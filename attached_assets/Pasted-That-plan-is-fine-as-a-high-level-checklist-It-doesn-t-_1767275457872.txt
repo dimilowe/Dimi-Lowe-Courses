@@ -1,0 +1,78 @@
+That plan is fine as a high-level checklist. It doesn’t prove anything yet because it’s missing the only parts that matter in Autoscale:
+the exact DB schema + raw SQL helpers
+the stage runner details (idempotent + resumable)
+ffmpeg/ffprobe parsing details (where most tools break)
+object storage keying + cleanup (where costs leak)
+So here’s what you should do next: force Replit to implement the concrete files in the right order, with non-negotiable acceptance criteria.
+Your next instruction to Replit (copy/paste)
+Use this as your follow-up prompt to turn that generic plan into execution:
+Stop outlining. Implement.
+
+Constraints (non-negotiable):
+- Replit Autoscale (serverless-style): no in-memory jobs, no background promises after response.
+- DB is raw SQL via lib/db.ts. No Prisma/Drizzle/migrations. Assume tool_jobs table exists.
+- Use @replit/object-storage for input and output artifacts.
+- Upload-only. No YouTube URL ingest. No scraping. No AI vision.
+
+Now implement these files exactly:
+
+A) DB helpers
+Create lib/toolJobs/toolJobs.ts with functions:
+- createJob({ toolSlug, inputKey, originalFilename }) -> jobId (uuid)
+- getJob(jobId) -> row
+- updateJob(jobId, patch) -> updates updated_at
+- appendMeta(jobId, patch) -> jsonb merge into meta_json
+Use raw SQL and db.query.
+
+B) Object storage helpers
+Create lib/objectStorage/client.ts:
+- putObject(key, buffer, contentType)
+- getObjectBuffer(key)
+- deleteObject(key)
+(Streaming optional; buffer is fine for MVP)
+
+C) FFmpeg helpers
+Create lib/musicVideoParser/ffmpeg.ts:
+- ffprobeMetadata(inputPath) -> { duration_sec, fps, width, height }
+- detectCuts(inputPath, sceneThreshold) -> number[] timestamps from showinfo pts_time parsing
+- extractFrame(inputPath, tSec, outPath) -> jpg (scale=1280:-1)
+
+D) Stage runner (core)
+Create lib/musicVideoParser/parser.ts:
+- runNextStage(jobId) reads job.stage and runs EXACTLY ONE stage per call:
+  upload -> probe -> cuts -> frames -> pack -> cleanup -> complete
+- All intermediate data stored in tool_jobs.meta_json (probe, cuts, shots, original_filename)
+- Output template.json must match frozen contract and include assets.keyframe paths.
+- Zip outputs and upload to object storage output_key music-video-parser/<jobId>/template-pack.zip
+- Cleanup deletes input object input_key.
+- On any error: set status=failed, error text, and best-effort delete input object.
+
+E) API routes (all gated with gateToolForRequest)
+Create:
+- app/api/tools/music-video-parser/start/route.ts (multipart upload key "video")
+- app/api/tools/music-video-parser/run/route.ts (JSON body { jobId })
+- app/api/tools/music-video-parser/status/route.ts (query jobId)
+- app/api/tools/music-video-parser/download/route.ts (streams zip from object storage)
+
+F) Tool page
+Create:
+- app/tools/music-video-parser/page.tsx with ToolServerGate wrapper
+- app/tools/music-video-parser/MusicVideoParserClient.tsx:
+  upload -> start -> loop: call /run and /status until complete -> show preview + download link
+
+Acceptance tests:
+1) Upload a 30–60s mp4, get complete job, download zip.
+2) Zip contains: template.json, cuts.csv, frames/ with b001.jpg...
+3) Input video is deleted from object storage after completion.
+4) All APIs return 403 with gate info if not entitled.
+
+Implement now. Do not add extra features.
+That will keep it from drifting.
+One more blunt point (so you don’t get stuck)
+On Autoscale, /run must be short. If a video has 300 shots, extracting all frames in one request might timeout.
+So in frames stage, make it resumable:
+store meta_json.frames_done_count
+each /run processes the next N frames (like 25)
+when done, advance stage
+Same idea for packaging if needed.
+If Replit doesn’t do this, you’ll hit timeouts and think the idea doesn’t work. It does — the implementation just has to respect serverless limits.
