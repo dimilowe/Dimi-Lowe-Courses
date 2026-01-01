@@ -1,10 +1,9 @@
 import { Client } from "@replit/object-storage";
-import { Storage } from "@google-cloud/storage";
+import { Readable } from "stream";
 
 const client = new Client();
 
-const gcsStorage = new Storage();
-const bucketName = process.env.STORAGE_BUCKET || "";
+export { client as objectStorage };
 
 export async function putObject(
   key: string,
@@ -39,38 +38,9 @@ export async function objectExists(key: string): Promise<boolean> {
   }
 }
 
-export interface UploadUrlResult {
-  url: string;
-  method: "PUT";
-  headers: Record<string, string>;
-  key: string;
-}
-
-export async function generateUploadUrl(
+export async function uploadFromStream(
   key: string,
-  contentType: string,
-  expiresInMinutes: number = 15
-): Promise<UploadUrlResult> {
-  if (!bucketName) {
-    throw new Error("STORAGE_BUCKET environment variable is not set");
-  }
-
-  const bucket = gcsStorage.bucket(bucketName);
-  const file = bucket.file(key);
-
-  const [signedUrl] = await file.getSignedUrl({
-    version: "v4",
-    action: "write",
-    expires: Date.now() + expiresInMinutes * 60 * 1000,
-    contentType
-  });
-
-  return {
-    url: signedUrl,
-    method: "PUT",
-    headers: {
-      "Content-Type": contentType
-    },
-    key
-  };
+  stream: Readable
+): Promise<void> {
+  await client.uploadFromStream(key, stream);
 }

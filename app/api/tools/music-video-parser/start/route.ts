@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { gateToolForRequest } from "@/lib/entitlements/withToolGate";
 import { createJob } from "@/lib/toolJobs/toolJobs";
-import { generateUploadUrl } from "@/lib/objectStorage/client";
 import { MAX_SIZE_BYTES, TOOL_SLUG } from "@/lib/musicVideoParser/constants";
 import { checkRateLimit } from "@/lib/rate-limiter";
 import { randomUUID } from "crypto";
@@ -57,8 +56,6 @@ export async function POST(request: NextRequest) {
     const jobId = randomUUID();
     const inputKey = `music-video-parser/${jobId}/input.mp4`;
 
-    const uploadUrl = await generateUploadUrl(inputKey, contentType, 15);
-
     await createJob({
       toolSlug: TOOL_SLUG,
       inputKey,
@@ -66,15 +63,12 @@ export async function POST(request: NextRequest) {
       jobId
     });
 
+    const uploadUrl = `/api/tools/music-video-parser/upload?jobId=${jobId}`;
+
     return NextResponse.json({
       ok: true,
       jobId,
-      upload: {
-        key: inputKey,
-        method: uploadUrl.method,
-        url: uploadUrl.url,
-        headers: uploadUrl.headers
-      }
+      uploadUrl
     });
   } catch (error: any) {
     console.error("Start job error:", error);

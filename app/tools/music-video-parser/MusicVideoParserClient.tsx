@@ -108,14 +108,18 @@ export default function MusicVideoParserClient() {
         return;
       }
 
-      const uploadRes = await fetch(startData.upload.url, {
-        method: startData.upload.method,
-        headers: startData.upload.headers,
+      const uploadRes = await fetch(startData.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type
+        },
         body: file
       });
 
-      if (!uploadRes.ok) {
-        setError("Failed to upload video to storage");
+      const uploadData = await uploadRes.json();
+
+      if (!uploadRes.ok || !uploadData.ok) {
+        setError(uploadData.error || "Failed to upload video");
         setUploading(false);
         return;
       }
