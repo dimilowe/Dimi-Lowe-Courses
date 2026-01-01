@@ -13,6 +13,7 @@ const TOOL_LIMITS: Record<string, RateLimitConfig> = {
   'keyword-finder': { maxRequests: 10 },
   'price-matcher': { maxRequests: 15, windowMs: 24 * 60 * 60 * 1000 },
   'brand-access-resolve': { maxRequests: 10 },
+  'music-video-parser': { maxRequests: 5 },
 };
 
 export function checkRateLimit(

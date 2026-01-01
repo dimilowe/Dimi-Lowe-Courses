@@ -10,6 +10,7 @@ import {
   MIN_SHOT_LEN_SEC,
   OFFSET_MS,
   FRAMES_PER_RUN,
+  MAX_SHOTS,
   TOOL_SLUG
 } from "./constants";
 
@@ -84,7 +85,7 @@ async function stageCuts(job: ToolJob): Promise<void> {
     }
   }
 
-  const shots: Shot[] = [];
+  let shots: Shot[] = [];
   for (let i = 0; i < normalizedCuts.length; i++) {
     const start = normalizedCuts[i];
     const end = i < normalizedCuts.length - 1 ? normalizedCuts[i + 1] : duration;
@@ -95,10 +96,22 @@ async function stageCuts(job: ToolJob): Promise<void> {
     });
   }
 
+  let truncated = false;
+  if (shots.length > MAX_SHOTS) {
+    shots = shots.slice(0, MAX_SHOTS);
+    truncated = true;
+    if (shots.length > 0) {
+      const lastShot = shots[shots.length - 1];
+      lastShot.duration_sec = duration - lastShot.timestamp_sec;
+    }
+  }
+
   await appendMeta(job.id, {
-    cuts: normalizedCuts,
+    cuts: normalizedCuts.slice(0, shots.length),
     shots,
-    frames_done_count: 0
+    frames_done_count: 0,
+    truncated,
+    max_shots: truncated ? MAX_SHOTS : undefined
   });
   await updateJob(job.id, { stage: "frames", progress: 40 });
 }

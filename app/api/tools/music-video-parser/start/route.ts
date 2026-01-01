@@ -3,6 +3,7 @@ import { gateToolForRequest } from "@/lib/entitlements/withToolGate";
 import { createJob } from "@/lib/toolJobs/toolJobs";
 import { putObject } from "@/lib/objectStorage/client";
 import { MAX_SIZE_BYTES, TOOL_SLUG } from "@/lib/musicVideoParser/constants";
+import { checkRateLimit } from "@/lib/rate-limiter";
 import { randomUUID } from "crypto";
 
 const VALID_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
@@ -11,6 +12,15 @@ export async function POST(request: NextRequest) {
   const gateResult = await gateToolForRequest(TOOL_SLUG);
   if (!gateResult.allowed) {
     return gateResult.response;
+  }
+
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const rateCheck = checkRateLimit(ip, TOOL_SLUG);
+  if (!rateCheck.allowed) {
+    return NextResponse.json(
+      { ok: false, error: "Rate limit exceeded. Try again later.", resetIn: rateCheck.resetIn },
+      { status: 429 }
+    );
   }
 
   try {
