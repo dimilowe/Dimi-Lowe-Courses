@@ -1,0 +1,102 @@
+Nope — with those method choices, it’s still not a “write callback race condition” problem.
+If downloadAsBytes() is truly returning chunk buffers and you call pass.write(buffer), you will not magically end up with exactly one byte per chunk because of backpressure logic. Backpressure affects when you can write more, not what bytes you wrote.
+“14 bytes assembled” equaling chunk count means you’re summing the wrong thing or writing the wrong thing. Period.
+So we’re going to force truth with two logs and one invariant. This will expose the lie instantly.
+1) Prove what getObjectBuffer() returns
+Add this before any write:
+const buf = await getObjectBuffer(partKey);
+
+console.log("[finalize] part", i, "key", partKey,
+  "typeof", typeof buf,
+  "isBuffer", Buffer.isBuffer(buf),
+  "len", buf?.length,
+  "hex16", Buffer.isBuffer(buf) ? buf.subarray(0,16).toString("hex") : null
+);
+Expected:
+isBuffer=true
+len is big (millions) for 5MB chunks
+hex16 is not 00 repeated
+If len is 1 for every chunk, your upload-part is storing 1 byte. That means the upload-part route is not reading body bytes correctly.
+2) Prove what you are actually writing
+Right before .write():
+const wrote = pass.write(buf);
+console.log("[finalize] wrote", i, "len", buf.length, "writeReturned", wrote);
+total += buf.length;
+Important: total must be sum(buf.length) — not total++, not total += wrote, not total += 1.
+If your log “assembled 14 bytes” comes from a total that’s incremented per chunk, you found the bug: your assembled-byte counter is wrong. (This happens a lot.)
+3) Replace finalize with a dead-simple implementation (no wrappers)
+This removes 90% of “I think” debugging.
+import { PassThrough } from "stream";
+
+export async function finalize(jobId: string, partKeys: string[], finalKey: string) {
+  const pass = new PassThrough();
+
+  const uploadPromise = client.uploadFromStream(finalKey, pass);
+
+  let total = 0;
+
+  for (let i = 0; i < partKeys.length; i++) {
+    const key = partKeys[i];
+    const buf = await client.downloadAsBytes(key);
+
+    if (!Buffer.isBuffer(buf)) throw new Error(`[finalize] not a buffer for ${key}`);
+    if (buf.length === 0) throw new Error(`[finalize] empty buffer for ${key}`);
+
+    console.log(`[finalize] part ${i+1}/${partKeys.length} len=${buf.length} hex16=${buf.subarray(0,16).toString("hex")}`);
+
+    // backpressure-safe
+    if (!pass.write(buf)) {
+      await new Promise<void>((resolve, reject) => {
+        pass.once("drain", resolve);
+        pass.once("error", reject);
+      });
+    }
+
+    total += buf.length;
+  }
+
+  pass.end();
+  await uploadPromise;
+
+  console.log(`[finalize] assembledBytes=${total}`);
+}
+This is the correct pattern. No “race conditions.” No “double resolve.” Just bytes.
+Why I’m calling BS on the “write callback” theory
+Because even with a broken drain wrapper, you don’t reliably end up with exactly N bytes where N = number of chunks unless:
+you are literally doing total += 1 per chunk, or
+you are literally writing a 1-byte buffer per chunk, or
+your stored chunk objects are 1 byte each.
+Those are the only three explanations consistent with your logs.
+The real likely culprit (highest probability)
+Your “14 bytes assembled” is coming from the wrong counter, not from the actual assembled object size.
+So do this too:
+After uploadPromise resolves, verify final object size in object storage
+Immediately after finalize:
+headObject equivalent (if available)
+or download first 1KB and log length
+or download and stat length (for a small test file)
+If object storage API doesn’t provide size, do:
+const sample = await client.downloadAsBytes(finalKey);
+console.log("[finalize] finalKey downloaded len=", sample.length);
+(For a large file you wouldn’t download it all; but for a 1–2MB test you can.)
+Next action: run the small file test first
+Upload a 1MB mp4 and run finalize. With those logs:
+You’ll see chunk lengths
+You’ll see assembledBytes
+You’ll see final object actually contains data
+Then scale up.
+Message to send Replit (copy/paste)
+Stop blaming PassThrough callbacks. “14 bytes assembled” matching chunk count implies:
+- you’re summing the wrong thing, or
+- each downloaded chunk buffer is 1 byte.
+
+Add proof logs:
+1) After getObjectBuffer(partKey): log Buffer.isBuffer + buf.length + first16 hex.
+2) total must be sum(buf.length), not increment per chunk.
+
+Replace finalize with the simple backpressure-safe loop:
+- downloadAsBytes -> pass.write(buf) -> await drain if needed -> total += buf.length
+- after upload resolves, verify final object is nontrivial.
+
+Run with a 1MB file first to validate end-to-end.
+Do those logs and you’ll know which of the three realities you’re in within one run.
