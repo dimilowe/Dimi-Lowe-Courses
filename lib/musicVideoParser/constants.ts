@@ -1,0 +1,8 @@
+export const SCENE_THRESHOLD = 0.35;
+export const MIN_SHOT_LEN_SEC = 0.35;
+export const OFFSET_MS = 50;
+export const FRAME_WIDTH = 1280;
+export const MAX_DURATION_SEC = 600;
+export const MAX_SIZE_BYTES = 1024 * 1024 * 1024;
+export const FRAMES_PER_RUN = 25;
+export const TOOL_SLUG = "music-video-parser";
