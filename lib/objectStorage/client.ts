@@ -16,7 +16,14 @@ export async function putObject(
 export async function getObjectBuffer(key: string): Promise<Buffer> {
   const result = await client.downloadAsBytes(key);
   if (result.ok) {
-    return Buffer.from(result.value as unknown as ArrayBuffer);
+    const value = result.value;
+    if (Buffer.isBuffer(value)) {
+      return value;
+    }
+    if (value instanceof Uint8Array) {
+      return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+    }
+    throw new Error(`Unexpected value type from downloadAsBytes for ${key}`);
   }
   throw new Error(`Failed to download object: ${key}`);
 }

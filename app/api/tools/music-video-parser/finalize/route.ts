@@ -18,22 +18,35 @@ async function streamAssembleToStorage(jobId: string, totalChunks: number): Prom
 
   for (let i = 0; i < totalChunks; i++) {
     const chunkKey = `music-video-parser/${jobId}/chunks/part-${String(i).padStart(4, "0")}`;
-    console.log(`[finalize] Streaming chunk ${i}/${totalChunks}`);
 
-    const chunkBytes = await getObjectBuffer(chunkKey);
-    totalBytes += chunkBytes.length;
+    const buf = await getObjectBuffer(chunkKey);
 
-    await new Promise<void>((resolve, reject) => {
-      const ok = passThrough.write(chunkBytes, (err) => {
-        if (err) reject(err);
-        else resolve();
+    console.log(`[finalize] part ${i}/${totalChunks} key=${chunkKey} isBuffer=${Buffer.isBuffer(buf)} len=${buf?.length} hex16=${Buffer.isBuffer(buf) ? buf.subarray(0, 16).toString("hex") : null}`);
+
+    if (!Buffer.isBuffer(buf)) {
+      throw new Error(`[finalize] not a buffer for ${chunkKey}`);
+    }
+    if (buf.length === 0) {
+      throw new Error(`[finalize] empty buffer for ${chunkKey}`);
+    }
+
+    const wrote = passThrough.write(buf);
+    console.log(`[finalize] wrote part ${i} len=${buf.length} writeReturned=${wrote}`);
+
+    if (!wrote) {
+      await new Promise<void>((resolve, reject) => {
+        passThrough.once("drain", resolve);
+        passThrough.once("error", reject);
       });
-      if (ok) resolve();
-    });
+    }
+
+    totalBytes += buf.length;
   }
 
   passThrough.end();
   await uploadPromise;
+
+  console.log(`[finalize] assembledBytes=${totalBytes}`);
 
   return { objectKey, totalBytes };
 }
