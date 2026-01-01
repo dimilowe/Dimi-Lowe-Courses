@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Readable } from "stream";
+import { Readable, Transform } from "stream";
 import { gateToolForRequest } from "@/lib/entitlements/withToolGate";
 import { getJob, updateJob, appendMeta } from "@/lib/toolJobs/toolJobs";
 import { uploadFromStream } from "@/lib/objectStorage/client";
@@ -9,7 +9,56 @@ export const runtime = "nodejs";
 
 const VALID_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
 
+interface StreamInfo {
+  bytes: number;
+  firstHex: string | null;
+  event: string;
+  err?: string;
+}
+
+function createCountingTransform(label: string): { transform: Transform; getInfo: () => StreamInfo } {
+  let bytes = 0;
+  let first: Buffer | null = null;
+  let finalInfo: StreamInfo = { bytes: 0, firstHex: null, event: "pending" };
+
+  const transform = new Transform({
+    transform(chunk: Buffer, encoding, callback) {
+      bytes += chunk.length;
+      if (!first && chunk.length > 0) {
+        first = Buffer.from(chunk.slice(0, 16));
+      }
+      callback(null, chunk);
+    },
+    flush(callback) {
+      finalInfo = { bytes, firstHex: first?.toString("hex") || null, event: "end" };
+      console.log(`[${label}] transform flush:`, finalInfo);
+      callback();
+    }
+  });
+
+  transform.on("error", (e) => {
+    finalInfo = { bytes, firstHex: first?.toString("hex") || null, event: "error", err: String(e) };
+    console.log(`[${label}] transform error:`, finalInfo);
+  });
+
+  return {
+    transform,
+    getInfo: () => ({ bytes, firstHex: first?.toString("hex") || null, event: finalInfo.event })
+  };
+}
+
 export async function PUT(req: NextRequest) {
+  const contentLength = req.headers.get("content-length");
+  const contentType = req.headers.get("content-type") || "";
+  const transferEncoding = req.headers.get("transfer-encoding");
+
+  console.log("[upload] Request headers:", {
+    contentLength,
+    contentType,
+    transferEncoding,
+    url: req.url
+  });
+
   const gateResult = await gateToolForRequest(TOOL_SLUG);
   if (!gateResult.allowed) {
     return gateResult.response;
@@ -28,14 +77,12 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Job already complete" }, { status: 400 });
   }
 
-  const contentType = req.headers.get("content-type") || "";
   if (!VALID_TYPES.includes(contentType)) {
     return NextResponse.json({ ok: false, error: "Invalid content-type" }, { status: 400 });
   }
 
-  const contentLengthHeader = req.headers.get("content-length");
-  if (contentLengthHeader) {
-    const sizeBytes = Number(contentLengthHeader);
+  if (contentLength) {
+    const sizeBytes = Number(contentLength);
     if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
       return NextResponse.json({ ok: false, error: "Invalid content-length" }, { status: 400 });
     }
@@ -45,23 +92,41 @@ export async function PUT(req: NextRequest) {
   }
 
   if (!req.body) {
+    console.log("[upload] req.body is null/undefined");
     return NextResponse.json({ ok: false, error: "Missing request body" }, { status: 400 });
   }
 
   const objectKey = `music-video-parser/${jobId}/input.mp4`;
   const nodeStream = Readable.fromWeb(req.body as any);
+  const { transform: countingTransform, getInfo } = createCountingTransform(`upload-${jobId}`);
+  const tapped = nodeStream.pipe(countingTransform);
 
   await updateJob(jobId, { status: "processing", stage: "upload", progress: 5, error: null });
 
   try {
-    await uploadFromStream(objectKey, nodeStream);
+    await uploadFromStream(objectKey, tapped);
+
+    const streamInfo = getInfo();
+    console.log("[upload] Upload complete. Stream info:", streamInfo);
 
     await updateJob(jobId, { status: "pending", stage: "probe", progress: 10 });
-    await appendMeta(jobId, { input_key: objectKey, content_type: contentType, uploaded: true });
+    await appendMeta(jobId, {
+      input_key: objectKey,
+      content_type: contentType,
+      uploaded: true,
+      uploaded_bytes: streamInfo.bytes,
+      first_hex: streamInfo.firstHex
+    });
 
-    return NextResponse.json({ ok: true, jobId, inputKey: objectKey });
+    return NextResponse.json({
+      ok: true,
+      jobId,
+      inputKey: objectKey,
+      bytesReceived: streamInfo.bytes
+    });
   } catch (err: any) {
-    console.error("Upload stream error:", err);
+    const streamInfo = getInfo();
+    console.error("[upload] Upload stream error:", err, "Stream info:", streamInfo);
     await updateJob(jobId, {
       status: "failed",
       stage: "upload",
