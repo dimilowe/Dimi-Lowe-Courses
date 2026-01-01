@@ -81,6 +81,46 @@ export default function MusicVideoParserClient() {
     pollingRef.current = setInterval(() => pollStatus(id), 2500);
   }, [pollStatus]);
 
+  const CHUNK_SIZE = 5 * 1024 * 1024;
+
+  const uploadChunked = async (jobId: string, file: File): Promise<boolean> => {
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunk = file.slice(start, end);
+
+      const chunkRes = await fetch(
+        `/api/tools/music-video-parser/chunk?jobId=${jobId}&index=${i}&total=${totalChunks}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: chunk
+        }
+      );
+
+      const chunkData = await chunkRes.json();
+      if (!chunkRes.ok || !chunkData.ok) {
+        setError(chunkData.error || `Failed to upload chunk ${i + 1}/${totalChunks}`);
+        return false;
+      }
+    }
+
+    const finalizeRes = await fetch(
+      `/api/tools/music-video-parser/finalize?jobId=${jobId}`,
+      { method: "POST" }
+    );
+
+    const finalizeData = await finalizeRes.json();
+    if (!finalizeRes.ok || !finalizeData.ok) {
+      setError(finalizeData.error || "Failed to finalize upload");
+      return false;
+    }
+
+    return true;
+  };
+
   const handleUpload = async () => {
     if (!file) return;
 
@@ -108,20 +148,30 @@ export default function MusicVideoParserClient() {
         return;
       }
 
-      const uploadRes = await fetch(startData.uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type
-        },
-        body: file
-      });
+      const useChunked = file.size > CHUNK_SIZE;
 
-      const uploadData = await uploadRes.json();
+      if (useChunked) {
+        const success = await uploadChunked(startData.jobId, file);
+        if (!success) {
+          setUploading(false);
+          return;
+        }
+      } else {
+        const uploadRes = await fetch(startData.uploadUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": file.type
+          },
+          body: file
+        });
 
-      if (!uploadRes.ok || !uploadData.ok) {
-        setError(uploadData.error || "Failed to upload video");
-        setUploading(false);
-        return;
+        const uploadData = await uploadRes.json();
+
+        if (!uploadRes.ok || !uploadData.ok) {
+          setError(uploadData.error || "Failed to upload video");
+          setUploading(false);
+          return;
+        }
       }
 
       setJobId(startData.jobId);

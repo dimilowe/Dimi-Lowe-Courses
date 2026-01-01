@@ -44,3 +44,16 @@ export async function uploadFromStream(
 ): Promise<void> {
   await client.uploadFromStream(key, stream);
 }
+
+export function getClient(): Client {
+  return client;
+}
+
+export async function downloadToFile(key: string, filePath: string): Promise<void> {
+  const fs = await import("fs/promises");
+  const result = await client.downloadAsBytes(key);
+  if (!result.ok) {
+    throw new Error(`Failed to download object: ${key}`);
+  }
+  await fs.writeFile(filePath, result.value);
+}
