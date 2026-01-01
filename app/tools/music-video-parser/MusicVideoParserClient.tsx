@@ -14,6 +14,8 @@ export default function MusicVideoParserClient() {
   const [status, setStatus] = useState<BuildStatus>({ stage: "idle", progress: 0, message: "" });
   const [error, setError] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -65,7 +67,8 @@ export default function MusicVideoParserClient() {
         return;
       }
 
-      const jobId = startData.jobId;
+      const currentJobId = startData.jobId;
+      setJobId(currentJobId);
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
       // Step 2: Upload chunks
@@ -81,7 +84,7 @@ export default function MusicVideoParserClient() {
         });
 
         const chunkRes = await fetch(
-          `/api/tools/music-video-parser/chunk?jobId=${jobId}&index=${i}&total=${totalChunks}`,
+          `/api/tools/music-video-parser/chunk?jobId=${currentJobId}&index=${i}&total=${totalChunks}`,
           {
             method: "PUT",
             headers: { "Content-Type": "application/octet-stream" },
@@ -100,7 +103,7 @@ export default function MusicVideoParserClient() {
       // Step 3: Call /build to process and get zip
       setStatus({ stage: "building", progress: 55, message: "Processing video..." });
 
-      const buildRes = await fetch(`/api/tools/music-video-parser/build?jobId=${jobId}`, {
+      const buildRes = await fetch(`/api/tools/music-video-parser/build?jobId=${currentJobId}`, {
         method: "POST"
       });
 
@@ -134,6 +137,21 @@ export default function MusicVideoParserClient() {
     setStatus({ stage: "idle", progress: 0, message: "" });
     setError(null);
     setDownloadUrl(null);
+    setJobId(null);
+    setCopied(false);
+  };
+
+  const packKey = jobId ? `music-video-parser/${jobId}` : "";
+
+  const handleCopyPackKey = async () => {
+    if (!packKey) return;
+    try {
+      await navigator.clipboard.writeText(packKey);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
   };
 
   const isProcessing = status.stage === "uploading" || status.stage === "building";
@@ -265,6 +283,39 @@ export default function MusicVideoParserClient() {
                 Your template pack has been generated with shot boundaries and storyboard frames.
               </p>
             </div>
+
+            {packKey && (
+              <div className="bg-gray-800 rounded-lg p-6">
+                <h3 className="text-lg font-medium mb-2">Pack Key</h3>
+                <p className="text-gray-400 text-sm mb-3">
+                  Use this key in the Video Assembler to render your slideshow video.
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-gray-900 px-4 py-3 rounded-lg text-sm text-blue-400 font-mono overflow-x-auto">
+                    {packKey}
+                  </code>
+                  <button
+                    onClick={handleCopyPackKey}
+                    className={`px-4 py-3 rounded-lg font-medium transition-colors whitespace-nowrap ${
+                      copied
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-700 hover:bg-gray-600 text-white"
+                    }`}
+                  >
+                    {copied ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                <a
+                  href="/tools/video-assembler"
+                  className="mt-4 inline-flex items-center text-blue-400 hover:text-blue-300 text-sm transition-colors"
+                >
+                  Open Video Assembler
+                  <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </a>
+              </div>
+            )}
 
             <a
               href={downloadUrl}
