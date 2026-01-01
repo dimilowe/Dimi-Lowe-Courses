@@ -1,56 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
+import { PassThrough } from "stream";
 import { gateToolForRequest } from "@/lib/entitlements/withToolGate";
 import { getJob, updateJob, appendMeta } from "@/lib/toolJobs/toolJobs";
-import { getClient, downloadToFile } from "@/lib/objectStorage/client";
+import { getClient, getObjectBuffer } from "@/lib/objectStorage/client";
 import { TOOL_SLUG } from "@/lib/musicVideoParser/constants";
-import fs from "fs/promises";
-import { createWriteStream, createReadStream, statSync } from "fs";
-import path from "path";
 
 export const runtime = "nodejs";
 
-async function concatenateChunks(jobId: string, totalChunks: number): Promise<string> {
-  const tmpDir = path.join("/tmp", `${jobId}-chunks`);
-  await fs.mkdir(tmpDir, { recursive: true });
-
-  const finalPath = `/tmp/${jobId}-input`;
-  const writeStream = createWriteStream(finalPath);
-
-  for (let i = 0; i < totalChunks; i++) {
-    const chunkKey = `music-video-parser/${jobId}/chunks/part-${String(i).padStart(4, "0")}`;
-    const chunkPath = path.join(tmpDir, `part-${i}`);
-
-    await downloadToFile(chunkKey, chunkPath);
-
-    await new Promise<void>((resolve, reject) => {
-      const readStream = createReadStream(chunkPath);
-      readStream.pipe(writeStream, { end: false });
-      readStream.on("end", resolve);
-      readStream.on("error", reject);
-    });
-
-    await fs.unlink(chunkPath).catch(() => {});
-  }
-
-  writeStream.end();
-  await new Promise<void>((resolve, reject) => {
-    writeStream.on("finish", resolve);
-    writeStream.on("error", reject);
-  });
-
-  await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
-
-  return finalPath;
-}
-
-async function uploadCombinedFile(jobId: string, filePath: string): Promise<string> {
+async function streamAssembleToStorage(jobId: string, totalChunks: number): Promise<{ objectKey: string; totalBytes: number }> {
   const objectKey = `music-video-parser/${jobId}/input.mp4`;
   const client = getClient();
 
-  const readStream = createReadStream(filePath);
-  await client.uploadFromStream(objectKey, readStream);
+  const passThrough = new PassThrough();
+  let totalBytes = 0;
 
-  return objectKey;
+  const uploadPromise = client.uploadFromStream(objectKey, passThrough);
+
+  for (let i = 0; i < totalChunks; i++) {
+    const chunkKey = `music-video-parser/${jobId}/chunks/part-${String(i).padStart(4, "0")}`;
+    console.log(`[finalize] Streaming chunk ${i}/${totalChunks}`);
+
+    const chunkBytes = await getObjectBuffer(chunkKey);
+    totalBytes += chunkBytes.length;
+
+    await new Promise<void>((resolve, reject) => {
+      const ok = passThrough.write(chunkBytes, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+      if (ok) resolve();
+    });
+  }
+
+  passThrough.end();
+  await uploadPromise;
+
+  return { objectKey, totalBytes };
 }
 
 async function deleteChunks(jobId: string, totalChunks: number): Promise<void> {
@@ -95,25 +80,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    console.log(`[finalize] Concatenating ${totalChunks} chunks for job ${jobId}`);
+    console.log(`[finalize] Stream-assembling ${totalChunks} chunks for job ${jobId}`);
 
-    const localPath = await concatenateChunks(jobId, totalChunks);
-    const fileSize = statSync(localPath).size;
-    console.log(`[finalize] Combined file size: ${fileSize} bytes`);
-
-    const objectKey = await uploadCombinedFile(jobId, localPath);
-    console.log(`[finalize] Uploaded combined file to ${objectKey}`);
-
-    await fs.unlink(localPath);
+    const { objectKey, totalBytes } = await streamAssembleToStorage(jobId, totalChunks);
+    console.log(`[finalize] Assembled ${totalBytes} bytes to ${objectKey}`);
 
     await deleteChunks(jobId, totalChunks);
-    console.log(`[finalize] Cleaned up ${totalChunks} chunks`);
+    console.log(`[finalize] Cleaned up ${totalChunks} chunk objects`);
 
     await updateJob(jobId, { status: "pending", stage: "probe", progress: 10 });
     await appendMeta(jobId, {
       input_key: objectKey,
       uploaded: true,
-      uploaded_bytes: fileSize,
+      uploaded_bytes: totalBytes,
       finalized: true
     });
 
@@ -121,7 +100,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       jobId,
       inputKey: objectKey,
-      totalBytes: fileSize
+      totalBytes
     });
   } catch (err: any) {
     console.error(`[finalize] Error for job ${jobId}:`, err);
