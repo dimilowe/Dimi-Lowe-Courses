@@ -19,13 +19,16 @@ async function streamAssembleToStorage(jobId: string, totalChunks: number): Prom
   for (let i = 0; i < totalChunks; i++) {
     const chunkKey = `music-video-parser/${jobId}/chunks/part-${String(i).padStart(4, "0")}`;
 
-    const textResult = await client.downloadAsText(chunkKey);
-    if (!textResult.ok) {
-      throw new Error(`[finalize] failed to download chunk ${chunkKey}`);
+    const result = await client.downloadAsBytes(chunkKey);
+    if (!result.ok) {
+      throw new Error(`[finalize] failed to download chunk ${chunkKey}: ${result.error}`);
     }
-    const buf = Buffer.from(textResult.value, "base64");
+    const raw = result.value;
+    const ctor = raw?.constructor?.name ?? "unknown";
+    const rawLen = (raw as any)?.length ?? 0;
+    const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw as any);
 
-    console.log(`[finalize] part ${i}/${totalChunks} key=${chunkKey} len=${buf.length} hex16=${buf.subarray(0, 16).toString("hex")}`);
+    console.log(`[finalize] part ${i}/${totalChunks} ctor=${ctor} rawLen=${rawLen} bufLen=${buf.length} hex16=${buf.subarray(0, 16).toString("hex")}`);
 
     if (buf.length === 0) {
       throw new Error(`[finalize] empty buffer for ${chunkKey}`);

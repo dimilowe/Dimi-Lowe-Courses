@@ -63,16 +63,18 @@ export async function PUT(req: NextRequest) {
 
     console.log(`[chunk] Pre-upload: len=${buf.length}, hex16=${buf.subarray(0, 16).toString("hex")}`);
 
-    const base64Data = buf.toString("base64");
-    await client.uploadFromText(chunkKey, base64Data);
+    await client.uploadFromBytes(chunkKey, buf);
 
-    const verifyResult = await client.downloadAsText(chunkKey);
+    const verifyResult = await client.downloadAsBytes(chunkKey);
     if (verifyResult.ok) {
-      const downloadedBase64 = verifyResult.value;
-      const decodedBuf = Buffer.from(downloadedBase64, "base64");
-      console.log(`[chunk] Job ${jobId} chunk ${chunkIndex}/${totalChunks} uploaded: ${buf.length} bytes, verified: ${decodedBuf.length} bytes, hex16=${decodedBuf.subarray(0, 16).toString("hex")}`);
+      const raw = verifyResult.value;
+      const ctor = raw?.constructor?.name ?? "unknown";
+      const rawLen = (raw as any)?.length ?? 0;
+      const verifyBuf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw as any);
+      console.log(`[chunk] VERIFY: ctor=${ctor}, rawLen=${rawLen}, bufLen=${verifyBuf.length}, hex16=${verifyBuf.subarray(0, 16).toString("hex")}`);
+      console.log(`[chunk] Job ${jobId} chunk ${chunkIndex}/${totalChunks} uploaded: ${buf.length} bytes, verified: ${verifyBuf.length} bytes`);
     } else {
-      console.log(`[chunk] Job ${jobId} chunk ${chunkIndex}/${totalChunks} uploaded: ${buf.length} bytes, verify failed`);
+      console.log(`[chunk] Job ${jobId} chunk ${chunkIndex}/${totalChunks} uploaded: ${buf.length} bytes, verify FAILED: ${verifyResult.error}`);
     }
 
     const meta = (job.meta_json || {}) as Record<string, any>;
