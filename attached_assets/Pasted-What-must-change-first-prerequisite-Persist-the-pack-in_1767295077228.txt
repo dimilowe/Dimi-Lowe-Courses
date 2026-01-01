@@ -1,0 +1,100 @@
+What must change first (prerequisite)
+Persist the pack in Object Storage during /build
+Right now: /build streams a zip → client.
+Needed: /build ALSO uploads the same pack contents to:
+music-video-parser/{jobId}/manifest.json (rename template.json → manifest.json)
+music-video-parser/{jobId}/cuts.csv
+music-video-parser/{jobId}/frames/b001.jpg...
+Do this in parallel with streaming so you don’t break the current UX.
+Minimum requirement for v1: manifest + frames. (cuts.csv optional)
+Video Assembler Tool (separate tool_slug)
+Tool slug: video-assembler
+Stages: { download, assemble, upload, cleanup }
+Inputs
+pack_key: music-video-parser/{jobId} (directory prefix)
+optionally later: audio_key
+Outputs
+video-assembler/{jobId}/output.mp4
+optional: video-assembler/{jobId}/preview.mp4
+Assembler v1 behavior (Option A)
+1) Download
+Pull manifest.json
+Pull frames/ folder into /tmp/video-assembler/{jobId}/frames
+2) Normalize timing (do not skip this)
+Read fps (default 60)
+Convert each shot to integer frames:
+duration_frames = max(1, round(duration_sec * fps))
+Apply clamp:
+if duration_sec > 3.0 → set to 3.0 (or 3.0 * fps frames)
+Recompute seconds from frames:
+duration_sec = duration_frames / fps
+This prevents drift + fixes your “14s hold” from making outputs unusable.
+3) Render with ffmpeg (simple + reliable)
+You render a slideshow video from the frames, using per-frame durations.
+The clean approach is to generate a concat list file (ffconcat).
+Create /tmp/.../frames.ffconcat like:
+ffconcat version 1.0
+file frames/b001.jpg
+duration 0.983333
+file frames/b002.jpg
+duration 0.400000
+...
+file frames/b011.jpg
+duration 5.200000
+file frames/b011.jpg
+That last repeated file line is required by ffmpeg concat rules so the final duration applies.
+ffmpeg command (no audio yet):
+Input: ffconcat list
+Output: mp4 at 720x720, 60fps, yuv420p
+4) Upload
+Upload /tmp/.../output.mp4 → video-assembler/{jobId}/output.mp4
+5) Update job record
+Store in meta_json:
+duration_sec (final)
+fps
+resolution
+total_frames (sum duration_frames)
+ffmpeg_cmd (string for debugging)
+clamp_applied (count of shots clamped)
+API routes you should implement
+POST /api/tools/video-assembler/run
+Body: { pack_key } (for now)
+Creates a ToolJob with:
+tool_slug = "video-assembler"
+status = pending
+stage = download
+input_key = pack_key
+Kick off worker/queue logic the same way parser does.
+GET /api/tools/video-assembler/status?jobId=...
+Return:
+job status, stage, progress
+output_key when complete
+Object Storage “base64 workaround”
+You can still do everything, you just need to be consistent:
+For binary:
+frames: store as real objects (jpg bytes)
+output.mp4: store as real object bytes
+For json:
+manifest: store as text, base64 if required by your wrapper
+Don’t base64 the mp4. Only base64 for text if your Object Storage API is weird.
+Concrete task list (Replit-friendly)
+Parser build: rename template.json → manifest.json in zip.
+Parser build: while streaming zip, also upload:
+manifest.json
+frames/*
+(optional) cuts.csv
+Create video-assembler tool:
+job stages {download, assemble, upload, cleanup}
+Implement run + status endpoints
+Implement assembler worker:
+download pack → normalize → render via ffmpeg → upload output
+Write output keys:
+video-assembler/{jobId}/output.mp4
+One decision you should make now (I’ll choose if you don’t)
+What is pack_key exactly?
+I recommend:
+pack_key = "music-video-parser/{jobId}" (prefix)
+So assembler always looks for:
+{pack_key}/manifest.json
+{pack_key}/frames/...
+That keeps your API clean.
