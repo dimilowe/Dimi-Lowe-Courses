@@ -1,0 +1,87 @@
+He’s thinking in the right direction now. And you’re right to challenge the “first 10MB available” vs “stored 1 byte” mismatch — that mismatch is the clue.
+Here’s what’s actually happening (most likely)
+That warning text is generic. In your case, the upstream layer is rejecting / short-circuiting the body (or delivering a drained stream), so by the time your handler runs, req.body is effectively empty and you upload one null byte (or you create a file before data arrives and never actually pipe data).
+So yes: treat this as “stream is not being received correctly,” not “truncated to 10MB.”
+Do this first: add byte-count instrumentation (no guessing)
+Goal
+Prove whether bytes are actually flowing through the Node stream you pass into uploadFromStream.
+Implementation: wrap the stream with a counter + tap
+In the upload route, before calling uploadFromStream, do:
+convert web stream → node stream
+attach data listener and count bytes
+attach end, close, error
+log byteCount at end
+optionally: log first 16 bytes (hex)
+Also: do not read the stream twice. Just tap it.
+Minimal pattern (copy/paste)
+import { Readable } from "stream";
+
+function tapStream(stream: Readable, onDone: (info: any) => void) {
+  let bytes = 0;
+  let first: Buffer | null = null;
+
+  stream.on("data", (chunk: Buffer) => {
+    bytes += chunk.length;
+    if (!first) first = chunk.slice(0, 16);
+  });
+  stream.on("end", () => onDone({ bytes, firstHex: first?.toString("hex") || null, event: "end" }));
+  stream.on("close", () => onDone({ bytes, firstHex: first?.toString("hex") || null, event: "close" }));
+  stream.on("error", (e) => onDone({ bytes, firstHex: first?.toString("hex") || null, event: "error", err: String(e) }));
+  return stream;
+}
+
+export async function PUT(req: NextRequest) {
+  ...
+  if (!req.body) throw new Error("Missing req.body");
+
+  const nodeStream = Readable.fromWeb(req.body as any);
+  const tapped = tapStream(nodeStream, (info) => console.log("[upload] stream", info));
+
+  await objectStorage.uploadFromStream(objectKey, tapped);
+  ...
+}
+Also log request headers
+At the top of the handler:
+content-length
+content-type
+maybe transfer-encoding
+If content-length is missing and you see transfer-encoding: chunked, that’s fine.
+How to interpret results (this is the whole point)
+Case A: bytes ~ file.size for small files
+✅ streaming works for small files
+Then test 12MB+.
+Case B: bytes always near 0–1
+That means the route is not receiving the body.
+At that point, config tweaks like middlewareClientMaxBodySize won’t save you. You need a different upload path.
+If bytes are not flowing: the correct fallback is chunked upload
+Because chunked upload changes the behavior:
+each request is small
+less likely to be short-circuited
+you can retry parts
+But before building chunked upload, run the instrumentation once. It tells you if you’re wasting your time.
+One more subtle bug to check (it happens a lot)
+Your client might not actually be sending the File as the body
+If you accidentally do something like:
+body: JSON.stringify(file) (oops)
+or body: file.stream() in a way fetch doesn’t like in that environment
+Make sure it’s literally:
+await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+If your byte counter shows ~0 bytes even for 5MB, inspect the request payload in DevTools Network. It should not show “Request Payload: (empty)”.
+What to do right now
+Tell Replit to implement instrumentation and then run one upload:
+a 1–2MB file first (fast)
+then 5MB
+then 12MB
+No guessing. No config voodoo until you see byteCount.
+Message to send Replit (copy/paste)
+Before changing any Next config, add byte-count instrumentation to the PUT /upload route.
+
+- Tap the Node stream (Readable.fromWeb(req.body)) and count bytes received via 'data' events.
+- Log: content-length, content-type, transfer-encoding.
+- Log at stream end: bytes received + first 16 bytes hex.
+- After uploadFromStream completes, also stat downloaded file size in ensureInputVideo.
+
+Run 3 uploads: 1MB, 5MB, 12MB.
+If bytes are ~0 even for 1MB/5MB, the route is not receiving the request body (upstream short-circuit) and we must switch to chunked upload.
+If 5MB works and 12MB fails, hard cap confirmed -> chunked upload.
+That’s the whole move. Once you have the byteCount logs, the path becomes obvious in one glance.
