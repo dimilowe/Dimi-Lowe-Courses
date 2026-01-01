@@ -1,0 +1,92 @@
+New Universal Tool Template 2.0
+
+
+Universal Tool Template v2 (DB gating + Mega SEO)
+1) Add ToolServerGate to every dedicated tool page
+At the top:
+
+import ToolServerGate from "@/components/entitlements/ToolServerGate";
+Then wrap the tool client:
+
+<ToolServerGate
+  slug="ai-thumbnail-coach"
+  toolName="AI YouTube Thumbnail Coach"
+  toolDescription="Upload your thumbnail and get instant AI analysis with actionable feedback."
+>
+  <ThumbnailCoachClient />
+</ToolServerGate>
+Rule: the tool client never renders outside this wrapper.
+2) Kill the registry + “TOOL_DEFINITION” block in the template notes
+Delete all mentions of:
+* toolsRegistry.ts
+* TOOL_DEFINITION
+* cloud_ids
+* enterprise
+* “add to global urls table”
+That’s old. DB is SSoT now.
+3) Canonical tiers in the template (must match tiers.ts)
+Anywhere the template lists tiers, it must be:
+* free | starter | basic | pro
+No enterprise. No “free/basic/pro” only.
+4) JSON-LD: remove fake ratings + default to no “Offer price”
+In the universal template:
+* Remove aggregateRating entirely.
+* Remove offers.price = 0 unless you know the tool will stay free.
+Safe default JSON-LD:
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "VCM AI YouTube Thumbnail Coach",
+  applicationCategory: "MultimediaApplication",
+  operatingSystem: "Web",
+  description:
+    "AI-powered YouTube thumbnail analyzer that scores clarity, intrigue, emotion, contrast, readability, and composition. Includes chat-based coaching.",
+};
+FAQ schema can stay as-is.
+5) SEO copy rule (so you don’t lie)
+Because tiers are now editable in admin, your template must avoid hardcoded claims like:
+* “Free forever”
+* “No login required”
+* “Unlimited uploads”
+Unless you’re intentionally keeping it free.
+Template-safe phrasing:
+* “Instant thumbnail feedback”
+* “AI coaching”
+* “Mobile readability checks”
+* “Optimization scores”
+(You can still choose to market “free” on a specific tool, but then you’re signing up to update the page if you flip the tier later.)
+
+Add this checklist to the bottom of your template
+Tool Creation Checklist (DB is SSoT)
+DB (Admin → Content → Tools)
+* Create tool row with slug
+* Set required_tier: free|starter|basic|pro
+* If tier ≠ free, set required_clouds (at least 1)
+* Set in_directory=true if it should appear publicly
+Page
+* Wrap tool client in ToolServerGate (server-side gating)
+API (if any /api/tools/<slug>/*)
+* Wrap with withToolGate() (fail closed)
+SEO
+* No fake rating schema
+* Don’t hardcode “Free/Unlimited/No login” unless you mean it
+
+Optional but smart: stop repeating toolName/toolDescription in pages
+Since your ToolServerGate already falls back to dbTool?.name/description, you can omit props entirely:
+
+<ToolServerGate slug="ai-thumbnail-coach">
+  <ThumbnailCoachClient />
+</ToolServerGate>
+Use props only if you want a different name/description on the wall than what’s in the DB.
+
+
+Quick sanity checklist for new tools (post-migration)
+When you create a tool, you should be able to answer “yes” to all of these:
+* Does the tool exist in the tools DB table? (not just code)
+* Does the page route go through the server gate wrapper?
+* Are there zero tier strings hardcoded in the page copy that could become false later?
+* Do all tool APIs use the gate middleware?
+* Does the admin UI control the tier/clouds without needing code edits?
+If yes, you’re aligned with the new system.
+
