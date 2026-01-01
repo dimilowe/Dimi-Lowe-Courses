@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
     const originalFilename = job.meta_json?.original_filename || "video";
     const baseName = originalFilename.replace(/\.[^/.]+$/, "");
 
-    return new Response(new Uint8Array(zipData), {
+    const arrayBuffer = zipData.buffer.slice(zipData.byteOffset, zipData.byteOffset + zipData.byteLength) as ArrayBuffer;
+    return new Response(arrayBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/zip",
