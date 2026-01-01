@@ -13,12 +13,15 @@ interface JobStatus {
   meta?: Record<string, any>;
 }
 
+type AssetMode = "auto" | "frame" | "clip";
+
 export default function VideoAssemblerClient() {
   const [packKey, setPackKey] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<JobStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [assetMode, setAssetMode] = useState<AssetMode>("auto");
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleRun = async () => {
@@ -36,7 +39,10 @@ export default function VideoAssemblerClient() {
       const res = await fetch("/api/tools/video-assembler/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pack_key: packKey.trim() })
+        body: JSON.stringify({ 
+          pack_key: packKey.trim(), 
+          ...(assetMode !== "auto" && { asset_mode: assetMode })
+        })
       });
 
       const data = await res.json();
@@ -91,6 +97,7 @@ export default function VideoAssemblerClient() {
     setStatus(null);
     setError(null);
     setIsRunning(false);
+    setAssetMode("auto");
   };
 
   useEffect(() => {
@@ -135,6 +142,53 @@ export default function VideoAssemblerClient() {
                 />
                 <p className="text-sm text-gray-500 mt-2">
                   Format: music-video-parser/{"<jobId>"} from a completed parser job
+                </p>
+              </div>
+
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Asset Mode
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAssetMode("auto")}
+                    className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                      assetMode === "auto"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    <div className="font-semibold">Auto</div>
+                    <div className="text-xs mt-1 opacity-75">Use pack default</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssetMode("frame")}
+                    className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                      assetMode === "frame"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    <div className="font-semibold">Frames</div>
+                    <div className="text-xs mt-1 opacity-75">Static slideshow</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssetMode("clip")}
+                    className={`px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                      assetMode === "clip"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    <div className="font-semibold">Clips</div>
+                    <div className="text-xs mt-1 opacity-75">Motion video</div>
+                  </button>
+                </div>
+                <p className="text-sm text-gray-500 mt-2">
+                  Auto uses the pack's preferred asset type. Override to force frames or clips.
                 </p>
               </div>
             </div>
