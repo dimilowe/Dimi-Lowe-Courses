@@ -1,0 +1,70 @@
+Cool. Path A = stop trying to build a “durable, resumable cloud pipeline” right now. Just make the thing work end-to-end, even if it’s brute force.
+Here’s the simplest way to get a real downloadable template-pack.zip working without relying on broken binary storage.
+What’s going on (in one sentence)
+Autoscale + Replit Object Storage binary is unreliable in your setup, so anything that depends on persisting big binary blobs between requests keeps collapsing.
+So we’re going to persist only text, and recompute binaries on demand.
+Path A MVP that will work
+Core idea
+Upload video in chunks
+Store chunks as base64 text in object storage (text methods work)
+When user clicks “Build Template Pack”, the server:
+pulls chunks (text)
+assembles the mp4 locally
+runs ffprobe/ffmpeg
+creates template-pack.zip locally
+streams the zip back to the user in the same request
+No need to store binary zip or binary frames in object storage at all.
+This bypasses every broken part:
+no big body upload
+no binary persistence in object storage
+no multi-stage job dependencies
+What you build (minimal endpoints)
+1) POST /start
+Creates job, stores:
+meta.source_bytes
+meta.chunk_size
+meta.parts_expected
+Returns jobId.
+2) PUT /upload-part?jobId&part
+Client sends raw bytes (<=5MB)
+Server:
+reads req.arrayBuffer()
+base64 encodes it
+uploadFromText(partKey, base64String)
+logs verify by downloading text and decoding length (optional)
+3) POST /build?jobId
+This is the big one. One request does everything and returns the zip as a streamed response.
+Server:
+downloads every part via downloadAsText
+decodes and appends to a local file (./.cache/<jobId>.mp4)
+runs ffprobe
+detects cuts (ffmpeg)
+extracts keyframes (ffmpeg)
+zips template.json + cuts.csv + frames/
+streams the zip in the response
+No object storage binary writes. No “pack stage” in storage.
+Critical constraints (so it actually works)
+To make this reliable on autoscale:
+Tighten limits for MVP (seriously)
+MAX_DURATION_SEC = 60 (or 90 if you’re brave)
+MAX_SHOTS = 200
+FRAME_WIDTH = 960 (smaller = faster)
+Extract one keyframe per shot only
+This keeps zip size + compute sane.
+You can loosen later.
+Why this is the right “get it working” move
+You’ll finally see a real zip download.
+You’ll validate the value prop (templates).
+You’ll stop losing days to infra edge cases.
+Then, once demand is proven, you switch to “proper” (R2/S3 + presigned multipart + durable artifacts).
+What you lose (acceptable for MVP)
+No resumable long-running jobs
+If /build fails, you just retry
+Not scalable yet
+Storage for chunks is heavier (base64 overhead)
+But it works.
+Next step: do you want /build to stream a zip or return base64?
+Stream zip is the move (no JSON size limits, no memory blowups).
+So implement /build as:
+Content-Type: application/zip
+Content-Disposition: attachment; filename="template-pack.zip"
