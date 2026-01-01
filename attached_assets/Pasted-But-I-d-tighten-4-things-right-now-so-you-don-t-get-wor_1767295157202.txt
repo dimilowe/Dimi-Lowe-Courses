@@ -1,0 +1,41 @@
+But I’d tighten 4 things right now so you don’t get “works once” and then spend a week chasing edge cases.
+What’s solid
+Separate video-assembler tool + its own stages ✅
+Persist pack while still streaming zip ✅ (critical)
+ffconcat + ffmpeg slideshow ✅ (most reliable v1)
+pack_key convention as a prefix ✅ (prevents drift)
+The 4 tweaks I’d require before coding
+1) Don’t create a new jobId for assembler
+Use the same jobId as the pack’s jobId (the parser jobId), unless you need fan-out later.
+Otherwise you’ll end up with:
+parser jobId A
+assembler jobId B
+and a bunch of “which job is my output?” confusion.
+Fix: POST /run accepts pack_job_id and assembler job id can equal it, or store source_job_id in meta_json.
+2) Persist normalized manifest too
+After normalization (frame-grid + clamp), write:
+video-assembler/{jobId}/manifest.normalized.json
+This becomes your debugging truth. When output looks off, you can inspect the exact durations used.
+3) Add a hard validation step before rendering
+Before ffmpeg runs:
+verify manifest exists
+verify shots.length > 0
+verify each referenced frame exists
+verify fps/resolution present (or default)
+Fail fast with a clear error.
+This saves you from “ffmpeg failed” with no clue why.
+4) Preview.mp4 should be optional but easy
+Not necessary day 1, but if you can output a tiny preview it makes iteration fast.
+If you skip it now, fine—just don’t design yourself into a corner.
+One more “gotcha” on the prerequisite
+When persisting during /build, do not re-read frames from disk twice.
+Upload them as they’re being added to zip (single pass). Otherwise you’ll double IO and blow up on larger videos.
+Verdict
+Replit’s plan is on track. I’d approve it with those tweaks.
+If you want the exact acceptance criteria to send back to Replit, use this:
+Acceptance Criteria
+/build streams zip to client AND uploads manifest.json + frames/* to music-video-parser/{jobId}/...
+POST /api/tools/video-assembler/run { pack_key } creates job, downloads pack, normalizes, renders, uploads output.mp4
+Writes video-assembler/{jobId}/manifest.normalized.json and stores render stats in meta_json
+End-to-end test: parse → build → assemble → output.mp4 playable
+That’s the whole thing.
