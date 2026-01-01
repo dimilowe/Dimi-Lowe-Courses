@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Readable, Transform } from "stream";
 import { gateToolForRequest } from "@/lib/entitlements/withToolGate";
 import { getJob, updateJob, appendMeta } from "@/lib/toolJobs/toolJobs";
-import { uploadFromStream } from "@/lib/objectStorage/client";
+import { getClient } from "@/lib/objectStorage/client";
 import { TOOL_SLUG } from "@/lib/musicVideoParser/constants";
 
 export const runtime = "nodejs";
@@ -10,21 +9,6 @@ export const runtime = "nodejs";
 const CHUNK_SIZE = 5 * 1024 * 1024;
 const MAX_CHUNK_SIZE = CHUNK_SIZE + 1024;
 const MAX_CHUNKS = 50;
-
-function createCountingTransform(maxBytes: number): { transform: Transform; getBytes: () => number; overflow: () => boolean } {
-  let bytes = 0;
-  let overflowed = false;
-  const transform = new Transform({
-    transform(chunk: Buffer, encoding, callback) {
-      bytes += chunk.length;
-      if (bytes > maxBytes) {
-        overflowed = true;
-      }
-      callback(null, chunk);
-    }
-  });
-  return { transform, getBytes: () => bytes, overflow: () => overflowed };
-}
 
 export async function PUT(req: NextRequest) {
   const gateResult = await gateToolForRequest(TOOL_SLUG);
@@ -65,22 +49,29 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Missing request body" }, { status: 400 });
   }
 
-  const chunkKey = `music-video-parser/${jobId}/chunks/part-${String(chunkIndex).padStart(4, "0")}`;
-  const nodeStream = Readable.fromWeb(req.body as any);
-  const { transform, getBytes, overflow } = createCountingTransform(MAX_CHUNK_SIZE);
-  const countedStream = nodeStream.pipe(transform);
-
   try {
-    await uploadFromStream(chunkKey, countedStream);
+    const arrayBuffer = await req.arrayBuffer();
+    const buf = Buffer.from(arrayBuffer);
 
-    const bytesReceived = getBytes();
-
-    if (overflow()) {
-      console.log(`[chunk] Job ${jobId} chunk ${chunkIndex} rejected: size ${bytesReceived} exceeds max`);
+    if (buf.length > MAX_CHUNK_SIZE) {
+      console.log(`[chunk] Job ${jobId} chunk ${chunkIndex} rejected: size ${buf.length} exceeds max`);
       return NextResponse.json({ ok: false, error: "Chunk too large" }, { status: 400 });
     }
 
-    console.log(`[chunk] Job ${jobId} chunk ${chunkIndex}/${totalChunks} uploaded: ${bytesReceived} bytes`);
+    const chunkKey = `music-video-parser/${jobId}/chunks/part-${String(chunkIndex).padStart(4, "0")}`;
+    const client = getClient();
+
+    await client.uploadFromBytes(chunkKey, buf);
+
+    const verifyResult = await client.downloadAsBytes(chunkKey);
+    if (verifyResult.ok) {
+      const verifyBuf = Buffer.isBuffer(verifyResult.value) 
+        ? verifyResult.value 
+        : Buffer.from(verifyResult.value as any);
+      console.log(`[chunk] Job ${jobId} chunk ${chunkIndex}/${totalChunks} uploaded: ${buf.length} bytes, verified: ${verifyBuf.length} bytes, hex16=${verifyBuf.subarray(0, 16).toString("hex")}`);
+    } else {
+      console.log(`[chunk] Job ${jobId} chunk ${chunkIndex}/${totalChunks} uploaded: ${buf.length} bytes, verify failed`);
+    }
 
     const meta = (job.meta_json || {}) as Record<string, any>;
     const uploadedChunks = meta.uploaded_chunks || [];
@@ -104,7 +95,7 @@ export async function PUT(req: NextRequest) {
       ok: true,
       jobId,
       chunkIndex,
-      bytesReceived,
+      bytesReceived: buf.length,
       allUploaded
     });
   } catch (err: any) {
