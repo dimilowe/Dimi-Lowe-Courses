@@ -1,0 +1,41 @@
+Tell Replit to add/confirm these 5 details
+1) Clip slicing must be exactly boundary-to-boundary
+For each shot:
+start = cuts[i]
+end = cuts[i+1]
+duration = end - start
+No padding, no “smart trimming,” no heuristics.
+2) Standardize clip encoding on output from the parser
+If clips are extracted with random codecs, concat can get annoying.
+Have the parser write each clip with consistent settings, e.g.:
+H.264 video
+AAC audio optional (or no audio)
+constant frame rate 60 (or at least normalized later)
+yuv420p pixel format
+Even if assembler normalizes later, consistent clips reduce headaches.
+3) Define freeze-last-frame precisely (no ambiguity)
+When clip is shorter than required duration:
+extend by freezing the last frame
+do not loop (unless you explicitly choose loop later)
+This should be deterministic.
+4) Backwards compatibility rule must be explicit
+Old manifests might look like:
+asset: "frames/b003.jpg" (no assets map)
+Assembler should resolve like:
+if shot.assets exists → use it
+else if shot.asset exists → treat as frame
+else error
+No silent weirdness.
+5) Verify concat strategy for clips (pick one and stick to it)
+For frame mode you’re already using ffconcat/slideshow.
+For clips, Replit should choose one robust approach:
+concat demuxer if all clips are encoded the same
+or filter_complex concat if they’re not
+Given you may mix sources, filter_complex is often safer, but slower. Either is fine — just be consistent.
+What I’d reply to Replit (copy/paste)
+“Plan approved. Implement exactly as written. Add these constraints:
+Clip slicing is strictly boundary-to-boundary (start=cut[i], end=cut[i+1]) with no padding/heuristics.
+Parser should encode extracted clips consistently (H.264, yuv420p; CFR preferred).
+Clip-shortfall behavior is freeze-last-frame only (deterministic).
+Back-compat: if manifest uses old shot.asset, treat as frame; prefer new shot.assets map when present.
+For clip assembly, pick one concat strategy and standardize it (concat demuxer if uniform encodes; otherwise filter_complex concat).”

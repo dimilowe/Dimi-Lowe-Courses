@@ -7,10 +7,13 @@ import { randomUUID } from "crypto";
 
 const VALID_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
 
+type ExtractionMode = "frames" | "clips" | "both";
+
 interface StartRequest {
   filename: string;
   contentType: string;
   sizeBytes: number;
+  extraction_mode?: ExtractionMode;
 }
 
 export async function POST(request: NextRequest) {
@@ -30,7 +33,15 @@ export async function POST(request: NextRequest) {
 
   try {
     const body: StartRequest = await request.json();
-    const { filename, contentType, sizeBytes } = body;
+    const { filename, contentType, sizeBytes, extraction_mode = "frames" } = body;
+    
+    const validModes: ExtractionMode[] = ["frames", "clips", "both"];
+    if (!validModes.includes(extraction_mode)) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid extraction_mode. Use 'frames', 'clips', or 'both'." },
+        { status: 400 }
+      );
+    }
 
     if (!filename || !contentType || typeof sizeBytes !== "number") {
       return NextResponse.json(
@@ -62,6 +73,9 @@ export async function POST(request: NextRequest) {
       originalFilename: filename,
       jobId
     });
+    
+    const { appendMeta } = await import("@/lib/toolJobs/toolJobs");
+    await appendMeta(jobId, { extraction_mode });
 
     const uploadUrl = `/api/tools/music-video-parser/upload?jobId=${jobId}`;
 

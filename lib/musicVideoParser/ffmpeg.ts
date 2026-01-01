@@ -150,3 +150,29 @@ export async function extractFrame(
 
   await runCommand("ffmpeg", args);
 }
+
+export async function extractClip(
+  inputPath: string,
+  startSec: number,
+  endSec: number,
+  outPath: string
+): Promise<void> {
+  const duration = endSec - startSec;
+  
+  const args = [
+    "-ss", startSec.toFixed(6),
+    "-i", inputPath,
+    "-t", duration.toFixed(6),
+    "-c:v", "libx264",
+    "-preset", "fast",
+    "-crf", "23",
+    "-pix_fmt", "yuv420p",
+    "-r", "60",
+    "-an",
+    "-movflags", "+faststart",
+    "-y",
+    outPath
+  ];
+
+  await runCommand("ffmpeg", args);
+}

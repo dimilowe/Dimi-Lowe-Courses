@@ -1,9 +1,19 @@
+export interface ManifestAssets {
+  frame?: string;
+  clip?: string;
+}
+
 export interface ManifestShot {
   shot_id: string;
   timestamp_sec: number;
   duration_sec: number;
-  frame: string;
+  assets?: ManifestAssets;
+  frame?: string;
+  asset?: string;
 }
+
+export type ExtractionMode = "frames" | "clips" | "both";
+export type AssetMode = "frame" | "clip";
 
 export interface Manifest {
   name: string;
@@ -16,6 +26,8 @@ export interface Manifest {
   };
   shots: ManifestShot[];
   truncated?: boolean;
+  extraction_mode?: ExtractionMode;
+  preferred_asset?: AssetMode;
 }
 
 export interface NormalizedShot {
@@ -23,7 +35,8 @@ export interface NormalizedShot {
   timestamp_sec: number;
   duration_sec: number;
   duration_frames: number;
-  frame: string;
+  assets?: ManifestAssets;
+  frame?: string;
   clamped: boolean;
 }
 
@@ -46,4 +59,5 @@ export interface RenderStats {
   ffmpeg_cmd: string;
   clamp_applied: number;
   source_job_id: string;
+  asset_mode: AssetMode;
 }
