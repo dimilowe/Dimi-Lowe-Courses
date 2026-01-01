@@ -333,7 +333,6 @@ export async function runAssembler(
     const normalizedManifestJson = JSON.stringify(normalizedManifest, null, 2);
     fs.writeFileSync(path.join(workDir, "manifest.normalized.json"), normalizedManifestJson);
     
-    const client = getClient();
     await client.uploadFromText(`video-assembler/${jobId}/manifest.normalized.json`, normalizedManifestJson);
     console.log("[assembler] Uploaded normalized manifest");
     
