@@ -90,24 +90,38 @@ export default function MusicVideoParserClient() {
     setJobId(null);
 
     try {
-      const formData = new FormData();
-      formData.append("video", file);
-
-      const res = await fetch("/api/tools/music-video-parser/start", {
+      const startRes = await fetch("/api/tools/music-video-parser/start", {
         method: "POST",
-        body: formData
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type,
+          sizeBytes: file.size
+        })
       });
 
-      const data = await res.json();
+      const startData = await startRes.json();
 
-      if (!data.ok) {
-        setError(data.error || "Failed to start processing");
+      if (!startData.ok) {
+        setError(startData.error || "Failed to start processing");
         setUploading(false);
         return;
       }
 
-      setJobId(data.jobId);
-      startPolling(data.jobId);
+      const uploadRes = await fetch(startData.upload.url, {
+        method: startData.upload.method,
+        headers: startData.upload.headers,
+        body: file
+      });
+
+      if (!uploadRes.ok) {
+        setError("Failed to upload video to storage");
+        setUploading(false);
+        return;
+      }
+
+      setJobId(startData.jobId);
+      startPolling(startData.jobId);
     } catch (err: any) {
       setError(err.message || "Upload failed");
     } finally {
@@ -182,7 +196,7 @@ export default function MusicVideoParserClient() {
               ) : (
                 <div>
                   <p className="text-lg">Drop a video here or click to browse</p>
-                  <p className="text-gray-500 mt-2">MP4, MOV, or WebM (max 1GB)</p>
+                  <p className="text-gray-500 mt-2">MP4, MOV, or WebM (max 250MB)</p>
                 </div>
               )}
             </div>
