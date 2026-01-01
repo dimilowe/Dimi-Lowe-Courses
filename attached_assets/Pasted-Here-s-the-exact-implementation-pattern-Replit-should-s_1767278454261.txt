@@ -1,0 +1,133 @@
+Here’s the exact implementation pattern Replit should ship.
+1) Keep /start JSON-only
+POST /api/tools/music-video-parser/start
+gated
+validate { filename, contentType, sizeBytes }
+create job row and set stage upload
+return:
+{ "ok": true, "jobId": "...", "uploadUrl": "/api/tools/music-video-parser/upload?jobId=..." }
+No presigned URLs. Just your own upload endpoint.
+2) Add streaming upload route (the real fix)
+PUT /api/tools/music-video-parser/upload/route.ts
+This must:
+gate
+validate jobId exists and not complete
+enforce Content-Length if present (<= 250MB)
+enforce Content-Type (video/mp4, video/quicktime, video/webm)
+convert req.body (Web ReadableStream) to Node stream
+client.uploadFromStream(key, nodeStream)
+update job meta: { uploaded: true, contentType, sizeBytes }
+set stage → probe
+Code:
+import { NextRequest, NextResponse } from "next/server";
+import { gateToolForRequest } from "@/lib/entitlements/withToolGate";
+import { getJob, updateJob, appendMeta } from "@/lib/toolJobs/toolJobs";
+import { objectStorage } from "@/lib/objectStorage/replitClient"; // whatever you named it
+import { Readable } from "stream";
+
+const TOOL_SLUG = "music-video-parser";
+const VALID_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
+const MAX_SIZE_BYTES = 250 * 1024 * 1024;
+
+export const runtime = "nodejs"; // ensure Node stream support
+
+export async function PUT(req: NextRequest) {
+  const gateResult = await gateToolForRequest(TOOL_SLUG);
+  if (!gateResult.allowed) return gateResult.response;
+
+  const jobId = req.nextUrl.searchParams.get("jobId");
+  if (!jobId) {
+    return NextResponse.json({ ok: false, error: "jobId required" }, { status: 400 });
+  }
+
+  const job = await getJob(jobId);
+  if (!job || job.tool_slug !== TOOL_SLUG) {
+    return NextResponse.json({ ok: false, error: "Job not found" }, { status: 404 });
+  }
+  if (job.status === "complete") {
+    return NextResponse.json({ ok: false, error: "Job already complete" }, { status: 400 });
+  }
+
+  const contentType = req.headers.get("content-type") || "";
+  if (!VALID_TYPES.includes(contentType)) {
+    return NextResponse.json({ ok: false, error: "Invalid content-type" }, { status: 400 });
+  }
+
+  const contentLengthHeader = req.headers.get("content-length");
+  if (contentLengthHeader) {
+    const sizeBytes = Number(contentLengthHeader);
+    if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+      return NextResponse.json({ ok: false, error: "Invalid content-length" }, { status: 400 });
+    }
+    if (sizeBytes > MAX_SIZE_BYTES) {
+      return NextResponse.json({ ok: false, error: "File too large" }, { status: 400 });
+    }
+  }
+
+  // IMPORTANT: do not call req.json() or req.formData() anywhere.
+  if (!req.body) {
+    return NextResponse.json({ ok: false, error: "Missing request body" }, { status: 400 });
+  }
+
+  const objectKey = `music-video-parser/${jobId}/input`;
+  const nodeStream = Readable.fromWeb(req.body as any);
+
+  // Mark processing
+  await updateJob(jobId, { status: "processing", stage: "upload", progress: 5, error: null });
+
+  try {
+    await objectStorage.uploadFromStream(objectKey, nodeStream);
+
+    await updateJob(jobId, { status: "pending", stage: "probe", progress: 10 });
+    await appendMeta(jobId, { input_key: objectKey, content_type: contentType, uploaded: true });
+
+    return NextResponse.json({ ok: true, jobId, inputKey: objectKey });
+  } catch (err: any) {
+    await updateJob(jobId, {
+      status: "failed",
+      stage: "upload",
+      error: String(err?.message || err),
+      progress: 0
+    });
+    return NextResponse.json({ ok: false, error: "Upload failed" }, { status: 500 });
+  }
+}
+Notes (non-negotiable)
+export const runtime = "nodejs" matters.
+Never call formData() in this route.
+The client must send the raw file body as the request body (not multipart).
+3) Client upload code (must be raw PUT)
+In your MusicVideoParserClient.tsx, do:
+// 1) start
+const startRes = await fetch("/api/tools/music-video-parser/start", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    filename: file.name,
+    contentType: file.type,
+    sizeBytes: file.size
+  })
+});
+const { jobId, uploadUrl } = await startRes.json();
+
+// 2) upload raw bytes to your endpoint
+await fetch(uploadUrl, {
+  method: "PUT",
+  headers: {
+    "Content-Type": file.type,
+    "Content-Length": String(file.size) // browser may ignore; still fine
+  },
+  body: file
+});
+
+// 3) now poll/run
+4) Update probe stage to read from object storage key
+Your existing pipeline should already download the input object from object storage in probe. Just ensure it uses meta_json.input_key or job.input_key.
+5) Remove the broken GCS SDK code entirely
+Delete anything that tries to create signed URLs via Google libraries. It will never work reliably on Replit autoscale.
+Final: what you should see after this
+Upload succeeds for 67MB
+No 10MB truncation
+No formData errors
+Parser starts probing immediately
+Everything remains autoscale-safe
