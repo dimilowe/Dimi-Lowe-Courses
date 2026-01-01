@@ -1,0 +1,71 @@
+his is exactly the instruction you give to Replit.
+But it needs to be tight and unambiguous, so it doesn’t over-engineer or drift.
+Below is the exact spec / command I’d send. You can paste this directly.
+Replit Instruction (Authoritative)
+Goal:
+Extend the existing music-video parser + video-assembler system to support both frames and clips, without breaking existing behavior.
+1. Parser changes (minimal, additive)
+Add a parser option:
+extraction_mode: "frames" | "clips" | "both"
+Behavior:
+"frames" (default, backwards compatible)
+Extract one frame per detected cut
+Write to frames/{shot_id}.jpg
+"clips"
+Slice subclips between consecutive cut points
+Write to clips/{shot_id}.mp4
+"both"
+Write both frames/* and clips/*
+Cut detection logic must remain unchanged.
+Only the extraction step differs.
+2. Manifest schema change (do NOT duplicate manifests)
+Update each shot to support both asset types:
+{
+  "shot_id": "b003",
+  "duration": 1.916,
+  "assets": {
+    "frame": "frames/b003.jpg",
+    "clip": "clips/b003.mp4"
+  }
+}
+Add optional top-level default:
+"preferred_asset": "frame"
+Timing remains the single source of truth.
+3. Assembler changes (single branch, no creativity)
+Assembler must support both asset types.
+Input:
+{
+  "pack_key": "...",
+  "asset_mode": "frame" | "clip"   // optional override
+}
+Resolution order:
+Use asset_mode if provided
+Else use preferred_asset from manifest
+Else default to "frame"
+Behavior:
+frame → loop image for duration
+clip → trim clip to duration
+4. Mandatory clip fallback rule (pick one, lock it)
+If clip duration < required manifest duration:
+Freeze last frame to fill remaining time
+No per-job variation. No AI decisions.
+5. Storage layout (unchanged, additive)
+pack_key/
+  manifest.json
+  frames/   (optional)
+  clips/    (optional)
+Assembler must rely only on the manifest, not directory guessing.
+6. Explicit non-goals (important)
+Do NOT:
+add in/out editing logic
+auto-select moments inside clips
+change timing dynamically
+build editor functionality
+add NLE-style features
+This is a render engine, not an editor.
+Sanity check (what success looks like)
+Existing frame-based jobs continue to work untouched
+Same pack can render:
+slideshow preview (frames)
+motion version (clips)
+Same manifest + same clips can be rendered under different timing templates later
