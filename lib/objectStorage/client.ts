@@ -13,10 +13,10 @@ export async function putObject(
   await client.uploadFromBytes(key, buffer);
 }
 
-export async function getObjectBuffer(key: string): Promise<Uint8Array> {
+export async function getObjectBuffer(key: string): Promise<Buffer> {
   const result = await client.downloadAsBytes(key);
   if (result.ok) {
-    return result.value;
+    return Buffer.from(result.value as unknown as ArrayBuffer);
   }
   throw new Error(`Failed to download object: ${key}`);
 }
