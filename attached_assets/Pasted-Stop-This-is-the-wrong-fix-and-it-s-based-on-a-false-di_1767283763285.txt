@@ -1,0 +1,55 @@
+Stop. This is the wrong fix, and it’s based on a false diagnosis.
+Why it’s false
+If MP4 “truncated at first NUL byte” were happening, your stored object size would typically be 0 bytes, not 1 byte, and your earlier “Array len=1” symptom wouldn’t match “string cut at NUL” anyway.
+Also: you already proved the Object Storage client was returning an Array not a Buffer. That’s not a UTF-8 truncation problem — that’s “you didn’t store bytes as bytes” / “you stored the wrong type” / “SDK incompatibility with stream mode.”
+Why base64 is a bad move here
++33% storage + bandwidth immediately.
+Slower uploads, slower finalize, slower processing.
+More memory pressure (you’ll decode big blobs).
+More moving parts (text APIs, decoding, verification).
+And you still might hit platform request limits depending on how you post the base64.
+You were one step away from the correct solution: uploadFromBytes + downloadAsBytes with Buffer normalization, and then ensure input_key points to the assembled binary object.
+The correct fix (binary end-to-end) — do this instead
+Revert the base64 change. Then do the following:
+1) Chunk upload route
+Keep it simple:
+const buf = Buffer.from(await req.arrayBuffer());
+await client.uploadFromBytes(partKey, buf);
+2) Chunk download normalization (defensive)
+const raw = await client.downloadAsBytes(partKey);
+const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+If this still produces buf.length === 1, then your storage write is wrong, not “UTF-8 truncation.”
+3) Finalize
+Same normalization when reading parts, and verify final object size:
+const raw = await client.downloadAsBytes(key);
+const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+total += buf.length;
+pass.write(buf);
+After upload:
+download first 64 bytes of final object
+log len and hex16
+4) The key plumbing
+After finalize succeeds, update the DB so probe reads the final assembled binary object:
+job.input_key = finalKey
+job.expected_size_bytes = original sizeBytes
+Then in ensureInputVideo, verify:
+downloaded len matches expected size (or at least > 1MB)
+hex header looks like a real container
+If bytes still come back as Array len=1
+Then the issue is the SDK method you’re calling is not returning bytes, or you’re not passing the right key, or the environment is returning a stub.
+Do this definitive check right after uploading a chunk:
+const verifyRaw = await client.downloadAsBytes(partKey);
+console.log("verify ctor", verifyRaw?.constructor?.name, "len", verifyRaw?.length);
+If ctor is still Array and len is 1, your “uploadFromBytes” did not actually store bytes or you’re not reading the same key you wrote.
+That’s not solvable by base64 — that’s solved by fixing the SDK interaction or switching storage approach.
+What I would do if Replit Object Storage can’t reliably store bytes
+If uploadFromBytes truly can’t store binary correctly (I doubt it, but if proven), then yes, base64 is a fallback — but only for chunks, and only if you verify it actually round-trips and you accept the cost.
+But right now you don’t have proof that “NUL truncation” is real. You just invented a story.
+Minimal ask
+Before you test again, check one thing:
+After uploadFromBytes(partKey, buf), does downloadAsBytes(partKey) return:
+Buffer/Uint8Array with length ~5MB?
+or
+Array len=1?
+If it’s still Array len=1, paste that log line. That tells us whether the storage layer is actually broken or you’re still writing/reading the wrong thing.
+Because if it’s returning 5MB now, you never needed base64.
