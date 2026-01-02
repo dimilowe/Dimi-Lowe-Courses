@@ -1,0 +1,177 @@
+🔒 BUILD PROMPT — VCM Identity Anchor Generator (Character Studio) — Tool v1
+Tool identity
+slug: identity-anchor-generator
+name (DB): VCM Identity Anchor Generator
+description (DB): Generate a concept character image, then lock identity into three anchor poses (front, profile, action) for consistent AI video.
+Cloud: Video Cloud (required_clouds includes at least one Video Cloud id/slug)
+Tier: recommend pro (or basic if you want wider adoption)
+This tool is image-only. No video generation.
+0) DB (SSoT)
+Admin → Content → Tools → create tool row:
+slug: identity-anchor-generator
+required_tier: free|starter|basic|pro (choose)
+if tier ≠ free: set required_clouds (at least 1)
+in_directory: true/false
+is_indexed: your call
+No registry files. DB is SSoT.
+1) Page (ToolServerGate required)
+Create dedicated tool page route:
+/tools/identity-anchor-generator
+Wrap client always:
+import ToolServerGate from "@/components/entitlements/ToolServerGate";
+import IdentityAnchorGeneratorClient from "./IdentityAnchorGeneratorClient";
+
+export default function Page() {
+  return (
+    <ToolServerGate slug="identity-anchor-generator">
+      <IdentityAnchorGeneratorClient />
+    </ToolServerGate>
+  );
+}
+Rule: client never renders outside wrapper.
+2) SEO (Template v2 safe)
+Use safe JSON-LD no fake ratings, no price:
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "VCM Identity Anchor Generator",
+  applicationCategory: "MultimediaApplication",
+  operatingSystem: "Web",
+  description:
+    "Generate a concept character image, then lock identity into three anchor poses (front, profile, action) to support consistent AI video production.",
+};
+Avoid hard claims like “free forever” / “unlimited”.
+3) Core user flow (2-step pipeline inside ONE tool)
+Step A — Concept (1 image)
+User inputs:
+Character description (required)
+Scene description (optional; can be used for vibe but anchors should be background-neutral or lightly consistent)
+Style selector (Anime / Cinematic / etc.)
+“Generate Concept” button
+Output:
+concept image preview
+“Regenerate” button
+“Lock Identity” button
+Step B — Lock Identity (3 anchors)
+User clicks “Lock Identity”
+Tool generates 3 anchor images:
+Front (or 3/4) identity lock
+Side profile
+Dynamic action pose
+Output:
+3-image grid
+“Regenerate anchors” (limited)
+“Save Character Pack” (creates Character Pack ID)
+Final output:
+character_pack_id
+downloadable anchor zip (optional)
+“Use in Motion Compiler” CTA (link to motion compiler with pack id)
+4) API Endpoints (fail-closed with withToolGate)
+Implement these endpoints:
+Start a job (concept or lock)
+POST /api/tools/identity-anchor-generator/run
+Body:
+{
+  "mode": "concept" | "lock",
+  "job_id": "optional",
+  "inputs": {
+    "character_description": "string",
+    "scene_description": "string optional",
+    "style_preset": "anime_cinematic_v1"
+  },
+  "concept_image_key": "required when mode=lock (stored concept image key)"
+}
+Status
+GET /api/tools/identity-anchor-generator/status?jobId=...
+Download
+GET /api/tools/identity-anchor-generator/download?jobId=...&type=concept|anchors|zip
+All routes MUST be wrapped:
+export const POST = withToolGate("identity-anchor-generator", async (req) => { ... })
+Fail closed.
+5) Job runner stages (image-only)
+Follow your existing job framework style.
+Stages:
+validate
+generate_concept (if mode=concept)
+generate_anchors (if mode=lock)
+upload
+cleanup
+6) Storage layout (Object Storage)
+identity-anchor-generator/{jobId}/
+manifest.json
+inputs.json
+
+concept/
+  concept.png
+
+anchors/
+  front.png
+  profile.png
+  action.png
+
+output/
+  anchors.zip   (optional)
+7) “Character Pack” persistence (SSoT output)
+When user clicks “Save Character Pack”, create a DB row in a new table OR store as a JSON blob in an existing content table (choose simplest).
+Minimum schema (recommended new table):
+character_packs
+id (uuid)
+owner_user_id
+name (optional)
+concept_image_key
+anchor_front_key
+anchor_profile_key
+anchor_action_key
+locked_attributes_json (optional v1)
+created_at
+Return character_pack_id.
+This is what Motion Compiler consumes later.
+8) Model integration (image generation)
+Use OpenAI image generation API for concept + anchors.
+V1 approach:
+concept: 1 image
+lock: 3 images with stricter constraints
+keep outputs consistent by using the same textual identity spec and (optionally) using the concept image as reference input if supported by your chosen image endpoint.
+Add server-side limits:
+max concept regenerations per day/month by tier
+max anchor regenerations per pack (ex: 3)
+(Do not hardcode marketing copy; enforce in code/entitlements or a simple “remaining credits” counter.)
+9) Client UI (simple, not technical)
+Build a stepper UI:
+Describe
+Concept
+Lock Identity
+Save Pack
+Show:
+input textareas
+style dropdown
+big “Generate Concept”
+then big “Lock Identity”
+then “Save Character Pack”
+No mention of “packs” until the end.
+Use creator language: “Create Character” / “Lock Character” / “Save”.
+10) Acceptance criteria (must pass)
+Tool is gated via ToolServerGate and withToolGate
+Concept image generates and persists
+Lock step generates 3 anchors and persists
+“Save Character Pack” returns pack id and stores keys
+No fake rating schema, no price in JSON-LD
+No tier claims hardcoded in page copy
+Works end-to-end in production with object storage
+Tool Creation Checklist (DB is SSoT)
+DB:
+tool row exists with slug
+required_tier set to free|starter|basic|pro
+required_clouds set if tier != free
+Page:
+ToolServerGate wrapper enforced
+API:
+all tool routes gated with withToolGate()
+SEO:
+no fake rating schema
+no “free/unlimited/no login” claims unless intentional
+Notes / Guardrails
+This is ONE tool with two internal phases.
+No video generation in this tool.
+Output is a Character Pack ID.
+Motion Compiler will later consume the Character Pack.
