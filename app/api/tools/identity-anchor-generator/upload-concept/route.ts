@@ -84,12 +84,15 @@ export async function POST(req: NextRequest) {
       await updateManifestStatus(jobId, "completed", {});
     }
 
+    const manifest = await loadManifest(jobId);
+
     return NextResponse.json({
       ok: true,
       job_id: jobId,
       mode: "concept",
       concept_image_key: imageKey,
       concept_image_base64: base64,
+      concept_attempts: manifest?.concept_attempts || 0,
       uploaded: true,
     });
   } catch (err: any) {

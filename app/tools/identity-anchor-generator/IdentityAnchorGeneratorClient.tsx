@@ -121,7 +121,7 @@ export default function IdentityAnchorGeneratorClient() {
         job_id: data.job_id,
         concept_image_key: data.concept_image_key,
         concept_image_base64: data.concept_image_base64,
-        concept_attempts: 0,
+        concept_attempts: data.concept_attempts || 0,
       });
       setIsUploaded(true);
       setImageLoadKey(prev => prev + 1);
