@@ -42,6 +42,15 @@ function buildAnchorPrompt(spec: IdentitySpec, poseType: "front" | "profile" | "
   return `Character reference sheet pose - ${poseInstructions[poseType]}. Character: ${spec.character_description}. Style: ${styleModifier}. Clean neutral background, studio lighting, character turnaround sheet quality. IMPORTANT: Maintain exact same character appearance, clothing, and features as the identity specification.`;
 }
 
+async function fetchImageFromUrl(url: string): Promise<Buffer> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch image: ${response.statusText}`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
 export async function generateConceptImage(
   jobId: string
 ): Promise<{ success: boolean; imageKey?: string; error?: string }> {
@@ -58,19 +67,19 @@ export async function generateConceptImage(
     const prompt = buildConceptPrompt(manifest.identity_spec);
     
     const response = await openai.images.generate({
-      model: "gpt-image-1",
+      model: "dall-e-3",
       prompt,
       n: 1,
       size: "1024x1024",
-      quality: "high",
+      quality: "hd",
     });
 
     const imageData = response.data?.[0];
-    if (!imageData?.b64_json) {
-      throw new Error("No image data returned from OpenAI");
+    if (!imageData?.url) {
+      throw new Error("No image URL returned from OpenAI");
     }
 
-    const imageBuffer = Buffer.from(imageData.b64_json, "base64");
+    const imageBuffer = await fetchImageFromUrl(imageData.url);
     const imageKey = `${getJobPath(jobId)}/concept/concept.png`;
     await storageClient.uploadFromBytes(imageKey, imageBuffer);
 
@@ -107,19 +116,19 @@ export async function generateAnchorImages(
       const prompt = buildAnchorPrompt(manifest.identity_spec, pose);
       
       const response = await openai.images.generate({
-        model: "gpt-image-1",
+        model: "dall-e-3",
         prompt,
         n: 1,
         size: "1024x1024",
-        quality: "high",
+        quality: "hd",
       });
 
       const imageData = response.data?.[0];
-      if (!imageData?.b64_json) {
-        throw new Error(`No image data returned for ${pose} pose`);
+      if (!imageData?.url) {
+        throw new Error(`No image URL returned for ${pose} pose`);
       }
 
-      const imageBuffer = Buffer.from(imageData.b64_json, "base64");
+      const imageBuffer = await fetchImageFromUrl(imageData.url);
       const imageKey = `${getJobPath(jobId)}/anchors/${pose}.png`;
       await storageClient.uploadFromBytes(imageKey, imageBuffer);
       keys[pose] = imageKey;
