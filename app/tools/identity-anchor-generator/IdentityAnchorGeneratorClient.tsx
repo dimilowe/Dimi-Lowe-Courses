@@ -81,7 +81,7 @@ export default function IdentityAnchorGeneratorClient() {
 
   const handleFileUpload = async (file: File) => {
     if (!characterDescription.trim()) {
-      setError("Please describe your character before uploading");
+      setError("Please describe your character first - this is needed to generate consistent anchor poses");
       return;
     }
 
@@ -330,7 +330,7 @@ export default function IdentityAnchorGeneratorClient() {
               className="w-full h-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             />
             <p className="mt-1 text-sm text-gray-500">
-              Describe your character's appearance in detail. This becomes the identity spec.
+              Describe your character's appearance in detail. This drives the anchor pose generation.
             </p>
           </div>
 
@@ -415,7 +415,7 @@ export default function IdentityAnchorGeneratorClient() {
             </div>
             
             <p className="text-center text-sm text-gray-500 mt-4">
-              Tip: Generate your concept in ChatGPT for better photorealism, then upload it here
+              Tip: Upload your own concept image, then we'll use your description above to generate matching anchor poses
             </p>
           </div>
         </div>
