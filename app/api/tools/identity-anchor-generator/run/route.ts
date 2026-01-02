@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
         job_id: jobId,
         mode: "concept",
         concept_image_key: result.imageKey,
+        concept_image_base64: result.imageBase64,
         concept_attempts: manifest?.concept_attempts || 1,
         max_concept_attempts: MAX_CONCEPT_ATTEMPTS
       });
@@ -131,6 +132,7 @@ export async function POST(req: NextRequest) {
         job_id: jobId,
         mode: "lock",
         anchors: result.keys,
+        anchor_base64s: result.base64s,
         anchor_attempts: manifest?.anchor_attempts || 1,
         max_anchor_attempts: MAX_ANCHOR_ATTEMPTS
       });

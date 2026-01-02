@@ -53,7 +53,7 @@ async function fetchImageFromUrl(url: string): Promise<Buffer> {
 
 export async function generateConceptImage(
   jobId: string
-): Promise<{ success: boolean; imageKey?: string; error?: string }> {
+): Promise<{ success: boolean; imageKey?: string; imageBase64?: string; error?: string }> {
   const manifest = await loadManifest(jobId);
   if (!manifest) {
     return { success: false, error: "Job manifest not found" };
@@ -80,6 +80,7 @@ export async function generateConceptImage(
     }
 
     const imageBuffer = await fetchImageFromUrl(imageData.url);
+    const imageBase64 = imageBuffer.toString("base64");
     const imageKey = `${getJobPath(jobId)}/concept/concept.png`;
     await storageClient.uploadFromBytes(imageKey, imageBuffer);
 
@@ -87,7 +88,7 @@ export async function generateConceptImage(
     manifest.concept_image_key = imageKey;
     await saveManifest(jobId, manifest);
 
-    return { success: true, imageKey };
+    return { success: true, imageKey, imageBase64 };
   } catch (err: any) {
     manifest.status = "failed";
     manifest.error = err.message || String(err);
@@ -98,7 +99,7 @@ export async function generateConceptImage(
 
 export async function generateAnchorImages(
   jobId: string
-): Promise<{ success: boolean; keys?: { front: string; profile: string; action: string }; error?: string }> {
+): Promise<{ success: boolean; keys?: { front: string; profile: string; action: string }; base64s?: { front: string; profile: string; action: string }; error?: string }> {
   const manifest = await loadManifest(jobId);
   if (!manifest) {
     return { success: false, error: "Job manifest not found" };
@@ -111,6 +112,7 @@ export async function generateAnchorImages(
 
     const poses: Array<"front" | "profile" | "action"> = ["front", "profile", "action"];
     const keys: { front?: string; profile?: string; action?: string } = {};
+    const base64s: { front?: string; profile?: string; action?: string } = {};
 
     for (const pose of poses) {
       const prompt = buildAnchorPrompt(manifest.identity_spec, pose);
@@ -129,9 +131,11 @@ export async function generateAnchorImages(
       }
 
       const imageBuffer = await fetchImageFromUrl(imageData.url);
+      const imageBase64 = imageBuffer.toString("base64");
       const imageKey = `${getJobPath(jobId)}/anchors/${pose}.png`;
       await storageClient.uploadFromBytes(imageKey, imageBuffer);
       keys[pose] = imageKey;
+      base64s[pose] = imageBase64;
     }
 
     manifest.status = "completed";
@@ -146,7 +150,12 @@ export async function generateAnchorImages(
         front: keys.front!, 
         profile: keys.profile!, 
         action: keys.action! 
-      } 
+      },
+      base64s: {
+        front: base64s.front!,
+        profile: base64s.profile!,
+        action: base64s.action!
+      }
     };
   } catch (err: any) {
     manifest.status = "failed";

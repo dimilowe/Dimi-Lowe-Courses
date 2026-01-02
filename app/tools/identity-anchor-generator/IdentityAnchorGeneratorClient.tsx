@@ -21,12 +21,18 @@ function LoadingOverlay({ message }: { message: string }) {
 interface ConceptResult {
   job_id: string;
   concept_image_key: string;
+  concept_image_base64: string;
   concept_attempts: number;
 }
 
 interface LockResult {
   job_id: string;
   anchors: {
+    front: string;
+    profile: string;
+    action: string;
+  };
+  anchor_base64s: {
     front: string;
     profile: string;
     action: string;
@@ -90,6 +96,7 @@ export default function IdentityAnchorGeneratorClient() {
       setConceptResult({
         job_id: data.job_id,
         concept_image_key: data.concept_image_key,
+        concept_image_base64: data.concept_image_base64,
         concept_attempts: data.concept_attempts,
       });
       setImageLoadKey(prev => prev + 1);
@@ -136,6 +143,7 @@ export default function IdentityAnchorGeneratorClient() {
       setLockResult({
         job_id: data.job_id,
         anchors: data.anchors,
+        anchor_base64s: data.anchor_base64s,
         anchor_attempts: data.anchor_attempts,
       });
       setImageLoadKey(prev => prev + 1);
@@ -182,9 +190,16 @@ export default function IdentityAnchorGeneratorClient() {
   };
 
   const getImageUrl = (type: "concept" | "front" | "profile" | "action") => {
-    const jobId = lockResult?.job_id || conceptResult?.job_id;
-    if (!jobId) return null;
-    return `/api/tools/identity-anchor-generator/download?jobId=${jobId}&type=${type}&v=${imageLoadKey}`;
+    if (type === "concept" && conceptResult?.concept_image_base64) {
+      return `data:image/png;base64,${conceptResult.concept_image_base64}`;
+    }
+    if (lockResult?.anchor_base64s) {
+      const base64 = lockResult.anchor_base64s[type as "front" | "profile" | "action"];
+      if (base64) {
+        return `data:image/png;base64,${base64}`;
+      }
+    }
+    return null;
   };
 
   return (
