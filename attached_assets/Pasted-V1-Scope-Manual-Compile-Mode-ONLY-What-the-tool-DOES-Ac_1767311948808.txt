@@ -1,0 +1,148 @@
+V1 Scope (Manual Compile Mode ONLY)
+What the tool DOES
+Accepts Character Pack, Scene Pack, Style DNA, Motion Skeleton
+Compiles a multi-beat plan
+Outputs Render Packet JSON for Beat 1
+Accepts uploaded clip.mp4 for each beat
+Automatically:
+extracts the last valid frame
+derives Boundary Contract metadata
+validates continuity
+generates the next Render Packet
+Repeats per beat
+After final beat:
+stitches clips
+outputs final video
+What the tool DOES NOT DO (V1)
+No AI video generation
+No provider APIs
+No inference billing
+No prompts UI
+No BYOK
+Architecture Requirements
+Tool Identity
+slug: vcm-motion-compiler
+gated by ToolServerGate
+DB is the single source of truth (Universal Tool Template v2)
+Required Routes
+Page
+/tools/vcm-motion-compiler
+Wrapped in:
+<ToolServerGate slug="vcm-motion-compiler">
+  <MotionCompilerClient />
+</ToolServerGate>
+API Endpoints (fail-closed)
+POST /api/tools/vcm-motion-compiler/start
+POST /api/tools/vcm-motion-compiler/uploadBeat
+GET  /api/tools/vcm-motion-compiler/packet
+POST /api/tools/vcm-motion-compiler/finalize
+GET  /api/tools/vcm-motion-compiler/status
+GET  /api/tools/vcm-motion-compiler/download
+All APIs must use withToolGate("vcm-motion-compiler").
+Compiler Stages (MANDATORY ORDER)
+compile
+validate packs + skeleton
+generate manifest.json
+no generation
+packet
+generate Render Packet JSON for next beat
+uploadBeat
+accept clip.mp4
+store in job directory
+boundary
+extract last valid frame via ffmpeg
+fallback timestamps if needed
+write boundary_end.frame.png
+derive boundary_end.state.json
+validate
+boundary PASS / FAIL
+retry current beat if FAIL (max attempts)
+halt compile on repeated failure
+advance
+promote boundary to next beat start
+generate next Render Packet
+render (after final beat)
+stitch only PASS beats
+normalize timing
+output final mp4
+Storage Layout (Object Storage)
+vcm-motion-compiler/{jobId}/
+  manifest.json
+  compile.log.json
+
+  beats/B01/
+    clip.mp4
+    boundary_end.frame.png
+    boundary_end.state.json
+    validate.report.json
+
+  beats/B02/
+    ...
+
+  output/
+    final.mp4
+    render.log.json
+Manifest Requirements (CRITICAL)
+manifest.json must track:
+beats list
+beat index
+status: PENDING | WAITING_UPLOAD | PROCESSING | PASS | FAIL
+boundary inputs / outputs
+retry count per beat
+This is the source of truth for resuming jobs.
+Boundary Contract (MANDATORY)
+Each beat (except first) must consume:
+previous beat’s boundary_end.frame.png
+previous beat’s boundary_end.state.json
+Each beat must produce:
+its own boundary_end.frame.png
+its own boundary_end.state.json
+If boundary validation fails → retry or halt.
+No silent continuation.
+Render Packet JSON (what user copies)
+Each packet must include:
+beat_id
+invariants (character, scene, style)
+boundary_start (if not first beat)
+render instructions (camera, motion, timing)
+duration target
+This packet is shown to the user with a copy button.
+UI (Minimal but Professional)
+Stepper:
+Setup
+Compile
+Render Packet Ready
+Upload Clip
+Boundary Processed
+Next Packet Ready
+Final Render
+Timeline:
+Beat list with status chips
+User flow:
+Copy JSON → Generate externally → Upload clip → Repeat
+Boundary Frame Extraction Rules
+Extract frame at duration - 0.05s
+Fallback: -0.12s, then -0.20s
+Reject black / corrupted frames
+This is automated — user never extracts frames
+Validation (V1 — deterministic)
+Identity anchors (hair color, jacket silhouette)
+Scene ID match
+Camera angle bucket consistency
+Screen position bucket consistency
+Lighting direction bucket consistency
+Output validate.report.json.
+Final Rules (NON-NEGOTIABLE)
+The tool never generates clips in V1
+Users upload clip.mp4 only
+The compiler owns frames + state
+No boundary = no next packet
+No PASS boundaries = no final stitch
+Goal
+Deliver a working Manual Compile Mode V1 that:
+proves the Boundary Contract
+proves continuity
+ships safely with zero inference cost
+integrates cleanly into Video Cloud
+Integrated generation is out of scope.
+If you paste this in and let Replit build exactly this, you’ll get a real, shippable V1 with no refactor debt.
