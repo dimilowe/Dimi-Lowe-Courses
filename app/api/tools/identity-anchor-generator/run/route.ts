@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { gateToolForRequest } from "@/lib/entitlements/withToolGate";
 import { TOOL_SLUG, MAX_CONCEPT_ATTEMPTS, MAX_ANCHOR_ATTEMPTS } from "@/lib/identityAnchor/types";
-import { createManifest, loadManifest } from "@/lib/identityAnchor/manifest";
+import { createManifest, loadManifest, updateManifestStatus } from "@/lib/identityAnchor/manifest";
 import { generateConceptImage, generateAnchorImages } from "@/lib/identityAnchor/imageGen";
 import { v4 as uuidv4 } from "uuid";
 
@@ -41,19 +41,25 @@ export async function POST(req: NextRequest) {
     if (mode === "concept") {
       const jobId = job_id || uuidv4();
       
-      if (job_id) {
-        const existing = await loadManifest(job_id);
-        if (existing && existing.concept_attempts >= MAX_CONCEPT_ATTEMPTS) {
-          return NextResponse.json({
-            ok: false,
-            error: `Maximum concept regenerations (${MAX_CONCEPT_ATTEMPTS}) reached`,
-            attempts: existing.concept_attempts,
-            max_attempts: MAX_CONCEPT_ATTEMPTS
-          }, { status: 400 });
-        }
+      const existing = job_id ? await loadManifest(job_id) : null;
+      
+      if (existing && existing.concept_attempts >= MAX_CONCEPT_ATTEMPTS) {
+        return NextResponse.json({
+          ok: false,
+          error: `Maximum concept regenerations (${MAX_CONCEPT_ATTEMPTS}) reached`,
+          attempts: existing.concept_attempts,
+          max_attempts: MAX_CONCEPT_ATTEMPTS
+        }, { status: 400 });
       }
 
-      await createManifest(jobId, "concept", identitySpec);
+      if (existing) {
+        await updateManifestStatus(jobId, "pending", {
+          mode: "concept",
+          identity_spec: identitySpec,
+        });
+      } else {
+        await createManifest(jobId, "concept", identitySpec);
+      }
       
       const result = await generateConceptImage(jobId);
       
@@ -87,19 +93,26 @@ export async function POST(req: NextRequest) {
 
       const jobId = job_id || uuidv4();
       
-      if (job_id) {
-        const existing = await loadManifest(job_id);
-        if (existing && existing.anchor_attempts >= MAX_ANCHOR_ATTEMPTS) {
-          return NextResponse.json({
-            ok: false,
-            error: `Maximum anchor regenerations (${MAX_ANCHOR_ATTEMPTS}) reached`,
-            attempts: existing.anchor_attempts,
-            max_attempts: MAX_ANCHOR_ATTEMPTS
-          }, { status: 400 });
-        }
+      const existing = job_id ? await loadManifest(job_id) : null;
+      
+      if (existing && existing.anchor_attempts >= MAX_ANCHOR_ATTEMPTS) {
+        return NextResponse.json({
+          ok: false,
+          error: `Maximum anchor regenerations (${MAX_ANCHOR_ATTEMPTS}) reached`,
+          attempts: existing.anchor_attempts,
+          max_attempts: MAX_ANCHOR_ATTEMPTS
+        }, { status: 400 });
       }
 
-      await createManifest(jobId, "lock", identitySpec, inputs.concept_image_key);
+      if (existing) {
+        await updateManifestStatus(jobId, "pending", {
+          mode: "lock",
+          identity_spec: identitySpec,
+          concept_image_key: inputs.concept_image_key,
+        });
+      } else {
+        await createManifest(jobId, "lock", identitySpec, inputs.concept_image_key);
+      }
       
       const result = await generateAnchorImages(jobId);
       
