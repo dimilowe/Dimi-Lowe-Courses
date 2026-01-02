@@ -1,9 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { STYLE_PRESETS, StylePreset, MAX_CONCEPT_ATTEMPTS, MAX_ANCHOR_ATTEMPTS } from "@/lib/identityAnchor/types";
 
 type Step = "describe" | "concept" | "lock" | "save";
+
+function LoadingOverlay({ message }: { message: string }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl">
+        <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">Generating...</h3>
+        <p className="text-gray-600">{message}</p>
+        <p className="text-sm text-gray-400 mt-4">This may take 15-30 seconds</p>
+      </div>
+    </div>
+  );
+}
 
 interface ConceptResult {
   job_id: string;
@@ -28,7 +41,9 @@ export default function IdentityAnchorGeneratorClient() {
   const [stylePreset, setStylePreset] = useState<StylePreset>("anime_cinematic_v1");
   
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [imageLoadKey, setImageLoadKey] = useState(0);
   
   const [conceptResult, setConceptResult] = useState<ConceptResult | null>(null);
   const [lockResult, setLockResult] = useState<LockResult | null>(null);
@@ -49,6 +64,7 @@ export default function IdentityAnchorGeneratorClient() {
     }
 
     setIsLoading(true);
+    setLoadingMessage(regenerate ? "Regenerating your character concept..." : "Creating your character concept with AI...");
     setError(null);
 
     try {
@@ -76,11 +92,13 @@ export default function IdentityAnchorGeneratorClient() {
         concept_image_key: data.concept_image_key,
         concept_attempts: data.concept_attempts,
       });
+      setImageLoadKey(prev => prev + 1);
       setStep("concept");
     } catch (err: any) {
       setError(err.message);
     } finally {
       setIsLoading(false);
+      setLoadingMessage("");
     }
   };
 
@@ -91,6 +109,7 @@ export default function IdentityAnchorGeneratorClient() {
     }
 
     setIsLoading(true);
+    setLoadingMessage(regenerate ? "Regenerating anchor poses..." : "Generating 3 anchor poses (front, profile, action)...");
     setError(null);
 
     try {
@@ -119,11 +138,13 @@ export default function IdentityAnchorGeneratorClient() {
         anchors: data.anchors,
         anchor_attempts: data.anchor_attempts,
       });
+      setImageLoadKey(prev => prev + 1);
       setStep("lock");
     } catch (err: any) {
       setError(err.message);
     } finally {
       setIsLoading(false);
+      setLoadingMessage("");
     }
   };
 
@@ -163,11 +184,13 @@ export default function IdentityAnchorGeneratorClient() {
   const getImageUrl = (type: "concept" | "front" | "profile" | "action") => {
     const jobId = lockResult?.job_id || conceptResult?.job_id;
     if (!jobId) return null;
-    return `/api/tools/identity-anchor-generator/download?jobId=${jobId}&type=${type}`;
+    return `/api/tools/identity-anchor-generator/download?jobId=${jobId}&type=${type}&v=${imageLoadKey}`;
   };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      {isLoading && loadingMessage && <LoadingOverlay message={loadingMessage} />}
+      
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           VCM Identity Anchor Generator
