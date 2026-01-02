@@ -1,0 +1,54 @@
+But there are 3 critical tweaks you need to force now so it doesn’t drift or ship a “pretty demo” that fails under real use.
+✅ What’s correct
+2-phase flow (Concept → Lock) ✅
+Output is a character_pack_id ✅
+New character_packs table ✅
+ToolServerGate wrapper ✅
+API gating fail-closed ✅
+Object storage layout ✅
+Stepper UI ✅
+❗ Must-fix items (tell Replit these now)
+1) Don’t require “locked concept” as a technical dependency
+Replit says: “Generate anchors from the locked concept.”
+That can mean two very different implementations:
+Bad: it tries to “edit” the concept image directly (and gets inconsistent)
+Good: it uses the concept image as a reference but still uses a strict identity spec prompt
+What you want:
+Anchors should be generated from a structured identity spec, optionally using the concept image as a reference input if supported.
+So instruct:
+“Anchors must be driven by the identity spec; concept image is optional reference, not the only source.”
+This prevents anchors drifting when the concept image is slightly off.
+2) Add hard limits + attempt tracking (or you’ll get cost bleed)
+You’re paying for still images. Fine.
+But you must track and limit:
+concept regenerations
+anchor regenerations
+Minimum V1:
+concept_attempts int
+anchor_attempts int
+enforce max attempts per day or per pack (tiered later)
+Otherwise someone can hammer regenerate and you eat it.
+3) Save Pack must be an explicit step, not auto-save
+You need:
+“Save Character Pack” button
+and only then create the DB row
+Why?
+Because otherwise you’ll fill your DB with junk concept attempts and abandoned sessions.
+This matters at scale.
+Optional but smart (strongly recommended)
+4) Store a “locked_identity_text” in the pack
+Even if you don’t extract metadata yet, store the normalized identity spec:
+hair, eyes, jacket, accessories, etc.
+style preset
+So Motion Compiler can later show:
+“This pack locks: silver hair, green eyes, dog tag…”
+And you can eventually build forbidden-mutations validation off it.
+Send this to Replit (copy/paste)
+Plan approved with these constraints:
+Anchors must be generated from a structured identity spec prompt; concept image may be used as optional reference input but is not the sole driver.
+Add attempt tracking + limits in V1 (concept_attempts, anchor_attempts) and enforce max regenerations to prevent cost bleed.
+Do not auto-create character_packs rows; only create a DB pack on explicit “Save Character Pack”.
+Store locked_identity_text (normalized identity spec) + style_preset in the pack row for downstream use.
+Verdict
+With those tweaks: green light.
+Without them: you’ll ship something that works once but becomes expensive and messy as soon as users start iterating.
