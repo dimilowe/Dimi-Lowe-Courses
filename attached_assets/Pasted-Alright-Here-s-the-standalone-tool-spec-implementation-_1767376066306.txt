@@ -1,0 +1,144 @@
+Alright. Here’s the standalone tool spec + implementation plan adapted to Universal Tool Template v2 (DB gating + Mega SEO), using the same patterns as your other tools (job pipeline, /tmp, object storage, status/download endpoints).
+Tool: vertical-blur-fill
+Purpose: Take any input video and output a 9:16 master with a blurred background fill (CapCut-style), eliminating black bars automatically.
+0) DB (SSoT)
+Admin → Content → Tools → Create row
+slug: vertical-blur-fill
+name: Vertical Blur Fill
+description: Convert any video into a clean 9:16 vertical master by filling side bars with a blurred background layer.
+required_tier: free | starter | basic | pro (your call)
+required_clouds: set if tier ≠ free (at least 1)
+in_directory: true if public
+1) Page (ToolServerGate wrapper)
+File: app/tools/vertical-blur-fill/page.tsx (or your existing tool routing convention)
+import ToolServerGate from "@/components/entitlements/ToolServerGate";
+import VerticalBlurFillClient from "./VerticalBlurFillClient";
+
+export default function Page() {
+  return (
+    <ToolServerGate slug="vertical-blur-fill">
+      <VerticalBlurFillClient />
+    </ToolServerGate>
+  );
+}
+Rule honored: client never renders outside wrapper.
+2) UI Client (simple, shippable)
+File: app/tools/vertical-blur-fill/VerticalBlurFillClient.tsx
+Minimum UI:
+Upload video
+Settings (advanced collapsed):
+Output: 720x1280 (default) or 1080x1920
+FPS: default 60
+Blur strength: default 35
+Background scale: default 1.5
+Background dim: default 0.08
+Saturation: default 0.9
+“Run”
+Poll status
+Download button
+(You already have patterns for upload → run → status → download; reuse them.)
+3) API (fail-closed gating)
+You’ll implement:
+POST /api/tools/vertical-blur-fill/run
+GET /api/tools/vertical-blur-fill/status?jobId=...
+GET /api/tools/vertical-blur-fill/download?jobId=...
+All routes must use your withToolGate() middleware.
+3A) Object Storage layout
+Use the same storage convention style as your other tools:
+Input stored at: vertical-blur-fill/{jobId}/input.mp4
+Output stored at: vertical-blur-fill/{jobId}/output.mp4
+Optional: vertical-blur-fill/{jobId}/meta.json
+4) Job Model / Stages
+Stages (simple + reliable):
+download (pull input from object storage to /tmp)
+process (ffmpeg compose)
+upload (push output to object storage)
+cleanup
+Job state stored the same way you do other tools (DB jobs table or whatever your jobs infra is).
+5) Core Processing (FFmpeg filter)
+This is the exact “CapCut vertical blur fill” effect (no mirror).
+Default config
+target_w=720, target_h=1280
+fps=60
+blur_sigma=35
+bg_scale=1.5
+bg_dim=0.08
+bg_saturation=0.90
+Filter (no mirror, blurred zoom background)
+ffmpeg -y -i "input.mp4" -filter_complex "
+[0:v]split=2[main][bg];
+
+[bg]
+scale=${target_w}:${target_h}:force_original_aspect_ratio=increase,
+crop=${target_w}:${target_h},
+gblur=sigma=${blur_sigma},
+eq=brightness=-${bg_dim}:saturation=${bg_saturation}
+[bgout];
+
+[main]
+scale=${target_w}:${target_h}:force_original_aspect_ratio=decrease
+[mainout];
+
+[bgout][mainout]
+overlay=(W-w)/2:(H-h)/2:format=auto
+" -r ${fps} -c:v libx264 -pix_fmt yuv420p -c:a aac -b:a 192k "output.mp4"
+Why this works:
+Background becomes a scaled/cropped full-frame layer + blur (hides bars)
+Foreground stays sharp and correct aspect (no stretching)
+Output is always clean 9:16
+6) Run Endpoint Contract
+POST /api/tools/vertical-blur-fill/run
+Request:
+{
+  "input_key": "some/path/to/input.mp4",
+  "target_w": 720,
+  "target_h": 1280,
+  "fps": 60,
+  "blur_sigma": 35,
+  "bg_scale": 1.5,
+  "bg_dim": 0.08,
+  "bg_saturation": 0.9
+}
+Response:
+{ "job_id": "..." }
+Notes:
+input_key can be from:
+a prior tool output
+a direct upload endpoint you already have
+Fail closed if gating fails.
+7) Status Endpoint
+GET /api/tools/vertical-blur-fill/status?jobId=...
+Return your standard job payload:
+{
+  "status": "queued|running|succeeded|failed",
+  "stage": "download|process|upload|cleanup",
+  "progress": 0.0,
+  "output_key": "vertical-blur-fill/{jobId}/output.mp4"
+}
+8) Download Endpoint
+GET /api/tools/vertical-blur-fill/download?jobId=...
+Streams the output from object storage.
+9) SEO Page Copy + JSON-LD (template-safe)
+JSON-LD (no fake ratings, no price)
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "VCM Vertical Blur Fill",
+  applicationCategory: "MultimediaApplication",
+  operatingSystem: "Web",
+  description:
+    "Automatically converts any video into a clean 9:16 vertical master by filling side bars with a blurred background layer.",
+};
+Copy avoids “free forever / unlimited / no login” claims.
+10) Tool Creation Checklist (aligned)
+✅ Tool exists in tools DB table
+✅ Page wrapped in ToolServerGate
+✅ APIs wrapped with withToolGate() (fail closed)
+✅ No hardcoded tier strings in copy
+✅ Admin controls tier/clouds without code edits
+11) Quick Implementation Notes (to avoid dumb bugs)
+Always -pix_fmt yuv420p for widest compatibility
+Force -r fps at the end so you don’t get weird VFR outputs
+If input has no audio, include -an fallback or let ffmpeg handle it (your job runner can detect audio stream via ffprobe if needed)
+Use /tmp/vertical-blur-fill/{jobId}/ workspace like your other tools
+If you want the fastest build: tell Replit agent “clone the video-assembler job runner pattern” and swap the process stage for the FFmpeg compose above. That’s a 1:1 adaptation with minimal new surface area.
