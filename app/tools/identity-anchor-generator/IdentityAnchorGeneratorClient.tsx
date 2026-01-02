@@ -80,11 +80,6 @@ export default function IdentityAnchorGeneratorClient() {
   };
 
   const handleFileUpload = async (file: File) => {
-    if (!characterDescription.trim()) {
-      setError("Please describe your character first - this is needed to generate consistent anchor poses");
-      return;
-    }
-
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
       setError("Please upload a PNG, JPEG, or WebP image");
@@ -97,14 +92,12 @@ export default function IdentityAnchorGeneratorClient() {
     }
 
     setIsLoading(true);
-    setLoadingMessage("Uploading your concept image...");
+    setLoadingMessage("Analyzing your image with AI vision...");
     setError(null);
 
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("character_description", characterDescription);
-      if (sceneDescription) formData.append("scene_description", sceneDescription);
       formData.append("style_preset", stylePreset);
 
       const response = await fetch("/api/tools/identity-anchor-generator/upload-concept", {
@@ -117,6 +110,7 @@ export default function IdentityAnchorGeneratorClient() {
         throw new Error(data.error || "Failed to upload image");
       }
 
+      setCharacterDescription(data.character_description || "");
       setConceptResult({
         job_id: data.job_id,
         concept_image_key: data.concept_image_key,
@@ -330,7 +324,7 @@ export default function IdentityAnchorGeneratorClient() {
               className="w-full h-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             />
             <p className="mt-1 text-sm text-gray-500">
-              Describe your character's appearance in detail. This drives the anchor pose generation.
+              Describe your character's appearance in detail. Required for AI generation, optional for upload (AI will analyze your image).
             </p>
           </div>
 
@@ -386,13 +380,11 @@ export default function IdentityAnchorGeneratorClient() {
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleFileDrop}
-                onClick={() => characterDescription.trim() && fileInputRef.current?.click()}
+                onClick={() => fileInputRef.current?.click()}
                 className={`py-4 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${
                   isDragging 
                     ? "border-orange-500 bg-orange-50" 
-                    : characterDescription.trim()
-                      ? "border-gray-300 hover:border-orange-400 hover:bg-orange-50"
-                      : "border-gray-200 bg-gray-50 cursor-not-allowed"
+                    : "border-gray-300 hover:border-orange-400 hover:bg-orange-50"
                 }`}
               >
                 <input
@@ -402,7 +394,7 @@ export default function IdentityAnchorGeneratorClient() {
                   onChange={handleFileSelect}
                   className="hidden"
                 />
-                <div className={`font-medium ${characterDescription.trim() ? "text-gray-700" : "text-gray-400"}`}>
+                <div className="font-medium text-gray-700">
                   <svg className="w-6 h-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
@@ -415,7 +407,7 @@ export default function IdentityAnchorGeneratorClient() {
             </div>
             
             <p className="text-center text-sm text-gray-500 mt-4">
-              Tip: Upload your own concept image, then we'll use your description above to generate matching anchor poses
+              Upload your own concept image and AI will automatically analyze it to create a description
             </p>
           </div>
         </div>
@@ -444,6 +436,23 @@ export default function IdentityAnchorGeneratorClient() {
             )}
           </div>
 
+          {isUploaded && (
+            <div className="bg-gray-50 rounded-lg p-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                AI-Generated Description
+                <span className="text-gray-400 font-normal ml-2">(edit if needed)</span>
+              </label>
+              <textarea
+                value={characterDescription}
+                onChange={(e) => setCharacterDescription(e.target.value)}
+                className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                This description will be used to generate consistent anchor poses
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-4">
             {!isUploaded ? (
               <button
@@ -463,7 +472,7 @@ export default function IdentityAnchorGeneratorClient() {
             )}
             <button
               onClick={() => lockIdentity(false)}
-              disabled={isLoading}
+              disabled={isLoading || !characterDescription.trim()}
               className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
             >
               {isLoading ? "Locking..." : "Lock Identity"}
