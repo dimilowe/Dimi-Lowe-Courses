@@ -597,6 +597,17 @@ Every tool in `toolsRegistry.ts` includes a **semantic layer** enabling automate
 ```
 
 ## Recent Changes
+- 2026-01-02: **VCM Motion Compiler** - Manual beat-by-beat video compilation with boundary validation
+  - Compile multi-beat video sequences with automatic boundary extraction and validation
+  - Manifest-driven state architecture: CompilerManifest is single source of truth stored in object storage
+  - Motion skeletons: File-based JSON presets defining beat sequences (basic-3-beat, dynamic-5-beat)
+  - Render packets: JSON generated per beat for user to copy and generate clips externally
+  - Boundary extraction: Both start AND end frames extracted from each clip
+  - Fail-closed validation: Job halts after max_attempts reached on any beat
+  - 7-stage stepper UI: Setup → Compile → Render Packet → Upload Clip → Ready to Finalize → Rendering → Complete
+  - Fix: uploadBeat now reloads manifest after validation to get accurate attempts_remaining
+  - API routes: start, packet, uploadBeat, status, finalize, download
+  - Files: lib/motionCompiler/, app/tools/vcm-motion-compiler/, app/api/tools/vcm-motion-compiler/
 - 2025-12-31: **Brand Access** - Pro-gated Intelligence Cloud tool for deal-ready creators
   - Curated directory of brand contact paths (PR, affiliate, influencer, agency, partnerships)
   - Pro gating: Free users see preview (max 10 entries, blurred contact URLs), Pro users see full access

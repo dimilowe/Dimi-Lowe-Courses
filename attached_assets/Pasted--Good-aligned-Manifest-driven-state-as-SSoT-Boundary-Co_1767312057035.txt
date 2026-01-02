@@ -1,0 +1,60 @@
+✅ Good / aligned
+Manifest-driven state as SSoT ✅
+Boundary Contract artifacts per beat ✅
+Render Packet copy/paste loop ✅
+ffmpeg extraction + stitching ✅
+Stepper UI ✅
+“Only PASS beats stitch” ✅
+Zero inference cost framing ✅
+⚠️ Fix these before it writes code
+1) “Core library for motion types” → keep it as presets JSON, not a library
+Replit’s “core library for motion types” can easily balloon.
+V1 should be:
+presets/ folder with a few Motion Skeleton JSON presets
+no complex motion DSL
+no registry system
+Tell it:
+motion types are just presets; don’t build a library.
+2) Add one missing API: uploadBeat must accept ONLY mp4 and auto-extract BOTH boundary frames
+You need:
+boundary_end.frame.png (last valid frame)
+boundary_start.frame.png (first valid frame of uploaded clip)
+Why start frame?
+makes validation deterministic
+lets you debug boundary mismatch precisely
+helps later provider integration
+This is cheap and worth it.
+3) Validation must be “fail-closed + retry current beat”
+Plan mentions retries in manifest, but not behavior.
+Make it explicit:
+max_attempts_per_beat
+on FAIL: retry current beat (user uploads a new clip) OR mark FAIL and halt
+no silent “WARN but continue” unless you define it
+V1 rule: FAIL halts.
+4) Packet generation must include “boundary_start required fields”
+Render packet isn’t just “instructions.”
+It must include:
+which prior beat it depends on
+the boundary requirements (camera angle/facing/screen position/lighting)
+hold window at start (0.2s) to lock continuity
+Otherwise users won’t know what to enforce externally.
+5) Make finalize/stitch a separate step (don’t stitch automatically)
+You want:
+compile beats
+show all PASS
+user hits Finalize
+stitch once
+That prevents partial outputs and accidental stitching.
+The exact message to send Replit (copy/paste)
+Send this to lock the scope:
+Plan approved with these changes:
+Do NOT build a “motion types library” in V1. Use a small set of Motion Skeleton JSON presets (file-based).
+uploadBeat must accept clip.mp4 only and auto-extract BOTH:
+boundary_start.frame.png (first valid frame)
+boundary_end.frame.png (last valid frame with fallback timestamps)
+Validation is fail-closed: if boundary FAIL, the job halts and requires a new upload attempt for that beat (track attempts in manifest). No stitching unless all beats PASS.
+Render Packet must include boundary_start requirements + start-hold duration so users can enforce continuity externally.
+Final stitching happens only on explicit POST /finalize after all beats PASS.
+Keep V1 focused: manual compile mode only, manifest-first, boundary contract mandatory.
+Verdict
+With those edits, it’s not just “good” — it’s ship-ready.
