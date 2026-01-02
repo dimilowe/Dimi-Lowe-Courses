@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { STYLE_PRESETS, StylePreset, MAX_CONCEPT_ATTEMPTS, MAX_ANCHOR_ATTEMPTS } from "@/lib/identityAnchor/types";
 
 type Step = "describe" | "concept" | "lock" | "save";
@@ -55,6 +55,10 @@ export default function IdentityAnchorGeneratorClient() {
   const [lockResult, setLockResult] = useState<LockResult | null>(null);
   const [packId, setPackId] = useState<string | null>(null);
   const [packName, setPackName] = useState("");
+  
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploaded, setIsUploaded] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const steps: { key: Step; label: string; number: number }[] = [
     { key: "describe", label: "Describe", number: 1 },
@@ -62,6 +66,73 @@ export default function IdentityAnchorGeneratorClient() {
     { key: "lock", label: "Lock Identity", number: 3 },
     { key: "save", label: "Save Pack", number: 4 },
   ];
+
+  const handleFileDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileUpload(file);
+  }, []);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileUpload(file);
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!characterDescription.trim()) {
+      setError("Please describe your character before uploading");
+      return;
+    }
+
+    const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please upload a PNG, JPEG, or WebP image");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File too large. Maximum size is 10MB");
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadingMessage("Uploading your concept image...");
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("character_description", characterDescription);
+      if (sceneDescription) formData.append("scene_description", sceneDescription);
+      formData.append("style_preset", stylePreset);
+
+      const response = await fetch("/api/tools/identity-anchor-generator/upload-concept", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to upload image");
+      }
+
+      setConceptResult({
+        job_id: data.job_id,
+        concept_image_key: data.concept_image_key,
+        concept_image_base64: data.concept_image_base64,
+        concept_attempts: 0,
+      });
+      setIsUploaded(true);
+      setImageLoadKey(prev => prev + 1);
+      setStep("concept");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
+  };
 
   const generateConcept = async (regenerate = false) => {
     if (!characterDescription.trim()) {
@@ -72,6 +143,7 @@ export default function IdentityAnchorGeneratorClient() {
     setIsLoading(true);
     setLoadingMessage(regenerate ? "Regenerating your character concept..." : "Creating your character concept with AI...");
     setError(null);
+    setIsUploaded(false);
 
     try {
       const response = await fetch("/api/tools/identity-anchor-generator/run", {
@@ -294,13 +366,58 @@ export default function IdentityAnchorGeneratorClient() {
             </select>
           </div>
 
-          <button
-            onClick={() => generateConcept(false)}
-            disabled={isLoading || !characterDescription.trim()}
-            className="w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
-          >
-            {isLoading ? "Generating..." : "Generate Concept"}
-          </button>
+          <div className="border-t border-gray-200 pt-6">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-sm text-gray-500">Choose one</span>
+              <div className="flex-1 h-px bg-gray-200" />
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-4">
+              <button
+                onClick={() => generateConcept(false)}
+                disabled={isLoading || !characterDescription.trim()}
+                className="py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
+              >
+                {isLoading ? "Generating..." : "Generate with AI"}
+              </button>
+              
+              <div
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleFileDrop}
+                onClick={() => characterDescription.trim() && fileInputRef.current?.click()}
+                className={`py-4 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${
+                  isDragging 
+                    ? "border-orange-500 bg-orange-50" 
+                    : characterDescription.trim()
+                      ? "border-gray-300 hover:border-orange-400 hover:bg-orange-50"
+                      : "border-gray-200 bg-gray-50 cursor-not-allowed"
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <div className={`font-medium ${characterDescription.trim() ? "text-gray-700" : "text-gray-400"}`}>
+                  <svg className="w-6 h-6 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Upload Your Own
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Drop image or click to browse
+                </p>
+              </div>
+            </div>
+            
+            <p className="text-center text-sm text-gray-500 mt-4">
+              Tip: Generate your concept in ChatGPT for better photorealism, then upload it here
+            </p>
+          </div>
         </div>
       )}
 
@@ -308,6 +425,11 @@ export default function IdentityAnchorGeneratorClient() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Character Concept</h2>
+            {isUploaded && (
+              <span className="inline-block mb-3 px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                Uploaded Image
+              </span>
+            )}
             <div className="inline-block rounded-xl overflow-hidden shadow-lg">
               <img
                 src={getImageUrl("concept")!}
@@ -315,19 +437,30 @@ export default function IdentityAnchorGeneratorClient() {
                 className="max-w-md w-full h-auto"
               />
             </div>
-            <p className="mt-4 text-sm text-gray-500">
-              Attempts: {conceptResult.concept_attempts} / {MAX_CONCEPT_ATTEMPTS}
-            </p>
+            {!isUploaded && (
+              <p className="mt-4 text-sm text-gray-500">
+                Attempts: {conceptResult.concept_attempts} / {MAX_CONCEPT_ATTEMPTS}
+              </p>
+            )}
           </div>
 
           <div className="flex gap-4">
-            <button
-              onClick={() => generateConcept(true)}
-              disabled={isLoading || conceptResult.concept_attempts >= MAX_CONCEPT_ATTEMPTS}
-              className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 text-gray-700 font-medium rounded-lg transition-colors"
-            >
-              {isLoading ? "Regenerating..." : "Regenerate"}
-            </button>
+            {!isUploaded ? (
+              <button
+                onClick={() => generateConcept(true)}
+                disabled={isLoading || conceptResult.concept_attempts >= MAX_CONCEPT_ATTEMPTS}
+                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 text-gray-700 font-medium rounded-lg transition-colors"
+              >
+                {isLoading ? "Regenerating..." : "Regenerate"}
+              </button>
+            ) : (
+              <button
+                onClick={() => { setStep("describe"); setConceptResult(null); setIsUploaded(false); }}
+                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
+              >
+                Upload Different Image
+              </button>
+            )}
             <button
               onClick={() => lockIdentity(false)}
               disabled={isLoading}
@@ -487,6 +620,7 @@ export default function IdentityAnchorGeneratorClient() {
               setLockResult(null);
               setPackId(null);
               setPackName("");
+              setIsUploaded(false);
             }}
             className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm"
           >
