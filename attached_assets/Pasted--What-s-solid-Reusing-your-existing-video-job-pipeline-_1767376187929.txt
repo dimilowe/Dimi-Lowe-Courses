@@ -1,0 +1,51 @@
+✅ What’s solid
+Reusing your existing video job pipeline + storage + /tmp workspace is correct.
+The FFmpeg concept (blurred background + centered sharp foreground) is correct.
+The endpoint set (run/status/download) is correct.
+⚠️ Fix these gaps before you say “go”
+1) Use withToolGate() everywhere (not gateToolForRequest)
+Your template rule is: API wraps with withToolGate() (fail-closed).
+If Replit uses gateToolForRequest directly, drift starts. Tell it explicitly:
+POST /run, GET /status, GET /download must be wrapped with withToolGate("vertical-blur-fill").
+2) Add bg_scale to the filter (your current command ignores it)
+Your earlier filter uses scale=...:force_original_aspect_ratio=increase which already “zooms,” but you asked for a tunable bg_scale. Implement it properly:
+After scaling/cropping to target, apply another scale like:
+scale=iw*bg_scale:ih*bg_scale, crop=target_w:target_h
+Or simpler: scale the bg to target_w*bg_scale : target_h*bg_scale then crop back.
+If you skip this, your “settings” UI is fake.
+3) Handle videos with no audio (or odd codecs)
+FFmpeg will sometimes fail muxing AAC if there’s no audio stream depending on flags. Two safe patterns:
+If audio exists → -c:a aac
+If no audio → add -an
+So: detect audio stream with ffprobe before running ffmpeg.
+4) Preserve orientation / rotation metadata
+Phones often store rotation in metadata. If you ignore it, you’ll get sideways outputs. Ensure you either:
+use -vf "transpose" based on ffprobe rotation, or
+apply -noautorotate carefully + explicit rotate step.
+Your other tools might already handle this—reuse that logic.
+5) Make output deterministic (no VFR surprises)
+Add:
+-vsync cfr
+-r ${fps} at the end (you already do)
+This prevents jitter when inputs are variable frame rate.
+6) “Port conflict will clear” is not a plan
+That’s hand-wavy. It’s fine if it’s just a dev restart issue, but don’t let that excuse cover real runtime instability. If the job runner uses ffmpeg, the port shouldn’t matter anyway.
+The revised task list (tight, no fluff)
+Tell Replit to use this list instead of the generic one:
+DB: add vertical-blur-fill tool row (tier + directory flags).
+Page: /tools/vertical-blur-fill wrapped in ToolServerGate.
+Client: upload → settings → run → poll → download.
+API: implement /run, /status, /download using withToolGate() fail-closed.
+Job runner: stages download → process → upload → cleanup.
+ffprobe preflight: detect width/height, rotation, audio presence.
+FFmpeg compose: implement blur-fill with real bg_scale, plus -vsync cfr.
+Output QA: test cases:
+vertical input, horizontal input, square input
+with audio, without audio
+rotated iPhone input
+Storage: write output_key + optional meta.json (effective params, input dims).
+Short verdict
+Good direction. Not shippable until it fixes:
+withToolGate() usage
+bg_scale actually applied
+audio/no-audio + rotation handling

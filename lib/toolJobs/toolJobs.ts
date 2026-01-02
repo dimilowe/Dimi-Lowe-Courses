@@ -10,7 +10,8 @@ export type ToolJobStage =
   | "pack"
   | "cleanup"
   | "download"
-  | "assemble";
+  | "assemble"
+  | "process";
 
 export interface ToolJob {
   id: string;
