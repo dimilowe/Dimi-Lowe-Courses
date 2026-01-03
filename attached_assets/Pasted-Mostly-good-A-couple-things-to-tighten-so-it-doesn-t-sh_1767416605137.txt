@@ -1,0 +1,55 @@
+Mostly good. A couple things to tighten so it doesn’t ship half-working or turn into a security hole.
+What’s good
+3 DB tables (scan / pages / links) is the right shape.
+fetch + cheerio is correct for your SSR-heavy Next setup.
+Incremental DB writes + polling is exactly what you want.
+SSRF protection + rate limit is non-negotiable.
+Two result groupings (by target + by source) is the killer UX.
+CSV export is a must-have.
+Fix these before he codes
+1) “Job pipeline like video tools” — be careful
+Your video tools are likely long-running background jobs. A web crawler is:
+lots of outbound requests
+unpredictable latency
+easy to hit serverless timeouts
+So he needs to implement it in a way that won’t die mid-scan. Two acceptable options:
+If you already have a real job runner/queue: use it.
+If you don’t: implement a chunked runner (scan continues in batches):
+/run creates scan
+/tick processes N URLs (e.g., 25–50) and returns progress
+UI polls /tick until done
+If he tries to do it all in a single request in a serverless environment, it’ll flake.
+2) Redirect chain tracking: don’t overbuild
+Fetch follows redirects by default and hides the chain. If he wants chains, he must do manual redirect following (max 10) and store the hops.
+Otherwise: store only final URL + status and add “chain support” later. But don’t claim you have it if you don’t.
+3) “Soft 404 detection” needs a site-aware hook
+Generic heuristics are fine, but add an optional config:
+soft404_patterns (array of strings/regex)
+So VCM can tune it for VCM Suite’s own 404 page and for power users later.
+4) SSRF protection must include DNS resolution (minimum viable)
+Blocking “localhost” and private IP literals is not enough. Attackers can use a public hostname that resolves to a private IP.
+Minimum acceptable:
+Resolve hostname → IP
+Block private/link-local/loopback ranges
+Also block:
+file: ftp: and any non-http(s)
+obvious internal metadata hosts (common cloud metadata IPs)
+5) Deduping + query params: prevent crawl explosions
+He needs strict normalization:
+strip fragments always
+drop tracking params (utm_*, gclid, fbclid)
+optionally drop ALL querystrings by default (toggle to keep)
+Otherwise your site can explode into 100k “unique” URLs.
+6) Must ignore non-HTML
+He should check content-type and skip:
+images, pdfs, css/js
+But still record them as “discovered” if you want—just don’t enqueue them as pages.
+7) Gating: use your current middleware name
+He said gateToolForRequest. Your spec said withToolGate() fail-closed. Make sure he uses the correct one from your codebase, consistently.
+Adjust the task list (tight MVP)
+DB tables + indexes
+API: run/status/results/export (all gated)
+Crawler core: queue + concurrency + normalization + SSRF-safe fetch
+UI: input → progress → Issues tab + Sources tab + CSV
+Hard tests: known broken link, redirect, soft404, SSRF rejection, rate limit
+If he makes those fixes, yes — green light.
