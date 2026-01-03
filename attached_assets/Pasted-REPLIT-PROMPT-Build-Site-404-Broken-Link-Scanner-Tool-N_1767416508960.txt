@@ -1,0 +1,330 @@
+REPLIT PROMPT — Build “Site 404 & Broken Link Scanner” Tool (Next.js App Router, DB-gated, Mega SEO)
+
+You are working inside the existing VCM Suite codebase (Next.js App Router). Follow the Universal Tool Template v2 rules EXACTLY:
+- DB is the single source of truth for tools (no toolsRegistry, no TOOL_DEFINITION block, no “add to global urls table”).
+- Canonical tiers ONLY: free | starter | basic | pro
+- Tool page must be wrapped in ToolServerGate (tool client never renders outside it).
+- Any API routes MUST be gated with withToolGate() fail-closed.
+- JSON-LD must NOT include aggregateRating and must NOT include offers.price unless known.
+- SEO copy must avoid hardcoded “free forever”, “no login”, “unlimited”, etc.
+
+GOAL
+Ship a new tool that crawls a user-provided website (their own domain), finds broken destinations and broken links, and tells the user EXACTLY which source page contains each bad link. Works well for Next.js hybrid SSR sites by fetching HTML (no headless browser in MVP).
+
+TOOL SLUG
+site-404-scanner
+
+TOOL NAME
+Site 404 & Broken Link Scanner
+
+ONE-LINE DESCRIPTION (template-safe)
+Scan a site for 404s, soft 404s, redirect problems, and broken links—then pinpoint the exact pages causing each issue.
+
+──────────────────────────────────────────────────────────────────────────────
+A) DB + ADMIN SETUP (SSoT)
+1) Insert a tools table row in Admin → Content → Tools:
+- slug: "site-404-scanner"
+- name: "Site 404 & Broken Link Scanner"
+- description: "Scan a site for 404s, soft 404s, redirect problems, and broken links—then pinpoint the exact pages causing each issue."
+- required_tier: choose a tier (start as free or starter; do NOT hardcode this in page copy)
+- required_clouds: if tier ≠ free, set at least 1 cloud
+- in_directory: true (if public)
+No other registry edits.
+
+──────────────────────────────────────────────────────────────────────────────
+B) DATABASE (NEW TABLES)
+Add a migration to create the following tables. Use your existing Postgres migration pattern.
+
+1) site_scans
+- id (uuid pk default gen_random_uuid() or serial/int if your project uses that)
+- user_id (uuid/int, nullable if you allow anonymous scans; prefer user_id if your system requires auth)
+- domain text not null
+- start_url text not null
+- status text not null (queued|running|done|failed)
+- include_external boolean not null default false
+- max_pages integer not null default 500
+- max_depth integer not null default 6
+- concurrency integer not null default 8
+- started_at timestamptz
+- finished_at timestamptz
+- pages_crawled integer not null default 0
+- links_checked integer not null default 0
+- summary_json jsonb not null default '{}'
+- error_text text
+- created_at timestamptz not null default now()
+
+2) site_scan_pages
+- id uuid pk default gen_random_uuid()
+- scan_id uuid not null references site_scans(id) on delete cascade
+- url text not null
+- status_code integer (nullable for network errors)
+- error_type text (nullable: timeout|dns|ssl|connect|unknown)
+- is_soft_404 boolean not null default false
+- content_type text
+- title text
+- response_ms integer
+- fetched_at timestamptz not null default now()
+Unique index: (scan_id, url)
+
+3) site_scan_links
+- id uuid pk default gen_random_uuid()
+- scan_id uuid not null references site_scans(id) on delete cascade
+- source_url text not null
+- target_url text not null
+- is_internal boolean not null
+- link_type text not null default 'a'  -- a|canonical|og|other
+- anchor_text text
+- target_status_code integer (nullable)
+- target_error_type text (nullable)
+- target_is_soft_404 boolean not null default false
+- redirect_chain_json jsonb not null default '[]'
+- checked_at timestamptz not null default now()
+Indexes:
+- (scan_id, source_url)
+- (scan_id, target_url)
+
+Notes:
+- Keep schema minimal; we can extend later.
+- Ensure scans can be listed per user.
+
+──────────────────────────────────────────────────────────────────────────────
+C) SERVER CRAWLER (MVP FAST MODE)
+Implement a server-side crawler that:
+- Fetches HTML via standard fetch (Node runtime).
+- Parses links from HTML using cheerio.
+- Crawls INTERNAL links (same hostname) by default.
+- Optionally checks external links when include_external=true.
+- Records page fetch results and link check results into DB incrementally so UI can poll.
+
+CRAWL RULES (IMPORTANT)
+1) Allowed protocols: http, https only.
+2) Normalize URLs:
+- Remove hash fragments.
+- Resolve relative URLs against source URL.
+- Remove trailing slash normalization consistently (choose one).
+- Decide query params handling:
+  - For MVP: keep querystring but dedupe by full URL; ALSO add a safeguard:
+    - ignore URLs with common tracking params: utm_*, fbclid, gclid
+3) Ignore links that are not crawl targets:
+- mailto:, tel:, javascript:, data:
+- href="#" or empty
+4) Only crawl pages with content-type containing "text/html".
+5) Respect limits:
+- max_pages
+- max_depth
+- concurrency (use a simple queue with a worker pool)
+6) Redirect handling:
+- Follow redirects (fetch default), capture redirect chain if possible:
+  - If fetch follows redirects automatically, also do a manual HEAD/GET approach to capture chain:
+    - Do up to 10 redirects max, store chain as array of {url,status}
+- Detect loops and chain length.
+7) Soft 404 detection:
+- If status_code is 200 and HTML includes obvious not-found indicators.
+- Implement a simple heuristic:
+  - title includes: "404", "not found", "page not found"
+  - body text includes: "not found", "doesn't exist", "page you are looking for"
+- Store is_soft_404 on pages and on target checks.
+8) Output:
+- Broken destination conditions:
+  - status_code in [404,410] OR status_code >= 500 OR network error OR soft404=true
+- For each broken destination, you must be able to answer:
+  - which source pages link to it, with anchor text.
+
+IMPLEMENTATION SHAPE
+Create a file like:
+- /lib/siteScan/crawler.ts (or your project’s preferred lib location)
+Export:
+- runSiteScan(scanId: string): Promise<void>
+
+Use your existing DB client pattern and job runner pattern if present.
+
+JOB EXECUTION
+For MVP, run scan in-process triggered by API:
+- POST /run creates scan row with status=queued
+- Kick off async execution immediately (but still within server environment)
+If you already have a job queue system, integrate with it. If not, implement a lightweight in-memory runner:
+- Maintain a global Map<scanId, Promise> to prevent duplicate runs.
+- Update DB status to running/done/failed.
+If serverless constraints exist, keep the work chunked:
+- Approach: do the scan in one request if possible; otherwise, implement a “continue” endpoint.
+But default: implement in-process runner first.
+
+──────────────────────────────────────────────────────────────────────────────
+D) API ROUTES (GATED)
+All routes must use withToolGate({ slug: "site-404-scanner" }) fail-closed.
+
+Create:
+1) POST /api/tools/site-404-scanner/run
+Body:
+{
+  "start_url": string,
+  "max_pages": number (optional),
+  "max_depth": number (optional),
+  "include_external": boolean (optional),
+  "concurrency": number (optional)
+}
+Validate:
+- start_url required
+- Must be http/https
+- Optional: require that start_url hostname matches provided domain; domain derived from start_url.
+- Protect against scanning private IP ranges (SSRF protection):
+  - Block localhost, 127.0.0.1, 0.0.0.0, ::1
+  - Block private ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+  - Block link-local: 169.254.0.0/16
+If invalid, return 400.
+
+Response:
+{ "scan_id": string }
+
+2) GET /api/tools/site-404-scanner/status?scanId=...
+Return:
+{
+  scan: { id, status, started_at, finished_at, pages_crawled, links_checked, summary_json, error_text },
+}
+
+3) GET /api/tools/site-404-scanner/results?scanId=...
+Return structured results:
+- brokenTargets: array of:
+  {
+    target_url,
+    status_code,
+    error_type,
+    is_soft_404,
+    times_found,
+    sources: [{ source_url, anchor_text }]
+  }
+- sourcePages: array of:
+  {
+    source_url,
+    broken_count,
+    broken_links: [{ target_url, status_code, error_type, is_soft_404, anchor_text }]
+  }
+- optional: redirectIssues list if you store them
+
+Implement these queries from site_scan_links joined with site_scan_pages.
+
+4) GET /api/tools/site-404-scanner/export.csv?scanId=...
+Return CSV with columns:
+- source_url
+- target_url
+- status_code
+- error_type
+- is_soft_404
+- anchor_text
+- is_internal
+
+──────────────────────────────────────────────────────────────────────────────
+E) TOOL PAGE (APP ROUTER) + UI (CLIENT ISLAND)
+Create new route:
+- /app/tools/site-404-scanner/page.tsx
+
+Must wrap client with ToolServerGate:
+import ToolServerGate from "@/components/entitlements/ToolServerGate";
+
+export default function Page() {
+  return (
+    <ToolServerGate slug="site-404-scanner">
+      <Site404ScannerClient />
+    </ToolServerGate>
+  );
+}
+
+Create client component:
+- /app/tools/site-404-scanner/Site404ScannerClient.tsx (use 'use client')
+
+UI REQUIREMENTS (simple, sharp)
+1) Inputs:
+- Start URL (text)
+- Advanced (collapsible):
+  - max pages (default 500)
+  - max depth (default 6)
+  - concurrency (default 8)
+  - include external (toggle; default off)
+Button: “Start Scan”
+
+2) Progress state:
+- Poll /status every 1-2s while running
+- Show:
+  - status
+  - pages crawled
+  - links checked
+
+3) Results tabs:
+- Tab “Issues” (broken targets):
+  - table: Status, Target URL, Found On (#), View Sources
+  - expanding a row shows list of source pages + anchor text
+- Tab “Sources”:
+  - table: Source URL, Broken Links (#)
+  - expanding shows broken links on that source
+- Provide “Export CSV” link once scan is done
+
+4) Error handling:
+- Show if scan failed and error_text.
+
+No claims about tier/free/unlimited in UI copy.
+
+──────────────────────────────────────────────────────────────────────────────
+F) SEO (MEGA SEO TOOL PAGE COPY + SCHEMA)
+Within the tool page, include a standard SEO block consistent with your system:
+- Title, description, FAQ (template-safe).
+- JSON-LD (SoftwareApplication) with NO aggregateRating and NO offers.price.
+
+Example JSON-LD:
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "VCM Site 404 & Broken Link Scanner",
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: "Web",
+  description:
+    "Scan a site for 404s, soft 404s, redirect problems, and broken links—then pinpoint the exact pages causing each issue.",
+};
+
+FAQ schema is allowed and encouraged. Keep it honest and non-tier-specific.
+
+Add a short “How it works” section (no marketing lies):
+- Crawl HTML pages
+- Check internal links
+- Detect 404/410/5xx/timeouts/soft 404
+- Report source pages causing each issue
+
+──────────────────────────────────────────────────────────────────────────────
+G) SECURITY / SAFETY (NON-NEGOTIABLE)
+This tool makes outbound requests. Implement SSRF protections:
+- Block private/loopback IPs and localhost hostnames.
+- DNS resolution can be tricky; at minimum:
+  - Reject hostnames that equal "localhost"
+  - Reject IP literal hosts in private ranges
+If you can safely resolve DNS to IP and check ranges, do it.
+Also implement rate limiting per user (simple):
+- Max scans per hour per user (e.g., 5)
+If you already have rate limit utilities, use them.
+
+Also add:
+- User-Agent header identifying the crawler (e.g., "VCM-SiteScan/1.0")
+- Respect robots.txt is optional for MVP; you can skip but keep crawl polite with concurrency limits.
+
+──────────────────────────────────────────────────────────────────────────────
+H) TESTS / QA CHECKLIST
+- Run scan on a known small site with a deliberate broken link.
+- Confirm the tool reports:
+  - broken target URL
+  - source page URL
+  - anchor text
+- Confirm it handles:
+  - redirects (at least final URL + chain if implemented)
+  - soft 404 on your own site’s not-found page (if applicable)
+- Confirm SSRF protections reject localhost/private IP targets.
+- Confirm API gating works (withToolGate fail-closed).
+- Confirm tool page is wrapped in ToolServerGate.
+
+──────────────────────────────────────────────────────────────────────────────
+DELIVERABLES
+- New tool page route + client UI
+- New gated API endpoints
+- New DB tables + migration
+- Crawler implementation (fast mode)
+- CSV export
+- Polished UI tables for Issues + Sources
+
+Start implementing now. Do not ask questions unless a required project detail is missing; otherwise make the most reasonable choice consistent with the existing codebase patterns.
