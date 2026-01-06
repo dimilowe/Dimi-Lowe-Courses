@@ -15,6 +15,7 @@ export const ENGINE_COMPONENTS: Record<string, () => Promise<{ default: Componen
   'zip': () => import('@/components/engines/ZipEngine'),
   'outfit': () => import('@/components/engines/OutfitEngine'),
   'price-engine': () => import('@/components/engines/PriceEngine'),
+  'site-404-scanner': () => import('@/app/tools/site-404-scanner/Site404ScannerClient'),
 };
 
 export function getEngineLoader(engine: string | null): (() => Promise<{ default: ComponentType<EngineComponentProps> }>) | null {
