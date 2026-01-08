@@ -1,0 +1,89 @@
+What to tell Replit Agent to do (the actual workflow)
+1) Inventory everything
+Generate a file manifest: all files + sizes + last modified
+Categorize by type: source, configs, assets, build output, caches, temp, logs, zips, dumps
+Command ideas
+git ls-files (tracked files)
+find . -type f (everything, including junk)
+du -sh * / du -sh .[!.]* * (size offenders)
+2) Find “unreachable” code via static analysis (real unused imports/exports)
+This is where most bloat hides.
+If you’re TypeScript/JS:
+Run ESLint “unused” rules
+Run tsc --noEmit and look for unused locals/params (if configured)
+Use depcheck to find unused npm deps
+Use madge to detect orphan modules + circular deps
+What you’re looking for
+Files that are never imported by any entrypoint
+Components/utilities only referenced in tests or nowhere
+Multiple implementations of the same helper (common in agent-built repos)
+3) Trace “entrypoints” and build the dependency graph
+Define entrypoints explicitly:
+Next.js: app/**, pages/**, server/**, API routes
+Express: src/index.ts / server.ts and route registrations
+Workers/cron/jobs: separate runners
+Then:
+Build an import graph from those entrypoints
+Mark all reachable files
+Anything not reachable is a deletion candidate unless it’s loaded dynamically
+This is the part people skip, then they delete something “unused” and the app breaks.
+4) Catch dynamic references (the “Agent trap”)
+Static graphs miss:
+import() dynamic imports
+require(pathVariable)
+Files referenced by strings: templates, prompts, emails, SQL, migrations
+Next.js special files, config-driven routing
+Assets referenced in CSS / JSON / CMS
+So have the agent:
+Grep for string references to filenames and directories
+Check common dynamic loaders and registries (tool registry, renderer registry, CMS objects, etc.)
+5) Identify “generated / should-not-be-in-repo” junk
+Common offenders:
+dist/, .next/, build/, out/
+.cache/, .turbo/, .vercel/
+logs, tmp exports, zip outputs, large media
+old migration dumps / scratch JSON
+Agent should:
+compare repo vs .gitignore
+flag tracked files that match “generated” patterns
+suggest .gitignore additions
+6) Produce a deletion plan that won’t nuke the project
+Require the agent to output three buckets:
+A) Safe delete
+confirmed unreachable
+no string references
+not special framework file
+not a required config
+B) Probably delete
+reachable only from dead code
+referenced only in comments / old docs
+duplicates
+C) Needs human review
+dynamic import candidates
+files referenced via env/config
+migrations, seed data, prod-only scripts
+And for each file: why it’s in that bucket.
+7) Enforce it going forward
+Add CI checks / pre-commit:
+depcheck in CI
+eslint unused rules as error
+“no orphan modules” check (madge)
+size limits to prevent random zip/video drops into repo
+Copy/paste prompt for Replit Agent (use this exactly)
+Goal: Audit this repo for extraneous/unnecessary files and produce a safe deletion plan.
+
+Steps:
+1) Create an inventory of ALL files (tracked + untracked) with size and last modified. Output as a table.
+2) Identify repo entrypoints (web app pages/app routes, API routes, server entry, workers/jobs, scripts). List them.
+3) Build an import/dependency graph from those entrypoints for TS/JS and mark all reachable source files.
+4) Flag “orphan/unreachable” files (not reachable from any entrypoint). BUT:
+   - also scan for dynamic imports, require(), fs reads, and string references (grep for filenames/paths) to avoid false positives.
+   - account for framework conventions (Next.js special files, config files).
+5) Run unused dependency analysis (depcheck) and report unused packages + missing packages.
+6) Check for generated/build/cache artifacts that should not be tracked; compare against .gitignore and suggest additions.
+7) Output a deletion plan with 3 buckets:
+   A) Safe delete (high confidence)
+   B) Probably delete (medium confidence)
+   C) Needs human review (dynamic/config-driven)
+For each item, include a short reason and where you checked (graph/grep/framework rule).
+Do NOT delete anything yet.
