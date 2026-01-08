@@ -1,0 +1,110 @@
+This is a real issue, but it’s also very fixable. Here’s the straight-up, correct way to handle it so you don’t bleed SEO and you clean your crawl graph permanently.
+What’s actually broken (no fluff)
+Google is crawling old slugs that no longer exist.
+That means one or more of these are true:
+Old sitemap entries are still live
+Internal links point to legacy URLs
+Google cached historical URLs before you renamed tools
+Possibly programmatic slug generation drifted
+Google isn’t “confused” — it’s doing exactly what you told it to do at some point.
+Right now, those URLs return 404, which is bad only if you don’t fix it.
+The correct fix (in priority order)
+1. Add 301 redirects (mandatory)
+This is non-negotiable.
+You must permanently redirect every old slug → correct canonical slug.
+Mapping (based on your list)
+/tools/youtube-resizer        → /tools/youtube-thumbnail-resizer
+/tools/tiktok-resizer        → /tools/tiktok-video-resizer
+/tools/instagram-resizer     → /tools/instagram-post-resizer (or story, pick one)
+/tools/twitter-resizer       → /tools/twitter-header-resizer
+/tools/linkedin-resizer      → /tools/linkedin-banner-resizer
+/product/cscorecals          → (either a real product OR a 410)
+⚠️ Important:
+If /product/cscorecals truly does not exist and never will, return 410 Gone, not 301.
+2. How to implement redirects (depending on stack)
+If you’re on Next.js (likely)
+Use next.config.js:
+module.exports = {
+  async redirects() {
+    return [
+      {
+        source: '/tools/youtube-resizer',
+        destination: '/tools/youtube-thumbnail-resizer',
+        permanent: true,
+      },
+      {
+        source: '/tools/tiktok-resizer',
+        destination: '/tools/tiktok-video-resizer',
+        permanent: true,
+      },
+      {
+        source: '/tools/instagram-resizer',
+        destination: '/tools/instagram-post-resizer',
+        permanent: true,
+      },
+      {
+        source: '/tools/twitter-resizer',
+        destination: '/tools/twitter-header-resizer',
+        permanent: true,
+      },
+      {
+        source: '/tools/linkedin-resizer',
+        destination: '/tools/linkedin-banner-resizer',
+        permanent: true,
+      },
+    ]
+  },
+}
+For /product/cscorecals, do not redirect unless there is a legit destination.
+Instead:
+// In route handler or page
+return new Response('Gone', { status: 410 })
+3. Fix the root cause (this matters long-term)
+Redirects are the bandage. Now fix the wound.
+A. Audit internal links
+Run your own crawler (you literally built one):
+Crawl vcmsuite.com
+Flag any internal link pointing to:
+/tools/*-resizer (generic)
+/product/* that doesn’t exist
+Fix those links at the source.
+Internal broken links = Google keeps retrying old URLs.
+B. Regenerate your sitemap
+Then force-replace it.
+Checklist:
+Only canonical slugs
+No legacy tool names
+No auto-generated guesses
+No “maybe later” pages
+Then:
+Submit new sitemap in GSC
+Remove old sitemap if it existed
+Use URL Removal Tool only if needed (usually not)
+4. Google Search Console cleanup (final step)
+After deploying redirects:
+Wait 48–72 hours
+In GSC:
+Re-inspect one old URL
+Confirm it shows 301 → new URL
+Click “Validate Fix” for the 404 issue
+Do not panic-remove URLs prematurely — redirects are enough.
+What NOT to do (common SEO self-sabotage)
+❌ Don’t leave 404s hoping Google “figures it out”
+❌ Don’t redirect everything to /tools
+❌ Don’t change slugs again
+❌ Don’t noindex as a replacement for redirects
+Strategic note (important for VCM)
+Your architecture is correct. This happened because:
+You renamed tools to be more specific (good)
+SEO discovery happened earlier than cleanup (normal)
+Once redirects are in place:
+You keep link equity
+Google updates its index
+Crawl budget improves
+Cluster authority consolidates
+This is a growth scar, not a failure.
+Final verdict
+Severity: Medium
+Fix difficulty: Easy
+SEO risk if ignored: High
+SEO upside if fixed: Net positive
