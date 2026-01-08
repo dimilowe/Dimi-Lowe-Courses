@@ -11,7 +11,8 @@ export type ToolJobStage =
   | "cleanup"
   | "download"
   | "assemble"
-  | "process";
+  | "process"
+  | "compile";
 
 export interface ToolJob {
   id: string;
