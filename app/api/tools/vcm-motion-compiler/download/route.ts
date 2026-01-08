@@ -46,7 +46,8 @@ export async function GET(req: NextRequest) {
       }, { status: 500 });
     }
 
-    return new NextResponse(videoBuffer, {
+    const responseBody = new Uint8Array(videoBuffer);
+    return new NextResponse(responseBody, {
       status: 200,
       headers: {
         "Content-Type": "video/mp4",
