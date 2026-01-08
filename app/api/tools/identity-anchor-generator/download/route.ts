@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
       }, { status: 500 });
     }
 
-    const imageBuffer = result.value as Uint8Array;
+    const imageBuffer = Buffer.from(result.value as any);
     return new NextResponse(imageBuffer, {
       headers: {
         "Content-Type": "image/png",
