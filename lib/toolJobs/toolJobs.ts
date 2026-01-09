@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 export type ToolJobStatus = "pending" | "processing" | "complete" | "failed";
 export type ToolJobStage =
   | "upload"
+  | "waiting_upload"
   | "probe"
   | "cuts"
   | "frames"
