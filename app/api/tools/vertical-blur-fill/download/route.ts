@@ -36,7 +36,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Failed to download output" }, { status: 500 });
     }
 
-    return new Response(result.value, {
+    const videoBuffer = new Uint8Array(Buffer.from(result.value as any));
+    return new Response(videoBuffer, {
       status: 200,
       headers: {
         "Content-Type": "video/mp4",
