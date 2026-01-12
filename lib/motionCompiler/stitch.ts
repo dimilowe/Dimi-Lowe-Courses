@@ -81,7 +81,7 @@ export async function stitchBeats(jobId: string): Promise<StitchResult> {
         return { success: false, error: `Failed to download clip for ${beat.id}` };
       }
       
-      await fs.writeFile(localClipPath, Buffer.from(clipResult.value));
+      await fs.writeFile(localClipPath, Buffer.from(clipResult.value as any));
       clipPaths.push(localClipPath);
     }
     
@@ -143,7 +143,7 @@ export async function downloadFinalVideo(jobId: string): Promise<Buffer | null> 
   try {
     const result = await client.downloadAsBytes(manifest.final_output.path);
     if (!result.ok) return null;
-    return Buffer.from(result.value);
+    return Buffer.from(result.value as any);
   } catch {
     return null;
   }
