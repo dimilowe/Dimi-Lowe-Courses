@@ -149,6 +149,11 @@ async function updateGrantsAndRecompute(stripeSubscriptionId: string, status: st
 
   console.log(`[Webhook] Updated ${updateResult.rows.length} grants for subscription ${stripeSubscriptionId} to status=${status}`);
 
+  if (updateResult.rows.length === 0) {
+    console.warn(`[Webhook] No grants found for subscription ${stripeSubscriptionId} - this is normal for subscriptions not yet provisioned`);
+    return;
+  }
+
   const affectedUsers = new Set<number>();
   const affectedClouds = new Map<number, Set<string>>();
 
@@ -316,15 +321,18 @@ async function handleCmsCheckoutCompleted(session: Stripe.Checkout.Session) {
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const stripeSubscriptionId = subscription.id;
-  const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
 
-  let status = "active";
+  const currentPeriodEnd =
+    typeof (subscription as any).current_period_end === "number"
+      ? new Date((subscription as any).current_period_end * 1000)
+      : undefined;
+
+  let status: "active" | "past_due" | "canceled" = "active";
+
   if (subscription.status === "past_due") {
     status = "past_due";
   } else if (subscription.status === "canceled" || subscription.status === "unpaid") {
     status = "canceled";
-  } else if (subscription.status === "active" || subscription.status === "trialing") {
-    status = "active";
   }
 
   await updateGrantsAndRecompute(stripeSubscriptionId, status, currentPeriodEnd);
