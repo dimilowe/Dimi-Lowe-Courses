@@ -1,0 +1,78 @@
+The real crash (I can point to the exact line)
+This line is the smoking gun:
+const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
+What’s happening
+For customer.subscription.updated, Stripe can legally send events where:
+current_period_end is null
+OR undefined
+OR unchanged from the previous event
+OR omitted depending on why the update fired
+When that happens:
+undefined * 1000 → NaN
+new Date(NaN) → Invalid Date
+Then you pass that into:
+await updateGrantsAndRecompute(..., currentPeriodEnd);
+Which hits Postgres:
+current_period_end = $2
+Postgres does not accept Invalid Date → 💥 exception → caught by outer catch → 500.
+That exactly matches:
+Repeated retries
+Same event failing
+Error message: "Webhook handler failed"
+Why this shows up now
+customer.subscription.updated fires for many reasons:
+metadata changes
+proration preview
+payment retry
+invoice finalization
+cancellation at period end
+Most of those do not guarantee current_period_end is meaningful.
+You assumed it always exists. Stripe never promised that.
+Why signature verification is NOT the issue
+Your handler does this correctly:
+const body = await request.text();
+event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+If this were wrong:
+You’d see 400 Invalid signature
+Not a clean event type log
+Not a crash after parsing
+So signature handling is fine. Good job there.
+The correct fix (minimal, correct, production-safe)
+Fix handleSubscriptionUpdated to be defensive
+async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+  const stripeSubscriptionId = subscription.id;
+
+  const currentPeriodEnd =
+    typeof subscription.current_period_end === "number"
+      ? new Date(subscription.current_period_end * 1000)
+      : undefined;
+
+  let status: "active" | "past_due" | "canceled" = "active";
+
+  if (subscription.status === "past_due") {
+    status = "past_due";
+  } else if (
+    subscription.status === "canceled" ||
+    subscription.status === "unpaid"
+  ) {
+    status = "canceled";
+  }
+
+  await updateGrantsAndRecompute(
+    stripeSubscriptionId,
+    status,
+    currentPeriodEnd
+  );
+}
+This alone will stop the 500s.
+Optional but strongly recommended hardening
+1. Never 500 on “no rows updated”
+If the subscription isn’t found yet, that should be non-fatal.
+if (updateResult.rows.length === 0) {
+  console.warn(
+    `[Webhook] No grants found for subscription ${stripeSubscriptionId}`
+  );
+  return;
+}
+2. Treat webhooks as eventually consistent
+Your DB may lag Stripe. That’s normal.
