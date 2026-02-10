@@ -4,6 +4,11 @@ VCM Vocal Melody Extractor Worker
 Extracts a clean monophonic vocal melody from audio using Basic Pitch + post-processing.
 """
 
+import warnings
+warnings.filterwarnings("ignore")
+import logging
+logging.disable(logging.WARNING)
+
 import argparse
 import json
 import os
