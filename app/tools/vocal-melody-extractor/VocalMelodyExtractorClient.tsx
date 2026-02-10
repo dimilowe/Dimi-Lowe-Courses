@@ -56,8 +56,8 @@ export default function VocalMelodyExtractorClient() {
       return;
     }
     
-    if (f.size > 25 * 1024 * 1024) {
-      setError('File is too large. Maximum size is 25MB.');
+    if (f.size > 200 * 1024 * 1024) {
+      setError('File is too large. Maximum size is 200MB.');
       return;
     }
     
@@ -152,7 +152,7 @@ export default function VocalMelodyExtractorClient() {
               <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
               <p className="text-lg font-medium text-gray-700 mb-2">Drop your audio file here</p>
               <p className="text-gray-500 mb-4">or click to browse</p>
-              <p className="text-sm text-gray-400">MP3, WAV, M4A, FLAC, OGG (max 25MB, 10 min)</p>
+              <p className="text-sm text-gray-400">MP3, WAV, M4A, FLAC, OGG (max 200MB, 10 min)</p>
             </label>
           ) : (
             <div>
