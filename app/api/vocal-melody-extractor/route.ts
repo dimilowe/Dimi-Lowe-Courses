@@ -8,7 +8,7 @@ import { acquireLock, releaseLock } from '@/server/lib/audio/ipRateLimit';
 
 const MAX_FILE_SIZE = 200 * 1024 * 1024;
 const MAX_DURATION_SECONDS = 600;
-const PROCESSING_TIMEOUT_MS = 90000;
+const PROCESSING_TIMEOUT_MS = 300000;
 
 function cleanupDirectory(dirPath: string) {
   try {
@@ -71,16 +71,22 @@ function runPythonWorker(
         }
       } else {
         let errorMsg = 'Melody extraction failed';
+        const cleanStderr = stderr
+          .split('\n')
+          .filter(line => !line.startsWith('WARNING:'))
+          .join('\n')
+          .trim();
         try {
-          const errObj = JSON.parse(stderr.trim());
+          const errObj = JSON.parse(cleanStderr || stderr.trim());
           if (errObj.error) {
             errorMsg = errObj.error;
           }
         } catch (e) {
-          if (stderr) {
-            errorMsg = stderr.substring(0, 200);
+          if (cleanStderr) {
+            errorMsg = cleanStderr.substring(0, 200);
           }
         }
+        console.error('basic-pitch stderr:', stderr);
         resolve({ success: false, error: errorMsg });
       }
     });
