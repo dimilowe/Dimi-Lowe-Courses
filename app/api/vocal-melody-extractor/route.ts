@@ -64,9 +64,12 @@ function runPythonWorker(
     proc.on('close', (code) => {
       if (code === 0) {
         try {
-          const result = JSON.parse(stdout.trim());
+          const lines = stdout.trim().split('\n');
+          const lastLine = lines[lines.length - 1];
+          const result = JSON.parse(lastLine);
           resolve({ success: true, result });
         } catch (e) {
+          console.error('Worker stdout:', stdout);
           resolve({ success: false, error: 'Failed to parse worker output' });
         }
       } else {

@@ -302,7 +302,13 @@ def main():
     try:
         os.makedirs(args.out, exist_ok=True)
         
-        model_output, midi_data, note_events = predict(args.input)
+        old_stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+        try:
+            model_output, midi_data, note_events = predict(args.input)
+        finally:
+            sys.stdout.close()
+            sys.stdout = old_stdout
         
         notes_list = []
         for start, end, pitch, amplitude, pitch_bend in note_events:
