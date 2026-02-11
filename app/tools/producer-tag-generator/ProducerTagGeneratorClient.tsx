@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { 
   Music, 
@@ -19,7 +19,7 @@ import {
 import ExploreMoreTools from '@/components/ExploreMoreTools';
 import PostResultUpsell from '@/components/PostResultUpsell';
 
-type Mode = 'default' | 'custom';
+type Mode = 'custom' | 'upload';
 type VoiceId = 'female_soft' | 'male_hype' | 'robotic' | 'female_warm' | 'male_deep';
 
 const VOICE_OPTIONS: { id: VoiceId; label: string; description: string }[] = [
@@ -32,34 +32,296 @@ const VOICE_OPTIONS: { id: VoiceId; label: string; description: string }[] = [
 
 export default function ProducerTagGeneratorClient() {
   const [file, setFile] = useState<File | null>(null);
+  const [tagFile, setTagFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [tagDragActive, setTagDragActive] = useState(false);
   const [mode, setMode] = useState<Mode>('custom');
-  const [defaultTag, setDefaultTag] = useState('vcmsuite');
   const [phrase, setPhrase] = useState('');
   const [voiceId, setVoiceId] = useState<VoiceId>('female_soft');
   const [intervalSeconds, setIntervalSeconds] = useState(15);
   const [tagVolumeDb, setTagVolumeDb] = useState(-3);
+  const [sourceVolumeDb, setSourceVolumeDb] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPreviewingTag, setIsPreviewingTag] = useState(false);
+  const [isPreviewingMix, setIsPreviewingMix] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [trackDuration, setTrackDuration] = useState<number | null>(null);
+  const [customTagPreviewUrl, setCustomTagPreviewUrl] = useState<string | null>(null);
+  const [customPreviewVoiceId, setCustomPreviewVoiceId] = useState<VoiceId | null>(null);
+  const [customPreviewPhrase, setCustomPreviewPhrase] = useState<string>('');
+  const [uploadedTagPreviewUrl, setUploadedTagPreviewUrl] = useState<string | null>(null);
+  const [mixPreviewUrl, setMixPreviewUrl] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const tagFileInputRef = useRef<HTMLInputElement>(null);
+
+  const validateAndSetFile = (selectedFile: File) => {
+    if (selectedFile.size > 200 * 1024 * 1024) {
+      setError('File too large. Maximum size is 200MB.');
+      return;
+    }
+    const ext = selectedFile.name.split('.').pop()?.toLowerCase();
+    if (!['mp3', 'wav'].includes(ext || '')) {
+      setError('Invalid file type. Only MP3 and WAV files are supported.');
+      return;
+    }
+    setFile(selectedFile);
+    setError(null);
+    setDownloadUrl(null);
+    setTrackDuration(null);
+
+    const objectUrl = URL.createObjectURL(selectedFile);
+    const audio = new Audio(objectUrl);
+    audio.preload = 'metadata';
+    audio.onloadedmetadata = () => {
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        setTrackDuration(audio.duration);
+      }
+      URL.revokeObjectURL(objectUrl);
+    };
+    audio.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.size > 200 * 1024 * 1024) {
-        setError('File too large. Maximum size is 200MB.');
-        return;
+      validateAndSetFile(selectedFile);
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) {
+      validateAndSetFile(droppedFile);
+    }
+  };
+
+  const handleTagFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    validateAndSetTagFile(selectedFile);
+  };
+
+  const validateAndSetTagFile = (selectedFile: File) => {
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      setError('Tag snippet too large. Maximum size is 10MB.');
+      return;
+    }
+    const ext = selectedFile.name.split('.').pop()?.toLowerCase();
+    if (!['mp3', 'wav'].includes(ext || '')) {
+      setError('Tag snippet must be MP3 or WAV.');
+      return;
+    }
+    setTagFile(selectedFile);
+    setError(null);
+    setDownloadUrl(null);
+  };
+
+  const handleTagDrag = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setTagDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setTagDragActive(false);
+    }
+  };
+
+  const handleTagDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setTagDragActive(false);
+
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) {
+      validateAndSetTagFile(droppedFile);
+    }
+  };
+
+  const handlePreviewCustomTag = async () => {
+    if (!phrase.trim()) {
+      setError('Enter a producer tag phrase to preview.');
+      return;
+    }
+
+    setIsPreviewingTag(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/producer-tag/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phrase,
+          voiceId,
+        }),
+      });
+
+      if (!response.ok) {
+        let message = 'Failed to generate tag preview.';
+        try {
+          const errorData = await response.json();
+          message = errorData?.error || message;
+        } catch {}
+        throw new Error(message);
       }
-      const ext = selectedFile.name.split('.').pop()?.toLowerCase();
-      if (!['mp3', 'wav'].includes(ext || '')) {
-        setError('Invalid file type. Only MP3 and WAV files are supported.');
-        return;
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      setCustomTagPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return url;
+      });
+      setCustomPreviewVoiceId(voiceId);
+      setCustomPreviewPhrase(phrase.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to preview tag');
+    } finally {
+      setIsPreviewingTag(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!customTagPreviewUrl) return;
+    if (customPreviewVoiceId !== voiceId || customPreviewPhrase !== phrase.trim()) {
+      URL.revokeObjectURL(customTagPreviewUrl);
+      setCustomTagPreviewUrl(null);
+      setCustomPreviewVoiceId(null);
+      setCustomPreviewPhrase('');
+    }
+  }, [voiceId, phrase, customTagPreviewUrl, customPreviewVoiceId, customPreviewPhrase]);
+
+  useEffect(() => {
+    if (!tagFile) {
+      setUploadedTagPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      return;
+    }
+
+    const url = URL.createObjectURL(tagFile);
+    setUploadedTagPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return url;
+    });
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [tagFile]);
+
+  useEffect(() => {
+    return () => {
+      if (customTagPreviewUrl) URL.revokeObjectURL(customTagPreviewUrl);
+      if (uploadedTagPreviewUrl) URL.revokeObjectURL(uploadedTagPreviewUrl);
+      if (mixPreviewUrl) URL.revokeObjectURL(mixPreviewUrl);
+    };
+  }, [customTagPreviewUrl, uploadedTagPreviewUrl, mixPreviewUrl]);
+
+  useEffect(() => {
+    if (!mixPreviewUrl) return;
+    URL.revokeObjectURL(mixPreviewUrl);
+    setMixPreviewUrl(null);
+  }, [file, tagFile, mode, phrase, voiceId, intervalSeconds, tagVolumeDb, sourceVolumeDb]);
+
+  const timestampPreview = useMemo(() => {
+    if (!trackDuration || !Number.isFinite(trackDuration) || trackDuration <= 0) {
+      return [];
+    }
+
+    const points: number[] = [];
+    for (let t = 2; t < trackDuration; t += intervalSeconds) {
+      points.push(t);
+    }
+    if (points.length === 0) {
+      points.push(Math.min(2, trackDuration / 2));
+    }
+    return points;
+  }, [trackDuration, intervalSeconds]);
+
+  const formatTime = (seconds: number) => {
+    const total = Math.max(0, Math.floor(seconds));
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handlePreviewMix = async () => {
+    if (!file) {
+      setError('Please upload an audio file first.');
+      return;
+    }
+    if (mode === 'custom' && !phrase.trim()) {
+      setError('Please enter your producer tag phrase.');
+      return;
+    }
+    if (mode === 'upload' && !tagFile) {
+      setError('Please upload a tag snippet (MP3 or WAV).');
+      return;
+    }
+
+    setIsPreviewingMix(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('mode', mode);
+      formData.append('intervalSeconds', intervalSeconds.toString());
+      formData.append('tagVolumeDb', tagVolumeDb.toString());
+      formData.append('sourceVolumeDb', sourceVolumeDb.toString());
+      formData.append('phrase', phrase);
+      formData.append('voiceId', voiceId);
+      if (tagFile) {
+        formData.append('tagFile', tagFile);
       }
-      setFile(selectedFile);
-      setError(null);
-      setDownloadUrl(null);
+
+      const response = await fetch('/api/producer-tag/mix-preview', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let message = 'Failed to generate mix preview.';
+        try {
+          const data = await response.json();
+          message = data?.error || message;
+        } catch {}
+        throw new Error(message);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      setMixPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return url;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate mix preview');
+    } finally {
+      setIsPreviewingMix(false);
     }
   };
 
@@ -73,6 +335,10 @@ export default function ProducerTagGeneratorClient() {
       setError('Please enter your producer tag phrase.');
       return;
     }
+    if (mode === 'upload' && !tagFile) {
+      setError('Please upload a tag snippet (MP3 or WAV).');
+      return;
+    }
 
     setIsProcessing(true);
     setError(null);
@@ -83,11 +349,14 @@ export default function ProducerTagGeneratorClient() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('mode', mode);
-      formData.append('defaultTag', defaultTag);
       formData.append('intervalSeconds', intervalSeconds.toString());
       formData.append('tagVolumeDb', tagVolumeDb.toString());
+      formData.append('sourceVolumeDb', sourceVolumeDb.toString());
       formData.append('phrase', phrase);
       formData.append('voiceId', voiceId);
+      if (tagFile) {
+        formData.append('tagFile', tagFile);
+      }
 
       setStatus('Processing your audio with producer tag...');
 
@@ -96,10 +365,13 @@ export default function ProducerTagGeneratorClient() {
         body: formData,
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      const data = isJson ? await response.json() : null;
 
       if (!response.ok) {
-        throw new Error(data.error || 'Processing failed');
+        const fallbackMessage = 'Request failed. Check server configuration and try again.';
+        throw new Error(data?.error || fallbackMessage);
       }
 
       setDownloadUrl(data.downloadUrl);
@@ -134,7 +406,7 @@ export default function ProducerTagGeneratorClient() {
           </h1>
           
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Create a custom <strong>producer tag</strong> voice or use a default tag to protect your beats and vocals. 
+            Create a custom <strong>producer tag</strong> voice or upload your own tag snippet to protect your beats and vocals. 
             Upload your audio, choose your tag style, and download your tagged track in seconds.
           </p>
         </section>
@@ -147,8 +419,12 @@ export default function ProducerTagGeneratorClient() {
               </label>
               <div 
                 onClick={() => fileInputRef.current?.click()}
+                onDragEnter={handleDrag}
+                onDragOver={handleDrag}
+                onDragLeave={handleDrag}
+                onDrop={handleDrop}
                 className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors
-                  ${file ? 'border-orange-500 bg-orange-50' : 'border-gray-300 hover:border-gray-400'}`}
+                  ${file || dragActive ? 'border-orange-500 bg-orange-50' : 'border-gray-300 hover:border-gray-400'}`}
               >
                 <input
                   ref={fileInputRef}
@@ -168,7 +444,9 @@ export default function ProducerTagGeneratorClient() {
                 ) : (
                   <>
                     <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600 font-medium">Click to upload MP3 or WAV</p>
+                    <p className="text-gray-600 font-medium">
+                      {dragActive ? 'Drop your MP3 or WAV here' : 'Drag & drop or click to upload MP3 or WAV'}
+                    </p>
                     <p className="text-sm text-gray-500 mt-1">Max 200MB</p>
                   </>
                 )}
@@ -192,15 +470,15 @@ export default function ProducerTagGeneratorClient() {
                   <p className="text-sm text-gray-500">Create your own tag</p>
                 </button>
                 <button
-                  onClick={() => setMode('default')}
+                  onClick={() => setMode('upload')}
                   className={`p-4 rounded-xl border-2 text-left transition-all
-                    ${mode === 'default' 
+                    ${mode === 'upload' 
                       ? 'border-orange-500 bg-orange-50' 
                       : 'border-gray-200 hover:border-gray-300'}`}
                 >
-                  <Mic className={`w-5 h-5 mb-2 ${mode === 'default' ? 'text-orange-500' : 'text-gray-400'}`} />
-                  <p className="font-semibold text-gray-900">Default VCM Tag</p>
-                  <p className="text-sm text-gray-500">Use pre-recorded tag</p>
+                  <Mic className={`w-5 h-5 mb-2 ${mode === 'upload' ? 'text-orange-500' : 'text-gray-400'}`} />
+                  <p className="font-semibold text-gray-900">Upload Tag Snippet</p>
+                  <p className="text-sm text-gray-500">Use your own voice drop</p>
                 </button>
               </div>
             </div>
@@ -243,22 +521,115 @@ export default function ProducerTagGeneratorClient() {
                     ))}
                   </div>
                 </div>
+
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={handlePreviewCustomTag}
+                      disabled={isPreviewingTag}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-black disabled:opacity-60"
+                    >
+                      {isPreviewingTag ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+                      Preview AI Tag
+                    </button>
+                    <p className="text-xs text-gray-500">Preview uses your phrase + selected voice.</p>
+                  </div>
+                  {customTagPreviewUrl && (
+                    <>
+                      <p className="text-xs text-gray-500 mt-3">
+                        Preview clip: <strong>{VOICE_OPTIONS.find((v) => v.id === customPreviewVoiceId)?.label || 'Selected voice'}</strong>
+                      </p>
+                      <audio controls src={customTagPreviewUrl} className="w-full mt-2" />
+                    </>
+                  )}
+                </div>
               </>
             ) : (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Select Default Tag
+                  Upload Tag Snippet (MP3 or WAV)
                 </label>
-                <select
-                  value={defaultTag}
-                  onChange={(e) => setDefaultTag(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
+                <div
+                  onClick={() => tagFileInputRef.current?.click()}
+                  onDragEnter={handleTagDrag}
+                  onDragOver={handleTagDrag}
+                  onDragLeave={handleTagDrag}
+                  onDrop={handleTagDrop}
+                  className={`border-2 border-dashed rounded-xl p-4 cursor-pointer transition-colors ${
+                    tagFile || tagDragActive ? 'border-orange-500 bg-orange-50' : 'border-gray-300 hover:border-gray-400'
+                  }`}
                 >
-                  <option value="vcmsuite">VCM Suite</option>
-                  <option value="vcmsuite_dot_com">VCM Suite .com</option>
-                </select>
+                  <input
+                    ref={tagFileInputRef}
+                    type="file"
+                    accept=".mp3,.wav"
+                    onChange={handleTagFileChange}
+                    className="hidden"
+                  />
+                  {tagFile ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium text-gray-900 truncate">{tagFile.name}</p>
+                      <p className="text-sm text-gray-500 whitespace-nowrap">
+                        {(tagFile.size / 1024 / 1024).toFixed(1)} MB
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-gray-600">
+                      {tagDragActive
+                        ? 'Drop your tag snippet here'
+                        : 'Drag & drop or click to upload your tag snippet (recommended: under 5 seconds, max 10MB)'}
+                    </p>
+                  )}
+                </div>
+                {uploadedTagPreviewUrl && (
+                  <audio controls src={uploadedTagPreviewUrl} className="w-full mt-3" />
+                )}
               </div>
             )}
+
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+              <p className="text-sm font-semibold text-gray-900 mb-1">Tag Placement Preview</p>
+              {trackDuration ? (
+                <>
+                  <p className="text-xs text-gray-600 mb-3">
+                    Track length: {formatTime(trackDuration)}. Tags start near 0:02, then every {intervalSeconds}s.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {timestampPreview.slice(0, 24).map((t, index) => (
+                      <span key={`${t}-${index}`} className="px-2.5 py-1 rounded-full text-xs bg-white border border-orange-300 text-gray-700">
+                        {formatTime(t)}
+                      </span>
+                    ))}
+                    {timestampPreview.length > 24 && (
+                      <span className="px-2.5 py-1 rounded-full text-xs bg-white border border-orange-300 text-gray-700">
+                        +{timestampPreview.length - 24} more
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-gray-600">
+                  Upload a track to see exact tag timestamps.
+                </p>
+              )}
+            </div>
+
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={handlePreviewMix}
+                  disabled={isPreviewingMix || isProcessing || !file}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-black disabled:opacity-60"
+                >
+                  {isPreviewingMix ? <Loader2 className="w-4 h-4 animate-spin" /> : <Music className="w-4 h-4" />}
+                  Preview Full Mix
+                </button>
+                <p className="text-xs text-gray-500">Renders about 30 seconds using your current settings.</p>
+              </div>
+              {mixPreviewUrl && (
+                <audio controls src={mixPreviewUrl} className="w-full mt-3" />
+              )}
+            </div>
 
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
@@ -269,7 +640,7 @@ export default function ProducerTagGeneratorClient() {
             </button>
 
             {showAdvanced && (
-              <div className="grid md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl">
+              <div className="grid md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                     <Clock className="w-4 h-4" />
@@ -287,18 +658,44 @@ export default function ProducerTagGeneratorClient() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <Music className="w-4 h-4" />
+                    Original Track Volume (dB)
+                  </label>
+                  <input
+                    type="number"
+                    value={sourceVolumeDb}
+                    onChange={(e) => {
+                      const parsed = parseInt(e.target.value, 10);
+                      const safe = Number.isNaN(parsed) ? 0 : parsed;
+                      setSourceVolumeDb(Math.max(-20, Math.min(6, safe)));
+                    }}
+                    min={-20}
+                    max={6}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Lower this if your tag gets buried in the mix</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
                     <Volume2 className="w-4 h-4" />
                     Tag Volume (dB)
                   </label>
                   <input
                     type="number"
                     value={tagVolumeDb}
-                    onChange={(e) => setTagVolumeDb(Math.max(-20, Math.min(6, parseInt(e.target.value) || -3)))}
+                    onChange={(e) => {
+                      const parsed = parseInt(e.target.value, 10);
+                      const safe = Number.isNaN(parsed) ? -3 : parsed;
+                      setTagVolumeDb(Math.max(-20, Math.min(6, safe)));
+                    }}
                     min={-20}
                     max={6}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Negative = quieter, positive = louder</p>
+                  <p className="text-xs text-gray-500 mt-1">Set to 0 to +6 dB for stronger tags</p>
+                </div>
+                <div className="md:col-span-3 text-xs text-gray-600">
+                  Quick mix tip: start with <strong>Track -3 dB</strong> and <strong>Tag +3 dB</strong>, then adjust.
                 </div>
               </div>
             )}

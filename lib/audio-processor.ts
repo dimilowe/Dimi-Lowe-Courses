@@ -5,10 +5,20 @@ import { v4 as uuidv4 } from 'uuid';
 import OpenAI from 'openai';
 import crypto from 'crypto';
 
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
-});
+function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      'OpenAI API key is not configured. Set AI_INTEGRATIONS_OPENAI_API_KEY or OPENAI_API_KEY.'
+    );
+  }
+
+  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  return new OpenAI({
+    apiKey,
+    ...(baseURL ? { baseURL } : {}),
+  });
+}
 
 const TAGS_DIR = path.join(process.cwd(), 'public', 'tags');
 const TAG_CACHE_DIR = '/tmp/producer-tag-cache';
@@ -53,6 +63,7 @@ export async function getOrCreateTagVoice(phrase: string, voiceId: string): Prom
   const voice = VOICE_MAP[voiceId] || 'nova';
   
   try {
+    const openai = getOpenAIClient();
     const response = await openai.audio.speech.create({
       model: 'tts-1',
       voice: voice as any,
@@ -67,6 +78,9 @@ export async function getOrCreateTagVoice(phrase: string, voiceId: string): Prom
     return cachedPath;
   } catch (error) {
     console.error('OpenAI TTS error:', error);
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
     throw new Error('Failed to generate custom voice tag');
   }
 }
@@ -75,10 +89,49 @@ export async function processAudioWithTag(
   inputPath: string,
   tagPath: string,
   intervalSeconds: number = 15,
-  tagVolumeDb: number = -5
+  tagVolumeDb: number = -5,
+  sourceVolumeDb: number = 0
 ): Promise<string> {
-  const outputFilename = `output_${uuidv4()}.mp3`;
-  const outputPath = path.join(OUTPUT_DIR, outputFilename);
+  return processAudioMixInternal(
+    inputPath,
+    tagPath,
+    intervalSeconds,
+    tagVolumeDb,
+    sourceVolumeDb,
+    'output_'
+  );
+}
+
+export async function processAudioPreviewWithTag(
+  inputPath: string,
+  tagPath: string,
+  intervalSeconds: number = 15,
+  tagVolumeDb: number = -5,
+  sourceVolumeDb: number = 0,
+  previewSeconds: number = 30
+): Promise<string> {
+  return processAudioMixInternal(
+    inputPath,
+    tagPath,
+    intervalSeconds,
+    tagVolumeDb,
+    sourceVolumeDb,
+    'preview_',
+    previewSeconds
+  );
+}
+
+async function processAudioMixInternal(
+  inputPath: string,
+  tagPath: string,
+  intervalSeconds: number,
+  tagVolumeDb: number,
+  sourceVolumeDb: number,
+  outputPrefix: string,
+  maxDurationSeconds?: number
+): Promise<string> {
+  const finalOutputFilename = `${outputPrefix}${uuidv4()}.mp3`;
+  const finalOutputPath = path.join(OUTPUT_DIR, finalOutputFilename);
 
   const duration = await getAudioDuration(inputPath);
   console.log(`Processing audio: duration=${duration}s, interval=${intervalSeconds}s`);
@@ -95,28 +148,35 @@ export async function processAudioWithTag(
   console.log(`Tag timestamps: ${timestamps.join(', ')}`);
 
   return new Promise((resolve, reject) => {
-    const tagDelays = timestamps.map((ts, i) => 
-      `[tag]adelay=${Math.floor(ts * 1000)}|${Math.floor(ts * 1000)}[delayed${i}]`
-    ).join(';');
-    
-    const mixInputs = timestamps.map((_, i) => `[delayed${i}]`).join('');
-    
-    let filterComplex: string;
-    
-    if (timestamps.length === 1) {
-      filterComplex = `[1:a]volume=${tagVolumeDb}dB[tag];${tagDelays};[0:a][delayed0]amix=inputs=2:duration=first:dropout_transition=2[out]`;
-    } else {
-      filterComplex = `[1:a]volume=${tagVolumeDb}dB[tag];${tagDelays};${mixInputs}amix=inputs=${timestamps.length}:duration=longest:normalize=0[alltags];[0:a][alltags]amix=inputs=2:duration=first:dropout_transition=2[out]`;
-    }
+    const splitOutputs = timestamps.map((_, i) => `[tag${i}]`).join('');
+    const delayedLabels = timestamps.map((_, i) => `[delayed${i}]`).join('');
+    const tagDelays = timestamps
+      .map((ts, i) => {
+        const delayMs = Math.floor(ts * 1000);
+        return `[tag${i}]adelay=${delayMs}:all=1[delayed${i}]`;
+      })
+      .join(';');
+
+    // Explicitly split the tag stream before delaying to avoid accidental graph reuse.
+    const filterComplex =
+      `[0:a]volume=${sourceVolumeDb}dB[source];` +
+      `[1:a]volume=${tagVolumeDb}dB,asplit=${timestamps.length}${splitOutputs};` +
+      `${tagDelays};` +
+      `${delayedLabels}amix=inputs=${timestamps.length}:duration=longest:normalize=0[alltags];` +
+      `[source][alltags]amix=inputs=2:duration=first:dropout_transition=2[out]`;
 
     ffmpeg()
       .input(inputPath)
       .input(tagPath)
       .complexFilter(filterComplex)
-      .outputOptions(['-map', '[out]'])
+      .outputOptions([
+        '-map',
+        '[out]',
+        ...(maxDurationSeconds ? ['-t', String(Math.max(1, Math.floor(maxDurationSeconds)))] : []),
+      ])
       .audioCodec('libmp3lame')
       .audioBitrate('192k')
-      .output(outputPath)
+      .output(finalOutputPath)
       .on('start', (cmd) => {
         console.log('FFmpeg started:', cmd);
       })
@@ -126,7 +186,7 @@ export async function processAudioWithTag(
       })
       .on('end', () => {
         console.log('FFmpeg processing complete');
-        resolve(outputFilename);
+        resolve(finalOutputFilename);
       })
       .run();
   });
