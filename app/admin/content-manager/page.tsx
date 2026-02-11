@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AdminLayout } from "@/components/admin/admin-layout";
 import { CMSImportModal } from "@/components/admin/cms-import-modal";
 import { Button } from "@/components/ui/button";
@@ -101,6 +101,7 @@ interface MBB {
 type TabType = "tools" | "articles";
 
 function ContentManagerInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get("tab") as TabType) || "tools";
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
@@ -136,6 +137,17 @@ function ContentManagerInner() {
   const loadData = async () => {
     setIsLoading(true);
     try {
+      const adminCheck = await fetch("/api/admin/check", { credentials: "include" });
+      if (!adminCheck.ok) {
+        router.replace("/admin/tools");
+        return;
+      }
+      const adminStatus = await adminCheck.json();
+      if (!adminStatus?.isAdmin) {
+        router.replace("/admin/tools");
+        return;
+      }
+
       const [toolsRes, clustersRes, pillarsRes, articlesRes, mbbsRes] = await Promise.all([
         fetch("/api/admin/tools", { credentials: "include" }),
         fetch("/api/admin/tools/clusters", { credentials: "include" }),

@@ -13,6 +13,7 @@ const tools = [
   { name: "GIF Compressor", href: "/tools/gif-compressor" },
   { name: "GIF Maker", href: "/tools/gif-maker" },
   { name: "HEIC to JPG", href: "/tools/heic-to-jpg" },
+  { name: "M4A to MP3", href: "/tools/m4a-to-mp3-conversion" },
   { name: "Emoji Combos", href: "/tools/emoji-combos" },
   { name: "Thumbnail Coach", href: "/tools/ai-thumbnail-coach" },
   { name: "Visualization", href: "/tools/visualization" },

@@ -5,6 +5,7 @@ import { AdminSessionData, sessionOptions } from "@/lib/admin-session";
 import bcrypt from "bcryptjs";
 
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,16 +18,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if admin password hash is set
-    if (!ADMIN_PASSWORD_HASH) {
+    // Check if admin auth is configured
+    if (!ADMIN_PASSWORD_HASH && !ADMIN_PASSWORD) {
       return NextResponse.json(
-        { error: "Admin not configured. Please set ADMIN_PASSWORD_HASH" },
+        { error: "Admin not configured. Please set ADMIN_PASSWORD_HASH or ADMIN_PASSWORD" },
         { status: 500 }
       );
     }
 
-    // Verify password
-    const isValid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+    // Verify password (plain password takes precedence for local/dev simplicity)
+    const isValid = ADMIN_PASSWORD
+      ? password === ADMIN_PASSWORD
+      : await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
 
     if (!isValid) {
       return NextResponse.json(
