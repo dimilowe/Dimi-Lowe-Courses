@@ -76,6 +76,7 @@ const TOOL_ICON_MAP: Record<string, { iconKey: IconKey; bg: string }> = {
   "gif-compressor": { iconKey: "zap", bg: "bg-yellow-500" },
   "gif-maker": { iconKey: "clapperboard", bg: "bg-pink-600" },
   "heic-to-jpg": { iconKey: "fileImage", bg: "bg-rose-500" },
+  "m4a-to-mp3-conversion": { iconKey: "music", bg: "bg-blue-600" },
   "image-compressor": { iconKey: "fileImage", bg: "bg-sky-500" },
   "social-media-image-sizes": { iconKey: "maximize", bg: "bg-violet-500" },
   "pdf-editor": { iconKey: "filePen", bg: "bg-red-500" },

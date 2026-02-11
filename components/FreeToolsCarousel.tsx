@@ -19,6 +19,7 @@ const defaultTools = [
   { slug: "gif-compressor", title: "GIF Compressor", engine: "file-utility" },
   { slug: "gif-maker", title: "GIF Maker", engine: "file-utility" },
   { slug: "heic-to-jpg", title: "HEIC to JPG", engine: "file-utility" },
+  { slug: "m4a-to-mp3-conversion", title: "M4A to MP3 Conversion", engine: "file-convert" },
   { slug: "image-compressor", title: "Image Compressor", engine: "file-utility" },
   { slug: "online-notepad", title: "Online Notepad", engine: "file-utility" },
   { slug: "word-counter", title: "Word Counter", engine: "word-counter" },

@@ -78,6 +78,14 @@ const tools = [
     category: "Image",
     engine: "image-convert"
   },
+  {
+    name: "M4A to MP3 Conversion",
+    description: "Convert M4A audio to MP3 online with bitrate options and instant download.",
+    slug: "m4a-to-mp3-conversion",
+    href: "/tools/m4a-to-mp3-conversion",
+    category: "Audio",
+    engine: "file-convert"
+  },
   { 
     name: "Image Compressor", 
     description: "Compress JPG, PNG, and WebP images with smart optimization.",
