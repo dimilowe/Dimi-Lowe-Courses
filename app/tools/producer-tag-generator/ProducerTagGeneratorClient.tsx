@@ -48,8 +48,8 @@ export default function ProducerTagGeneratorClient() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.size > 30 * 1024 * 1024) {
-        setError('File too large. Maximum size is 30MB.');
+      if (selectedFile.size > 200 * 1024 * 1024) {
+        setError('File too large. Maximum size is 200MB.');
         return;
       }
       const ext = selectedFile.name.split('.').pop()?.toLowerCase();
@@ -169,7 +169,7 @@ export default function ProducerTagGeneratorClient() {
                   <>
                     <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
                     <p className="text-gray-600 font-medium">Click to upload MP3 or WAV</p>
-                    <p className="text-sm text-gray-500 mt-1">Max 30MB</p>
+                    <p className="text-sm text-gray-500 mt-1">Max 200MB</p>
                   </>
                 )}
               </div>
@@ -360,7 +360,7 @@ export default function ProducerTagGeneratorClient() {
               </div>
               <h3 className="font-semibold text-gray-900 mb-2">Upload Your Beat</h3>
               <p className="text-sm text-gray-600">
-                Upload any MP3 or WAV file up to 30MB. Works with beats, instrumentals, vocals, and full songs.
+                Upload any MP3 or WAV file up to 200MB. Works with beats, instrumentals, vocals, and full songs.
               </p>
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -434,7 +434,7 @@ export default function ProducerTagGeneratorClient() {
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <h3 className="font-semibold text-gray-900 mb-2">What audio formats are supported?</h3>
               <p className="text-sm text-gray-600">
-                You can upload MP3 and WAV files up to 30MB. The processed output is always delivered as a 
+                You can upload MP3 and WAV files up to 200MB. The processed output is always delivered as a 
                 high-quality MP3 file at 192kbps, perfect for beat stores and streaming platforms.
               </p>
             </div>

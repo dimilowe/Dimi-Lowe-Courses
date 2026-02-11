@@ -7,7 +7,7 @@ import { processAudioWithTag, getOrCreateTagVoice, getDefaultTagPath, getAudioDu
 
 const UPLOAD_DIR = '/tmp/producer-tag-uploads';
 const OUTPUT_DIR = '/tmp/producer-tag-output';
-const MAX_FILE_SIZE = 30 * 1024 * 1024;
+const MAX_FILE_SIZE = 200 * 1024 * 1024;
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT = 5;
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
 
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 30MB.' },
+        { error: 'File too large. Maximum size is 200MB.' },
         { status: 400 }
       );
     }
