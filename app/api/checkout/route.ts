@@ -4,7 +4,6 @@ import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import Stripe from "stripe";
-import { ALL_CLOUD_IDS, CloudId } from "@/lib/cloudTheme";
 
 function getStripeClient() {
   const apiKey = process.env.STRIPE_SECRET_KEY;
@@ -29,91 +28,6 @@ async function getCmsProductBySlug(slug: string) {
     [slug]
   );
   return result.rows[0] || null;
-}
-
-const TIER_PRICE_MAP: Record<string, string | undefined> = {
-  starter: process.env.STRIPE_PRICE_STARTER,
-  basic: process.env.STRIPE_PRICE_BASIC,
-  pro: process.env.STRIPE_PRICE_PRO,
-  global_pro: process.env.STRIPE_PRICE_GLOBAL_PRO,
-};
-
-function isValidCloudId(cloudId: string): cloudId is CloudId {
-  return ALL_CLOUD_IDS.includes(cloudId as CloudId);
-}
-
-function isValidTier(tier: string): tier is "starter" | "basic" | "pro" {
-  return ["starter", "basic", "pro"].includes(tier);
-}
-
-async function handleCloudSubscriptionCheckout(
-  request: NextRequest,
-  body: { cloudId: string; tier: string }
-) {
-  const { cloudId, tier } = body;
-
-  const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);
-  
-  if (!session.isLoggedIn || !session.userId) {
-    return NextResponse.json(
-      { error: "You must be signed in to subscribe. Please sign in first." },
-      { status: 401 }
-    );
-  }
-
-  const userId = session.userId;
-
-  if (!cloudId || !isValidCloudId(cloudId)) {
-    return NextResponse.json(
-      { error: "Invalid or missing cloudId. Must be one of the 10 valid clouds." },
-      { status: 400 }
-    );
-  }
-
-  if (!tier || !isValidTier(tier)) {
-    return NextResponse.json(
-      { error: "Invalid or missing tier. Must be starter, basic, or pro." },
-      { status: 400 }
-    );
-  }
-
-  const priceId = TIER_PRICE_MAP[tier];
-  if (!priceId) {
-    return NextResponse.json(
-      { error: `Stripe price not configured for tier: ${tier}` },
-      { status: 500 }
-    );
-  }
-
-  const stripe = getStripeClient();
-  const baseUrl = getBaseUrl(request);
-
-  const metadata = {
-    type: "cloud",
-    cloud_id: cloudId,
-    tier: tier,
-    user_id: userId,
-  };
-
-  const checkoutSession = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    line_items: [
-      {
-        price: priceId,
-        quantity: 1,
-      },
-    ],
-    success_url: `${baseUrl}/pricing?success=1`,
-    cancel_url: `${baseUrl}/pricing?canceled=1`,
-    metadata,
-    subscription_data: {
-      metadata,
-    },
-  });
-
-  console.log(`[Checkout] Created cloud subscription session: ${checkoutSession.id}, cloudId=${cloudId}, tier=${tier}, userId=${userId}`);
-
-  return NextResponse.json({ url: checkoutSession.url });
 }
 
 async function handleCmsProductCheckout(
@@ -215,10 +129,14 @@ async function handleGlobalProCheckout(request: NextRequest) {
 
   const userId = session.userId;
 
-  const priceId = TIER_PRICE_MAP.global_pro;
+  const priceId =
+    process.env.STRIPE_PRICE_GLOBAL_SUBSCRIPTION || process.env.STRIPE_PRICE_GLOBAL_PRO;
   if (!priceId) {
     return NextResponse.json(
-      { error: "Stripe price not configured for Global Pro" },
+      {
+        error:
+          "Stripe price not configured for global subscription. Set STRIPE_PRICE_GLOBAL_SUBSCRIPTION.",
+      },
       { status: 500 }
     );
   }
@@ -230,7 +148,7 @@ async function handleGlobalProCheckout(request: NextRequest) {
     type: "global",
     tier: "pro",
     user_id: userId,
-    offer_key: "cloud_all_pro_monthly",
+    offer_key: "global_workspace_subscription_monthly",
   };
 
   const checkoutSession = await stripe.checkout.sessions.create({
@@ -249,7 +167,9 @@ async function handleGlobalProCheckout(request: NextRequest) {
     },
   });
 
-  console.log(`[Checkout] Created Global Pro subscription session: ${checkoutSession.id}, userId=${userId}`);
+  console.log(
+    `[Checkout] Created global subscription session: ${checkoutSession.id}, userId=${userId}`
+  );
 
   return NextResponse.json({ url: checkoutSession.url });
 }
@@ -262,7 +182,13 @@ export async function POST(request: NextRequest) {
     if (checkoutType === "global") {
       return handleGlobalProCheckout(request);
     } else if (checkoutType === "cloud") {
-      return handleCloudSubscriptionCheckout(request, body);
+      return NextResponse.json(
+        {
+          error:
+            "Cloud-specific subscriptions are no longer sold. Use the global subscription instead.",
+        },
+        { status: 410 }
+      );
     } else {
       return handleCmsProductCheckout(request, body);
     }

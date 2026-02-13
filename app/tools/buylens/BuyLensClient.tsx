@@ -13,11 +13,9 @@ import {
   Clock,
   DollarSign,
   Package,
-  ShieldAlert,
   History,
   RefreshCw
 } from "lucide-react";
-import Link from "next/link";
 
 interface BuyLensResult {
   rank: number;
@@ -62,11 +60,7 @@ interface PastRun {
   result_count: string;
 }
 
-interface BuyLensClientProps {
-  isEntitled: boolean;
-}
-
-export default function BuyLensClient({ isEntitled }: BuyLensClientProps) {
+export default function BuyLensClient() {
   const [queryText, setQueryText] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [maxBudget, setMaxBudget] = useState("");
@@ -83,10 +77,8 @@ export default function BuyLensClient({ isEntitled }: BuyLensClientProps) {
   const [loadingPastRuns, setLoadingPastRuns] = useState(false);
 
   useEffect(() => {
-    if (isEntitled) {
-      fetchPastRuns();
-    }
-  }, [isEntitled]);
+    fetchPastRuns();
+  }, []);
 
   const fetchPastRuns = async () => {
     setLoadingPastRuns(true);
@@ -145,8 +137,6 @@ export default function BuyLensClient({ isEntitled }: BuyLensClientProps) {
       if (!res.ok) {
         if (data.error === "AUTH_REQUIRED") {
           setError("Please sign in to use BuyLens.");
-        } else if (data.error === "UPGRADE_REQUIRED") {
-          setError("BuyLens requires a Shopping Cloud Pro subscription.");
         } else if (data.error === "RATE_LIMIT") {
           setError(data.message || "Daily limit reached. Try again tomorrow.");
         } else {
@@ -166,25 +156,6 @@ export default function BuyLensClient({ isEntitled }: BuyLensClientProps) {
       setLoadingStep("");
     }
   };
-
-  if (!isEntitled) {
-    return (
-      <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
-        <ShieldAlert className="w-16 h-16 text-orange-500 mx-auto mb-4" />
-        <h3 className="text-xl font-bold text-gray-900 mb-2">Shopping Cloud Pro Required</h3>
-        <p className="text-gray-600 mb-6 max-w-md mx-auto">
-          BuyLens is a premium tool that requires a Shopping Cloud Pro subscription. 
-          Upgrade to scan the web and find the best deals.
-        </p>
-        <Link
-          href="/pricing"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors"
-        >
-          View Pricing
-        </Link>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8">

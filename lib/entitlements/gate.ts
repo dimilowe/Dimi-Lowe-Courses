@@ -1,6 +1,15 @@
 import type { CloudId, CloudEntitlement } from '@/lib/types/cloudEntitlements';
 import { TIER_ORDER, tierIndex, type EntitlementTier } from '@/lib/entitlements/tiers';
 
+// Toggleable rollout mode: all tools are free-access when enabled.
+// Set either FREE_TOOLS_MODE or NEXT_PUBLIC_FREE_TOOLS_MODE to "true"/"false".
+const FREE_TOOLS_MODE_RAW =
+  process.env.NEXT_PUBLIC_FREE_TOOLS_MODE ??
+  process.env.FREE_TOOLS_MODE ??
+  'true';
+
+export const FREE_TOOLS_MODE = FREE_TOOLS_MODE_RAW.toLowerCase() === 'true';
+
 export type GateReason =
   | 'allowed'
   | 'not_logged_in'
@@ -51,6 +60,17 @@ export function gateTool(params: {
 }): GateResult {
   const { tool, entitlements, isLoggedIn } = params;
   const cloudIds = tool.required_clouds;
+
+  if (FREE_TOOLS_MODE) {
+    return {
+      allowed: true,
+      reason: 'allowed',
+      required_tier: tool.required_tier,
+      user_tier_best: null,
+      upgrade_cloud_id: null,
+      checked_cloud_ids: cloudIds ?? []
+    };
+  }
 
   if (!cloudIds || cloudIds.length === 0) {
     return {

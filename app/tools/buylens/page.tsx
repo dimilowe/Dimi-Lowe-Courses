@@ -1,8 +1,4 @@
 import { Metadata } from "next";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
-import { UserSessionData, userSessionOptions } from "@/lib/user-session";
-import { getCloudEntitlementsForUser, hasAccess } from "@/lib/cloudEntitlements";
 import BuyLensClient from "./BuyLensClient";
 import ExploreMoreTools from "@/components/ExploreMoreTools";
 import Link from "next/link";
@@ -28,9 +24,9 @@ export const metadata: Metadata = {
         "operatingSystem": "Any",
         "offers": {
           "@type": "Offer",
-          "price": "59",
+          "price": "0",
           "priceCurrency": "USD",
-          "description": "Requires Shopping Cloud Pro subscription"
+          "description": "Free tool"
         },
         "description": "Compare prices across retail and resale sites to find the best deal. BuyLens scans the public web and ranks options by price, shipping, and value.",
         "publisher": {
@@ -81,26 +77,12 @@ export const metadata: Metadata = {
 };
 
 export default async function BuyLensPage() {
-  let isEntitled = false;
-  
-  try {
-    const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);
-    
-    if (session.isLoggedIn && session.userId) {
-      const userId = parseInt(session.userId, 10);
-      const entitlements = await getCloudEntitlementsForUser(userId);
-      isEntitled = hasAccess(entitlements, "shopping", "pro");
-    }
-  } catch (e) {
-    console.error("Error checking entitlements:", e);
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-12">
         <div className="text-center mb-10">
           <span className="inline-block bg-orange-100 text-orange-700 text-sm font-medium px-4 py-1.5 rounded-full mb-4">
-            Shopping Cloud • Pro Tool
+            Shopping Cloud • Free Tool
           </span>
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
             BuyLens
@@ -110,7 +92,7 @@ export default async function BuyLensPage() {
           </p>
         </div>
 
-        <BuyLensClient isEntitled={isEntitled} />
+        <BuyLensClient />
 
         <section className="mt-16 bg-white rounded-2xl border border-gray-200 p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">What is BuyLens?</h2>
@@ -243,11 +225,11 @@ export default async function BuyLensPage() {
               },
               {
                 q: "Is BuyLens free?",
-                a: "BuyLens requires a Shopping Cloud Pro subscription ($59/mo). This helps us maintain the tool and respect rate limits across sites."
+                a: "Yes. BuyLens is currently free to use."
               },
               {
                 q: "How many searches can I run per day?",
-                a: "Pro subscribers can run up to 10 BuyLens searches per day."
+                a: "Each signed-in account can run up to 10 BuyLens searches per day."
               },
               {
                 q: "Can I see my past searches?",

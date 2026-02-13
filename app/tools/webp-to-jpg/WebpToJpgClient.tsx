@@ -3,6 +3,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Upload, Download, Trash2, Image as ImageIcon, Check, AlertCircle, Loader2, Archive, Shield, Bookmark } from "lucide-react";
 import JSZip from "jszip";
+import { useToolPresets, type ToolPresetRecord } from "@/lib/hooks/useToolPresets";
+import { ToolPresetBar } from "@/components/presets/ToolPresetBar";
 
 interface ConvertedFile {
   id: string;
@@ -18,6 +20,14 @@ interface ConvertedFile {
   status: "converting" | "ready" | "failed";
   error?: string;
 }
+
+type WebpPresetJson = {
+  outputFormat?: OutputFormat;
+  qualityPreset?: QualityPreset;
+  autoDownload?: boolean;
+  zipFormat?: ZipFormat;
+};
+type WebpToolPreset = ToolPresetRecord<WebpPresetJson>;
 
 type QualityPreset = "small" | "balanced" | "high";
 type OutputFormat = "jpg" | "png";
@@ -38,6 +48,11 @@ export default function WebpToJpgClient() {
   const [isDragging, setIsDragging] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const { presets, savingPreset, savePreset } = useToolPresets<WebpPresetJson>({
+    toolId: "webp-to-jpg",
+    originCloudId: "file",
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processedIds = useRef<Set<string>>(new Set());
   const createdUrls = useRef<Set<string>>(new Set());
@@ -315,8 +330,10 @@ export default function WebpToJpgClient() {
         setSaved(true);
       } else {
         const data = await response.json();
-        if (data.error === "Unauthorized") {
+        if (response.status === 401 || data.error === "Unauthorized") {
           alert("Please sign in to save to your workspace");
+        } else if (response.status === 403 || data.code === "SUBSCRIPTION_REQUIRED") {
+          alert("Workspace saving is part of the $11/mo global subscription. Visit Pricing to unlock it.");
         } else {
           alert("Failed to save. Please try again.");
         }
@@ -328,6 +345,26 @@ export default function WebpToJpgClient() {
       setSaving(false);
     }
   }, [files, saving, saved, outputFormat, qualityPreset]);
+
+  const handleSavePreset = useCallback(async () => {
+    const didSave = await savePreset(presetName, {
+      outputFormat,
+      qualityPreset,
+      autoDownload,
+      zipFormat,
+    });
+    if (didSave) {
+      setPresetName("");
+    }
+  }, [presetName, outputFormat, qualityPreset, autoDownload, zipFormat, savePreset]);
+
+  const applyPreset = useCallback((preset: WebpToolPreset) => {
+    if (preset.preset_json.outputFormat) setOutputFormat(preset.preset_json.outputFormat);
+    if (preset.preset_json.qualityPreset) setQualityPreset(preset.preset_json.qualityPreset);
+    if (typeof preset.preset_json.autoDownload === "boolean") setAutoDownload(preset.preset_json.autoDownload);
+    if (preset.preset_json.zipFormat) setZipFormat(preset.preset_json.zipFormat);
+    setSaved(false);
+  }, []);
 
   const removeFile = useCallback((id: string) => {
     setFiles((prev) => {
@@ -428,6 +465,17 @@ export default function WebpToJpgClient() {
               <option value="png">ZIP as PNG</option>
             </select>
           </div>
+        </div>
+
+        <div className="mb-6 pt-2">
+          <ToolPresetBar
+            presetName={presetName}
+            onPresetNameChange={setPresetName}
+            onSave={handleSavePreset}
+            saving={savingPreset}
+            presets={presets}
+            onApply={applyPreset}
+          />
         </div>
 
         <div

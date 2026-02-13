@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { getCurrentUserWithTier, createAIGatingResponse } from '@/lib/pricing/getCurrentUserWithTier';
-import { canUseAI } from '@/lib/pricing/permissions';
 
 const openai = new OpenAI();
 
@@ -30,18 +28,6 @@ function checkRateLimit(ip: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    // AI tier gating - requires login first, then Pro subscription
-    const user = await getCurrentUserWithTier();
-    if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Please log in to use AI tools.', loginRequired: true }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-    if (!canUseAI(user)) {
-      return createAIGatingResponse();
-    }
-
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
                request.headers.get('x-real-ip') || 
                'unknown';

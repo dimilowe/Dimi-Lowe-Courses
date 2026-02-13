@@ -18,6 +18,8 @@ import {
   Layers,
   Target
 } from 'lucide-react';
+import { useToolPresets, type ToolPresetRecord } from '@/lib/hooks/useToolPresets';
+import { ToolPresetBar } from '@/components/presets/ToolPresetBar';
 import {
   StyleShiftOptions,
   PresetOptions,
@@ -44,6 +46,17 @@ export default function ImageToPromptClient() {
   const [subjectLock, setSubjectLock] = useState(true);
   const [styleShift, setStyleShift] = useState<StyleShift>('None');
   const [preset, setPreset] = useState<PresetId>('none');
+  const [presetName, setPresetName] = useState('');
+  const { presets: savedPresets, savingPreset, savePreset } = useToolPresets<{
+    preserveLayout?: boolean;
+    keepTextExact?: boolean;
+    subjectLock?: boolean;
+    styleShift?: StyleShift;
+    preset?: PresetId;
+  }>({
+    toolId: 'image-to-prompt',
+    originCloudId: 'creation',
+  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -170,6 +183,36 @@ export default function ImageToPromptClient() {
     await copyToClipboard(bundle, 'bundle');
   };
 
+  const handleSavePreset = async () => {
+    const didSave = await savePreset(presetName, {
+      preserveLayout,
+      keepTextExact,
+      subjectLock,
+      styleShift,
+      preset,
+    });
+    if (didSave) {
+      setPresetName('');
+    }
+  };
+
+  const applySavedPreset = (
+    savedPreset: ToolPresetRecord<{
+      preserveLayout?: boolean;
+      keepTextExact?: boolean;
+      subjectLock?: boolean;
+      styleShift?: StyleShift;
+      preset?: PresetId;
+    }>
+  ) => {
+    const p = savedPreset.preset_json || {};
+    if (typeof p.preserveLayout === 'boolean') setPreserveLayout(p.preserveLayout);
+    if (typeof p.keepTextExact === 'boolean') setKeepTextExact(p.keepTextExact);
+    if (typeof p.subjectLock === 'boolean') setSubjectLock(p.subjectLock);
+    if (p.styleShift) setStyleShift(p.styleShift);
+    if (p.preset) setPreset(p.preset);
+  };
+
   const qualityScore = result ? calculatePromptQualityScore(result.details, result.negative_prompt) : 0;
   const scoreGrade = result ? getScoreGrade(qualityScore) : '';
 
@@ -289,6 +332,15 @@ export default function ImageToPromptClient() {
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
               </div>
             </div>
+
+            <ToolPresetBar
+              presetName={presetName}
+              onPresetNameChange={setPresetName}
+              onSave={handleSavePreset}
+              saving={savingPreset}
+              presets={savedPresets}
+              onApply={applySavedPreset}
+            />
 
             <button
               onClick={handleGenerate}

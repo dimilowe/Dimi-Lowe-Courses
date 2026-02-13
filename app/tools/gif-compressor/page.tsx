@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Upload, Download, FileImage, Zap, Shield, Clock, ChevronDown, ChevronUp, Bookmark, Check, Loader2 } from 'lucide-react';
 import ExploreMoreTools from '@/components/ExploreMoreTools';
 import PostResultUpsell from '@/components/PostResultUpsell';
+import { useToolPresets, type ToolPresetRecord } from '@/lib/hooks/useToolPresets';
+import { ToolPresetBar } from '@/components/presets/ToolPresetBar';
 
 type CompressionLevel = 'light' | 'balanced' | 'max';
 
@@ -19,6 +21,9 @@ interface CompressionResult {
   remaining: number;
 }
 
+type GifPresetJson = { level?: CompressionLevel };
+type GifToolPreset = ToolPresetRecord<GifPresetJson>;
+
 export default function GifCompressorPage() {
   const [file, setFile] = useState<File | null>(null);
   const [level, setLevel] = useState<CompressionLevel>('balanced');
@@ -29,6 +34,11 @@ export default function GifCompressorPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const { presets, savingPreset, savePreset } = useToolPresets<GifPresetJson>({
+    toolId: 'gif-compressor',
+    originCloudId: 'creation',
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -149,8 +159,10 @@ export default function GifCompressorPage() {
         setSaved(true);
       } else {
         const data = await response.json();
-        if (data.error === 'Unauthorized') {
+        if (response.status === 401 || data.error === 'Unauthorized') {
           alert('Please sign in to save to your workspace');
+        } else if (response.status === 403 || data.code === 'SUBSCRIPTION_REQUIRED') {
+          alert('Workspace saving is part of the $11/mo global subscription. Visit Pricing to unlock it.');
         } else {
           alert('Failed to save. Please try again.');
         }
@@ -161,6 +173,19 @@ export default function GifCompressorPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSavePreset = async () => {
+    const didSave = await savePreset(presetName, { level });
+    if (didSave) {
+      setPresetName('');
+    }
+  };
+
+  const applyPreset = (preset: GifToolPreset) => {
+    const presetLevel = preset.preset_json?.level;
+    if (!presetLevel) return;
+    setLevel(presetLevel);
   };
 
   const faqs = [
@@ -286,6 +311,16 @@ export default function GifCompressorPage() {
                         <span className="text-sm text-gray-500">{option.desc}</span>
                       </button>
                     ))}
+                  </div>
+                  <div className="mt-4">
+                    <ToolPresetBar
+                      presetName={presetName}
+                      onPresetNameChange={setPresetName}
+                      onSave={handleSavePreset}
+                      saving={savingPreset}
+                      presets={presets}
+                      onApply={applyPreset}
+                    />
                   </div>
                 </div>
 

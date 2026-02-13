@@ -21,6 +21,8 @@ import {
   HardDrive,
   Shield,
 } from "lucide-react";
+import { useToolPresets, type ToolPresetRecord } from "@/lib/hooks/useToolPresets";
+import { ToolPresetBar } from "@/components/presets/ToolPresetBar";
 
 type LineItem = {
   id: string;
@@ -59,6 +61,11 @@ type SavedSetup = {
   includeValues: boolean;
   savedAt: string;
 };
+
+type ReportCloudPreset = ToolPresetRecord<{
+  state?: Partial<ReportState>;
+  includeValuesInSave?: boolean;
+}>;
 
 const CURRENCIES = [
   { code: "USD", symbol: "$", name: "US Dollar" },
@@ -270,6 +277,14 @@ export default function PLReportBuilderClient() {
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
   const [showPresetDropdown, setShowPresetDropdown] = useState(false);
+  const [cloudPresetName, setCloudPresetName] = useState("");
+  const { presets: cloudPresets, savingPreset: savingCloudPreset, savePreset } = useToolPresets<{
+    state?: Partial<ReportState>;
+    includeValuesInSave?: boolean;
+  }>({
+    toolId: "pl-report-builder",
+    originCloudId: "monetization",
+  });
 
   const currentDate = new Date();
   const [state, setState] = useState<ReportState>({
@@ -367,6 +382,29 @@ export default function PLReportBuilderClient() {
     }
     setShowPresetDropdown(false);
   };
+
+  const handleSaveCloudPreset = useCallback(async () => {
+    const didSave = await savePreset(cloudPresetName, {
+      state,
+      includeValuesInSave,
+    });
+    if (didSave) {
+      setCloudPresetName("");
+    }
+  }, [cloudPresetName, state, includeValuesInSave, savePreset]);
+
+  const applyCloudPreset = useCallback((preset: ReportCloudPreset) => {
+    const presetState = preset.preset_json?.state;
+    if (presetState) {
+      setState((prev) => ({
+        ...prev,
+        ...presetState,
+      }));
+    }
+    if (typeof preset.preset_json?.includeValuesInSave === "boolean") {
+      setIncludeValuesInSave(preset.preset_json.includeValuesInSave);
+    }
+  }, []);
 
   const updateLineItem = (
     section: "revenue" | "cogs" | "expenses" | "otherIncome" | "otherExpense" | "addBacks",
@@ -756,6 +794,17 @@ export default function PLReportBuilderClient() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="mt-4">
+          <ToolPresetBar
+            presetName={cloudPresetName}
+            onPresetNameChange={setCloudPresetName}
+            onSave={handleSaveCloudPreset}
+            saving={savingCloudPreset}
+            presets={cloudPresets}
+            onApply={applyCloudPreset}
+          />
         </div>
       </div>
 

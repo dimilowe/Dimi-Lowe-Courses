@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { ArrowLeft, Loader2, Copy, Check, FileText, Zap, List, ChevronDown, ChevronUp, FolderOpen } from 'lucide-react';
 import ExploreMoreTools from '@/components/ExploreMoreTools';
 import PostResultUpsell from '@/components/PostResultUpsell';
+import { useToolPresets, type ToolPresetRecord } from '@/lib/hooks/useToolPresets';
+import { ToolPresetBar } from '@/components/presets/ToolPresetBar';
 
 interface SummaryResult {
   summary: string;
@@ -12,6 +14,13 @@ interface SummaryResult {
   truncated?: boolean;
   originalLength?: number;
 }
+
+type SummarizerPresetJson = {
+  simpleMode?: boolean;
+  bulletsOnly?: boolean;
+};
+
+type ToolPreset = ToolPresetRecord<SummarizerPresetJson>;
 
 export default function SummarizerClient() {
   const [inputText, setInputText] = useState('');
@@ -24,6 +33,11 @@ export default function SummarizerClient() {
   const [showFaq, setShowFaq] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const { presets, savingPreset, savePreset } = useToolPresets<SummarizerPresetJson>({
+    toolId: 'summarizer',
+    originCloudId: 'writing',
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,8 +127,10 @@ export default function SummarizerClient() {
         setSaved(true);
       } else {
         const data = await response.json();
-        if (data.error === 'Unauthorized') {
+        if (response.status === 401 || data.error === 'Unauthorized') {
           alert('Please sign in to save to your workspace');
+        } else if (response.status === 403 || data.code === 'SUBSCRIPTION_REQUIRED') {
+          alert('Workspace saving is part of the $11/mo global subscription. Visit Pricing to unlock it.');
         } else {
           alert('Failed to save. Please try again.');
         }
@@ -125,6 +141,18 @@ export default function SummarizerClient() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSavePreset = async () => {
+    const didSave = await savePreset(presetName, { simpleMode, bulletsOnly });
+    if (didSave) {
+      setPresetName('');
+    }
+  };
+
+  const applyPreset = (preset: ToolPreset) => {
+    setSimpleMode(Boolean(preset.preset_json?.simpleMode));
+    setBulletsOnly(Boolean(preset.preset_json?.bulletsOnly));
   };
 
   const charCount = inputText.length;
@@ -197,6 +225,15 @@ export default function SummarizerClient() {
                     Make the summary mostly bullet points
                   </span>
                 </label>
+
+                <ToolPresetBar
+                  presetName={presetName}
+                  onPresetNameChange={setPresetName}
+                  onSave={handleSavePreset}
+                  saving={savingPreset}
+                  presets={presets}
+                  onApply={applyPreset}
+                />
               </div>
 
               {error && (

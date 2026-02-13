@@ -23,6 +23,7 @@ import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
 import { UserSessionData, userSessionOptions } from '@/lib/user-session';
 import { normalizeCloudId, CANONICAL_CLOUD_IDS } from '@/lib/cloud/normalizeCloudId';
+import { getSubscriptionCapabilitiesForUser } from '@/lib/subscription/capabilities';
 
 const VALID_SORT_COLUMNS = {
   recent: 'COALESCE(last_opened_at, updated_at)',
@@ -43,6 +44,7 @@ export async function GET(request: NextRequest) {
     const q = searchParams.get('q');
     const sort = searchParams.get('sort') || 'recent';
     const starred = searchParams.get('starred');
+    const includePresets = searchParams.get('include_presets') === 'true';
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const offset = parseInt(searchParams.get('offset') || '0');
 
@@ -76,6 +78,10 @@ export async function GET(request: NextRequest) {
 
     if (starred === 'true') {
       conditions.push('is_starred = true');
+    }
+
+    if (!includePresets) {
+      conditions.push(`type <> 'tool_preset'`);
     }
 
     const sortColumn = VALID_SORT_COLUMNS[sort as keyof typeof VALID_SORT_COLUMNS] || VALID_SORT_COLUMNS.recent;
@@ -123,6 +129,23 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { title, type, origin_cloud_id, cloud_id, tool_id, workflow_id, preview_text, payload_json, thumbnail_url } = body;
 
+    const userIdNum = parseInt(session.userId, 10);
+    if (!Number.isFinite(userIdNum)) {
+      return NextResponse.json({ error: 'Invalid user session' }, { status: 401 });
+    }
+
+    const capabilities = await getSubscriptionCapabilitiesForUser(userIdNum);
+    if (!capabilities.canSaveWorkspace) {
+      return NextResponse.json(
+        {
+          error: 'Saving to Workspace requires an active global subscription.',
+          code: 'SUBSCRIPTION_REQUIRED',
+          upgrade_url: '/pricing',
+        },
+        { status: 403 }
+      );
+    }
+
     if (!title || !type) {
       return NextResponse.json({ error: 'Title and type are required' }, { status: 400 });
     }
@@ -151,7 +174,7 @@ export async function POST(request: NextRequest) {
        RETURNING id, title, type, origin_cloud_id, cloud_id, tool_id, is_starred, preview_text, 
                  thumbnail_url, created_at, updated_at, last_opened_at`,
       [
-        session.userId,
+        userIdNum,
         title,
         type,
         originForStorage,

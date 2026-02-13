@@ -18,6 +18,8 @@ import {
   Volume2,
   AlertTriangle,
 } from "lucide-react";
+import { useToolPresets, type ToolPresetRecord } from "@/lib/hooks/useToolPresets";
+import { ToolPresetBar } from "@/components/presets/ToolPresetBar";
 import {
   renderDoublerOffline,
   exportDoublerWav,
@@ -60,6 +62,11 @@ export default function VocalDoublerClient() {
   const [error, setError] = useState<string | null>(null);
 
   const [settings, setSettings] = useState<DoublerSettings>(DEFAULT_DOUBLER_SETTINGS);
+  const [presetName, setPresetName] = useState("");
+  const { presets: savedPresets, savingPreset, savePreset } = useToolPresets<Partial<DoublerSettings>>({
+    toolId: "vocal-doubler",
+    originCloudId: "music",
+  });
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | MediaStreamAudioSourceNode | null>(null);
@@ -278,8 +285,19 @@ export default function VocalDoublerClient() {
     setSettings(DEFAULT_DOUBLER_SETTINGS);
   };
 
-  const applyPreset = (preset: typeof PRESETS[0]) => {
+  const applyBuiltInPreset = (preset: typeof PRESETS[0]) => {
     setSettings({ ...DEFAULT_DOUBLER_SETTINGS, ...preset.settings });
+  };
+
+  const handleSavePreset = async () => {
+    const didSave = await savePreset(presetName, settings);
+    if (didSave) {
+      setPresetName("");
+    }
+  };
+
+  const applySavedPreset = (savedPreset: ToolPresetRecord<Partial<DoublerSettings>>) => {
+    setSettings({ ...DEFAULT_DOUBLER_SETTINGS, ...savedPreset.preset_json });
   };
 
   const formatTime = (secs: number) => {
@@ -450,13 +468,23 @@ export default function VocalDoublerClient() {
         {PRESETS.map((preset) => (
           <button
             key={preset.name}
-            onClick={() => applyPreset(preset)}
+            onClick={() => applyBuiltInPreset(preset)}
             className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
           >
             {preset.name}
           </button>
         ))}
       </div>
+
+      <ToolPresetBar
+        presetName={presetName}
+        onPresetNameChange={setPresetName}
+        onSave={handleSavePreset}
+        saving={savingPreset}
+        presets={savedPresets}
+        onApply={applySavedPreset}
+        chipHoverClassName="hover:border-indigo-500 hover:text-indigo-700"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-4 p-4 bg-gray-50 rounded-xl">

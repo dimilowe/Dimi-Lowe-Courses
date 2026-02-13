@@ -1,5 +1,6 @@
 import MonetizationBar from "@/components/MonetizationBar";
 import CreatorStack from "@/components/CreatorStack";
+import SaveUpgradeSection from "@/components/monetization/SaveUpgradeSection";
 
 export default function ToolsLayout({
   children,
@@ -13,6 +14,7 @@ export default function ToolsLayout({
         <div className="max-w-4xl mx-auto px-4">
           <CreatorStack />
         </div>
+        <SaveUpgradeSection />
       </div>
       <MonetizationBar />
     </>

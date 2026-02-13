@@ -3,7 +3,6 @@ import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import { query, withTransaction } from "@/lib/db";
-import { getCloudEntitlementsForUser, hasAccess } from "@/lib/cloudEntitlements";
 import {
   parseIntent,
   discoverSearchTargets,
@@ -33,21 +32,6 @@ export async function POST(request: NextRequest) {
     }
     
     const userId = parseInt(session.userId, 10);
-    
-    const entitlements = await getCloudEntitlementsForUser(userId);
-    const hasShoppingPro = hasAccess(entitlements, "shopping", "pro");
-    
-    if (!hasShoppingPro) {
-      return NextResponse.json(
-        { 
-          error: "UPGRADE_REQUIRED", 
-          message: "BuyLens requires a Shopping Cloud Pro subscription.",
-          feature: "buylens",
-          requiredTier: "pro",
-        },
-        { status: 403 }
-      );
-    }
     
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);

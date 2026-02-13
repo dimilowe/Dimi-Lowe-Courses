@@ -6,7 +6,7 @@ import { getEngineLoader, EngineComponentProps } from '@/lib/engineRegistry';
 import ToolComingSoon from '@/components/engines/ToolComingSoon';
 import { CloudUpsellBlock } from '@/components/clouds/CloudUpsellBlock';
 import UpgradeWall from '@/components/entitlements/UpgradeWall';
-import { gateTool, GateResult } from '@/lib/entitlements/gate';
+import { gateTool, GateResult, FREE_TOOLS_MODE } from '@/lib/entitlements/gate';
 import { hasAccess, cloudSlugToId } from '@/lib/cloudEntitlements.client';
 import type { CloudEntitlement, CloudId, EntitlementTier } from '@/lib/types/cloudEntitlements';
 
@@ -68,8 +68,8 @@ export default function ToolPageClient({ tool, hasEngine }: ToolPageClientProps)
   }) : null;
 
   const primaryCloudId = required_clouds[0] || null;
-  const canUsePro = primaryCloudId && hasAccess(entitlements, primaryCloudId, 'pro');
-  const canUseBasic = primaryCloudId && hasAccess(entitlements, primaryCloudId, 'basic');
+  const canUsePro = FREE_TOOLS_MODE || (primaryCloudId && hasAccess(entitlements, primaryCloudId, 'pro'));
+  const canUseBasic = FREE_TOOLS_MODE || (primaryCloudId && hasAccess(entitlements, primaryCloudId, 'basic'));
 
   if (loading || entitlementsLoading) {
     return (
