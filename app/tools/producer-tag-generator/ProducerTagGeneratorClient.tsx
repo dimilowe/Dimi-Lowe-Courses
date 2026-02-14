@@ -761,6 +761,7 @@ export default function ProducerTagGeneratorClient() {
 
             <button
               onClick={handleSubmit}
+              data-track-output="true"
               disabled={isProcessing || !file}
               className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
@@ -785,6 +786,7 @@ export default function ProducerTagGeneratorClient() {
                   <a
                     href={downloadUrl}
                     download
+                    data-track-output="true"
                     className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
                   >
                     <Download className="w-5 h-5" />

@@ -29,8 +29,12 @@ export default async function WorkspaceItemPage({ params }: Props) {
     `UPDATE workspace_items 
      SET last_opened_at = NOW()
      WHERE id = $1 AND user_id = $2
-     RETURNING id, title, type, cloud_id, tool_id, workflow_id, is_starred, 
-               preview_text, payload_json, thumbnail_url, file_url, created_at, updated_at, last_opened_at`,
+     RETURNING id, title, type, origin_cloud_id, cloud_id, tool_id, workflow_id, is_starred,
+               preview_text, payload_json, thumbnail_url, file_url, created_at, updated_at, last_opened_at,
+               COALESCE(payload_json->>'folder', NULL) AS folder,
+               COALESCE(payload_json->'tags', '[]'::jsonb) AS tags_json,
+               COALESCE(NULLIF(payload_json->>'version_group_id', ''), id::text) AS version_group_id,
+               COALESCE(NULLIF(payload_json->>'version_number', '')::int, 1) AS version_number`,
     [id, session.userId]
   );
 
@@ -38,5 +42,7 @@ export default async function WorkspaceItemPage({ params }: Props) {
     notFound();
   }
 
-  return <WorkspaceItemClient item={result.rows[0]} />;
+  const row = result.rows[0];
+  const { tags_json, ...rest } = row;
+  return <WorkspaceItemClient item={{ ...rest, tags: Array.isArray(tags_json) ? tags_json : [] }} />;
 }

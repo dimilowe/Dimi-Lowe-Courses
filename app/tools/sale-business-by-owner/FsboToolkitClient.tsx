@@ -804,6 +804,7 @@ Buyer: ______________________ Date: __________
                         <h5 className="font-medium text-gray-900">{variant.title}</h5>
                         <button
                           onClick={() => handleCopy(variant.content, variant.id)}
+                          data-track-output="true"
                           className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
                         >
                           <Copy className="w-4 h-4" />
@@ -839,6 +840,7 @@ Buyer: ______________________ Date: __________
                     </h5>
                     <button
                       onClick={() => handleCopy(vettingQuestions.join("\n\n"), "vetting")}
+                      data-track-output="true"
                       className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
                     >
                       <Copy className="w-4 h-4" />
@@ -865,6 +867,7 @@ Buyer: ______________________ Date: __________
                     </h5>
                     <button
                       onClick={() => handleCopy(firstCallScript.map((p, i) => `${i + 1}. ${p}`).join("\n"), "script")}
+                      data-track-output="true"
                       className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
                     >
                       <Copy className="w-4 h-4" />
@@ -891,6 +894,7 @@ Buyer: ______________________ Date: __________
                     </h5>
                     <button
                       onClick={() => handleCopy(ndaTemplate, "nda")}
+                      data-track-output="true"
                       className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
                     >
                       <Copy className="w-4 h-4" />
@@ -1047,6 +1051,7 @@ Buyer: ______________________ Date: __________
                     </h5>
                     <button
                       onClick={() => handleCopy(dealSummary(), "deal")}
+                      data-track-output="true"
                       className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
                     >
                       <Copy className="w-4 h-4" />
@@ -1082,6 +1087,7 @@ Buyer: ______________________ Date: __________
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
           <button
             onClick={exportAllAsTxt}
+            data-track-output="true"
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
             <Download className="w-4 h-4" />

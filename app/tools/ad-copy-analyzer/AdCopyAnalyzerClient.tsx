@@ -477,6 +477,7 @@ export default function AdCopyAnalyzerClient() {
                     <h4 className="font-medium text-gray-900">Safe Upgrade</h4>
                     <button
                       onClick={() => handleCopy(result.rewrites.safeUpgrade, 'safe')}
+                      data-track-output="true"
                       className="text-sm text-orange-600 hover:text-orange-700 flex items-center gap-1"
                     >
                       {copiedField === 'safe' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -491,6 +492,7 @@ export default function AdCopyAnalyzerClient() {
                     <h4 className="font-medium text-gray-900">Bold Version</h4>
                     <button
                       onClick={() => handleCopy(result.rewrites.boldVersion, 'bold')}
+                      data-track-output="true"
                       className="text-sm text-orange-600 hover:text-orange-700 flex items-center gap-1"
                     >
                       {copiedField === 'bold' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}

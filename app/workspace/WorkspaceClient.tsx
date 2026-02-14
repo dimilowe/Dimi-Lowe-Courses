@@ -7,7 +7,7 @@ import {
   Search, Star, Filter, Clock, Grid, List, 
   FileText, Image, Video, File, Sparkles, 
   ChevronDown, Loader2, Trash2, AlertCircle,
-  Upload, X, CheckCircle, ChevronLeft, ChevronRight
+  Upload, CheckCircle, ChevronLeft, ChevronRight, Copy, Folder, Tag
 } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 20;
@@ -16,12 +16,17 @@ interface WorkspaceItem {
   id: string;
   title: string;
   type: string;
+  origin_cloud_id: string | null;
   cloud_id: string | null;
   tool_id: string | null;
   is_starred: boolean;
   preview_text: string | null;
   thumbnail_url: string | null;
   file_url: string | null;
+  folder: string | null;
+  tags: string[];
+  version_group_id: string;
+  version_number: number;
   created_at: string;
   updated_at: string;
   last_opened_at: string | null;
@@ -74,11 +79,16 @@ export default function WorkspaceClient() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
+  const [folderFilter, setFolderFilter] = useState<string>('');
   const [cloudFilter, setCloudFilter] = useState<string>('');
   const [sort, setSort] = useState<'recent' | 'updated' | 'name'>('recent');
   const [starredOnly, setStarredOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showCloudDropdown, setShowCloudDropdown] = useState(false);
+  const [recentProjects, setRecentProjects] = useState<WorkspaceItem[]>([]);
+  const [availableFolders, setAvailableFolders] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ fileName: string; status: 'uploading' | 'success' | 'error' }[]>([]);
@@ -95,6 +105,8 @@ export default function WorkspaceClient() {
       const params = new URLSearchParams();
       if (cloudFilter) params.set('cloud_id', cloudFilter);
       if (search) params.set('q', search);
+      if (tagFilter) params.set('tag', tagFilter);
+      if (folderFilter) params.set('folder', folderFilter);
       params.set('sort', sort);
       if (starredOnly) params.set('starred', 'true');
       params.set('limit', String(ITEMS_PER_PAGE));
@@ -114,18 +126,36 @@ export default function WorkspaceClient() {
       const data = await res.json();
       setItems(data.items || []);
       setTotal(data.total || 0);
+      setAvailableFolders(data.facets?.folders || []);
+      setAvailableTags(data.facets?.tags || []);
     } catch (error) {
       console.error('Failed to fetch workspace items:', error);
       setFetchError('Failed to load workspace items. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [cloudFilter, search, sort, starredOnly, currentPage, router]);
+  }, [cloudFilter, search, tagFilter, folderFilter, sort, starredOnly, currentPage, router]);
+
+  const fetchRecentProjects = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      params.set('sort', 'recent');
+      params.set('limit', '6');
+      params.set('offset', '0');
+      const res = await fetch(`/api/workspace/items?${params}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setRecentProjects(data.items || []);
+    } catch (error) {
+      console.error('Failed to fetch recent workspace projects:', error);
+    }
+  }, []);
 
   useEffect(() => {
     if (!initialFetchDone.current) {
       initialFetchDone.current = true;
       fetchItems();
+      fetchRecentProjects();
     }
   }, []);
 
@@ -158,7 +188,7 @@ export default function WorkspaceClient() {
         clearTimeout(searchDebounceRef.current);
       }
     };
-  }, [search]);
+  }, [search, tagFilter, folderFilter]);
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
@@ -238,6 +268,20 @@ export default function WorkspaceClient() {
         setItems(prev => [...prev, itemToDelete]);
         setTotal(prev => prev + 1);
       }
+    }
+  };
+
+  const duplicateItem = async (id: string) => {
+    try {
+      const res = await fetch(`/api/workspace/items/${id}/duplicate`, { method: 'POST' });
+      if (!res.ok) {
+        throw new Error('Failed to duplicate item');
+      }
+      await fetchItems(currentPage);
+      await fetchRecentProjects();
+    } catch (error) {
+      console.error('Failed to duplicate workspace item:', error);
+      alert('Failed to duplicate item. Please try again.');
     }
   };
 
@@ -383,6 +427,38 @@ export default function WorkspaceClient() {
           </div>
         )}
 
+        {recentProjects.length > 0 && (
+          <div className="mb-6 bg-white rounded-2xl border border-zinc-200 shadow-sm p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-zinc-800">Recent Projects</h2>
+              <span className="text-xs text-zinc-500">Jump back into your latest saved work</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {recentProjects.map((project) => (
+                <Link
+                  key={project.id}
+                  href={`/workspace/${project.id}`}
+                  className="flex items-center gap-3 border border-zinc-200 rounded-lg p-3 hover:border-orange-300 hover:bg-orange-50/40 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-zinc-100 overflow-hidden flex-shrink-0">
+                    {project.thumbnail_url ? (
+                      <img src={project.thumbnail_url} alt={project.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <FileText className="w-4 h-4 text-zinc-400" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-zinc-900 truncate">{project.title}</p>
+                    <p className="text-xs text-zinc-500">{formatDate(project.last_opened_at || project.updated_at)}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-4 mb-6">
           <div className="flex flex-wrap gap-3 items-center">
             <div className="relative flex-1 min-w-[200px]">
@@ -428,6 +504,36 @@ export default function WorkspaceClient() {
                   ))}
                 </div>
               )}
+            </div>
+
+            <select
+              value={folderFilter}
+              onChange={(e) => setFolderFilter(e.target.value)}
+              className="px-4 py-2 border border-zinc-200 rounded-lg text-sm font-medium text-zinc-700 focus:outline-none focus:ring-2 focus:ring-orange-500 min-w-[180px]"
+            >
+              <option value="">All Folders</option>
+              {availableFolders.map((folder) => (
+                <option key={folder} value={folder}>
+                  {folder}
+                </option>
+              ))}
+            </select>
+
+            <div className="relative min-w-[180px]">
+              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="text"
+                list="workspace-tag-suggestions"
+                placeholder="Filter by tag..."
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
+              />
+              <datalist id="workspace-tag-suggestions">
+                {availableTags.map((tag) => (
+                  <option key={tag} value={tag} />
+                ))}
+              </datalist>
             </div>
 
             <select
@@ -494,7 +600,7 @@ export default function WorkspaceClient() {
             </div>
             <h3 className="text-lg font-semibold text-zinc-900 mb-2">No items yet</h3>
             <p className="text-zinc-500 max-w-sm mx-auto">
-              {search || cloudFilter || starredOnly 
+              {search || cloudFilter || starredOnly || folderFilter || tagFilter
                 ? 'No items match your filters. Try adjusting your search.'
                 : 'Start using tools to save outputs, or drag and drop files here to upload.'}
             </p>
@@ -504,7 +610,7 @@ export default function WorkspaceClient() {
             {items.map((item) => {
               const IconComponent = TYPE_ICONS[item.type] || TYPE_ICONS.generic;
               const colorGradient = TYPE_COLORS[item.type] || TYPE_COLORS.generic;
-              const cloud = CLOUDS.find(c => c.id === item.cloud_id);
+              const cloud = CLOUDS.find(c => c.id === (item.origin_cloud_id || item.cloud_id || ''));
               
               return (
                 <div key={item.id} className="group bg-white rounded-xl border border-zinc-200 overflow-hidden hover:shadow-md transition-shadow">
@@ -537,6 +643,22 @@ export default function WorkspaceClient() {
                     {item.preview_text && (
                       <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{item.preview_text}</p>
                     )}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {item.folder && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-100 text-zinc-600">
+                          <Folder className="w-3 h-3" />
+                          {item.folder}
+                        </span>
+                      )}
+                      {item.tags.slice(0, 2).map((tag) => (
+                        <span key={tag} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-orange-50 text-orange-700">
+                          #{tag}
+                        </span>
+                      ))}
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700">
+                        v{item.version_number || 1}
+                      </span>
+                    </div>
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-xs text-zinc-400 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
@@ -548,6 +670,13 @@ export default function WorkspaceClient() {
                           className="p-1 hover:bg-zinc-100 rounded transition-colors"
                         >
                           <Star className={`w-4 h-4 ${item.is_starred ? 'fill-yellow-400 text-yellow-400' : 'text-zinc-300'}`} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.preventDefault(); duplicateItem(item.id); }}
+                          className="p-1 hover:bg-zinc-100 rounded transition-colors text-zinc-300 hover:text-zinc-600"
+                          title="Duplicate as new version"
+                        >
+                          <Copy className="w-4 h-4" />
                         </button>
                         <button
                           onClick={(e) => { e.preventDefault(); deleteItem(item.id); }}
@@ -567,7 +696,7 @@ export default function WorkspaceClient() {
             {items.map((item) => {
               const IconComponent = TYPE_ICONS[item.type] || TYPE_ICONS.generic;
               const colorGradient = TYPE_COLORS[item.type] || TYPE_COLORS.generic;
-              const cloud = CLOUDS.find(c => c.id === item.cloud_id);
+              const cloud = CLOUDS.find(c => c.id === (item.origin_cloud_id || item.cloud_id || ''));
               
               return (
                 <div key={item.id} className="group bg-white rounded-xl border border-zinc-200 p-4 hover:shadow-md transition-shadow flex items-center gap-4">
@@ -600,6 +729,20 @@ export default function WorkspaceClient() {
                         </span>
                       )}
                       <span className="text-xs text-zinc-400 uppercase">{item.type.replace('_', ' ')}</span>
+                      {item.folder && (
+                        <span className="text-xs text-zinc-500 inline-flex items-center gap-1">
+                          <Folder className="w-3 h-3" />
+                          {item.folder}
+                        </span>
+                      )}
+                      {item.tags.slice(0, 2).map((tag) => (
+                        <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-700">
+                          #{tag}
+                        </span>
+                      ))}
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                        v{item.version_number || 1}
+                      </span>
                       <span className="text-xs text-zinc-400 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {formatDate(item.last_opened_at || item.updated_at)}
@@ -612,6 +755,13 @@ export default function WorkspaceClient() {
                       className="p-2 hover:bg-zinc-100 rounded-lg transition-colors"
                     >
                       <Star className={`w-5 h-5 ${item.is_starred ? 'fill-yellow-400 text-yellow-400' : 'text-zinc-300'}`} />
+                    </button>
+                    <button
+                      onClick={() => duplicateItem(item.id)}
+                      className="p-2 hover:bg-zinc-100 rounded-lg transition-colors text-zinc-300 hover:text-zinc-600"
+                      title="Duplicate as new version"
+                    >
+                      <Copy className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => deleteItem(item.id)}

@@ -466,6 +466,7 @@ export default function MotionCompilerClient() {
                 </h2>
                 <button
                   onClick={handleCopyPacket}
+                  data-track-output="true"
                   className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                     copied
                       ? "bg-green-600 text-white"
@@ -548,6 +549,7 @@ export default function MotionCompilerClient() {
 
             <a
               href={`/api/tools/vcm-motion-compiler/download?jobId=${jobId}`}
+              data-track-output="true"
               className="block w-full py-3 px-6 bg-green-600 hover:bg-green-700 rounded-lg font-medium text-center transition-colors"
             >
               Download Final Video (.mp4)

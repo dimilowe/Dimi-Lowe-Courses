@@ -120,6 +120,7 @@ export default function InternalLinkSeoAuditClient() {
 
               <button
                 type="submit"
+                data-track-output="true"
                 disabled={loading || !url.trim()}
                 className="w-full py-3 px-6 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
               >

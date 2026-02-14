@@ -678,6 +678,7 @@ export default function VocalDoublerClient() {
 
         <button
           onClick={handleExport}
+          data-track-output="true"
           disabled={!audioBuffer || isExporting || isPlaying}
           className="flex items-center gap-2 px-5 py-2.5 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
         >

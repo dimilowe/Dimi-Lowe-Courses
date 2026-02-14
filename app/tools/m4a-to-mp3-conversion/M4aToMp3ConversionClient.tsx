@@ -272,6 +272,7 @@ export default function M4aToMp3ConversionClient() {
               <div className="flex items-end gap-3">
                 <button
                   onClick={convert}
+                  data-track-output="true"
                   disabled={!file || isConverting || !ffmpegLoaded}
                   className="flex-1 inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-bold px-4 py-3 rounded-xl transition-colors"
                 >
@@ -311,6 +312,7 @@ export default function M4aToMp3ConversionClient() {
                 <audio controls src={convertedUrl} className="w-full mb-4" />
                 <button
                   onClick={download}
+                  data-track-output="true"
                   className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-3 rounded-xl"
                 >
                   <Download className="w-5 h-5" />

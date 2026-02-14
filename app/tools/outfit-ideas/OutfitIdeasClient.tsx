@@ -308,6 +308,7 @@ export default function OutfitIdeasClient() {
                         href={`/r?u=${encodeURIComponent(product.productUrl)}`}
                         target="_blank"
                         rel="noopener noreferrer"
+                        data-track-output="true"
                         className="group bg-gray-50 rounded-xl p-3 hover:bg-gray-100 transition-all hover:scale-[1.02]"
                       >
                         {hasRealImage ? (

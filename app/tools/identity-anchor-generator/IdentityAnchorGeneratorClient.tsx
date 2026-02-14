@@ -568,6 +568,7 @@ export default function IdentityAnchorGeneratorClient() {
 
           <button
             onClick={savePack}
+            data-track-output="true"
             disabled={isLoading}
             className="w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
           >

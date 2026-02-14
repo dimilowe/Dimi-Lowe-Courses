@@ -218,6 +218,7 @@ export default function NotepadClient() {
           <div className="w-px h-6 bg-gray-200 mx-2" />
           <button
             onClick={handleCopy}
+            data-track-output="true"
             className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
             title="Copy all"
           >
@@ -225,6 +226,7 @@ export default function NotepadClient() {
           </button>
           <button
             onClick={handleDownload}
+            data-track-output="true"
             className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
             title="Download as .txt"
           >

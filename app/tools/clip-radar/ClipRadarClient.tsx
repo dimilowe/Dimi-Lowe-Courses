@@ -392,6 +392,7 @@ export default function ClipRadarClient() {
 
         <button
           onClick={handleAnalyze}
+          data-track-output="true"
           disabled={loading || !canAnalyze}
           className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-colors flex items-center justify-center gap-2"
         >
@@ -544,6 +545,7 @@ export default function ClipRadarClient() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleCopy(result.exports.csv, "csv")}
+                        data-track-output="true"
                         className="flex-1 text-sm px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
                       >
                         {copiedIndex === "csv" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -551,6 +553,7 @@ export default function ClipRadarClient() {
                       </button>
                       <button
                         onClick={() => handleDownload(result.exports.csv, "clipradar-export.csv")}
+                        data-track-output="true"
                         className="flex-1 text-sm px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
                       >
                         <Download className="w-4 h-4" />
@@ -566,6 +569,7 @@ export default function ClipRadarClient() {
                     </div>
                     <button
                       onClick={() => handleCopy(result.exports.youtubeTimestamps, "yt")}
+                      data-track-output="true"
                       className="w-full text-sm px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
                     >
                       {copiedIndex === "yt" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -581,6 +585,7 @@ export default function ClipRadarClient() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleCopy(result.exports.markersCsv, "markers")}
+                        data-track-output="true"
                         className="flex-1 text-sm px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
                       >
                         {copiedIndex === "markers" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -588,6 +593,7 @@ export default function ClipRadarClient() {
                       </button>
                       <button
                         onClick={() => handleDownload(result.exports.markersCsv, "clipradar-markers.csv")}
+                        data-track-output="true"
                         className="flex-1 text-sm px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
                       >
                         <Download className="w-4 h-4" />

@@ -495,6 +495,7 @@ export default function BrandAccessClient() {
                         </a>
                         <button
                           onClick={() => handleCopy(entry.contact_url!, entry.id)}
+                          data-track-output="true"
                           className="p-1 hover:bg-zinc-100 rounded transition-colors"
                           title="Copy link"
                         >

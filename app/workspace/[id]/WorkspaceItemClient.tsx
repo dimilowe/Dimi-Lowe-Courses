@@ -1,17 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, Star, Copy, Check, Clock, Calendar, 
-  FileText, Image, Sparkles, File, Trash2, Download
+  FileText, Image, Sparkles, File, Trash2, Download, Folder, Tag, Save, GitBranch
 } from 'lucide-react';
 
 interface WorkspaceItemData {
   id: string;
   title: string;
   type: string;
+  origin_cloud_id: string | null;
   cloud_id: string | null;
   tool_id: string | null;
   workflow_id: string | null;
@@ -20,6 +21,10 @@ interface WorkspaceItemData {
   payload_json: Record<string, any>;
   thumbnail_url: string | null;
   file_url: string | null;
+  folder: string | null;
+  tags: string[];
+  version_group_id: string;
+  version_number: number;
   created_at: string;
   updated_at: string;
   last_opened_at: string | null;
@@ -54,8 +59,26 @@ export default function WorkspaceItemClient({ item }: Props) {
   const [isStarred, setIsStarred] = useState(item.is_starred);
   const [copied, setCopied] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [folderInput, setFolderInput] = useState(item.folder || '');
+  const [tagsInput, setTagsInput] = useState((item.tags || []).join(', '));
+  const [savingMeta, setSavingMeta] = useState(false);
+  const [versions, setVersions] = useState<Array<{
+    id: string;
+    title: string;
+    type: string;
+    created_at: string;
+    last_opened_at: string | null;
+    updated_at: string;
+    version_group_id: string;
+    version_number: number;
+    version_note?: string | null;
+  }>>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+  const [showVersionModal, setShowVersionModal] = useState(false);
+  const [versionNoteInput, setVersionNoteInput] = useState('');
+  const [creatingVersion, setCreatingVersion] = useState(false);
 
-  const cloud = item.cloud_id ? CLOUDS[item.cloud_id] : null;
+  const cloud = (item.origin_cloud_id || item.cloud_id) ? CLOUDS[item.origin_cloud_id || item.cloud_id || ''] : null;
   const IconComponent = TYPE_ICONS[item.type] || TYPE_ICONS.generic;
 
   const toggleStar = async () => {
@@ -91,6 +114,119 @@ export default function WorkspaceItemClient({ item }: Props) {
       console.error('Failed to delete:', error);
       setDeleting(false);
     }
+  };
+
+  const saveMetadata = async () => {
+    setSavingMeta(true);
+    try {
+      const tags = tagsInput
+        .split(',')
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean)
+        .slice(0, 20);
+
+      const res = await fetch(`/api/workspace/items/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folder: folderInput.trim(),
+          tags,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to save metadata');
+      }
+    } catch (error) {
+      console.error('Failed to save metadata:', error);
+      alert('Failed to save metadata. Please try again.');
+    } finally {
+      setSavingMeta(false);
+    }
+  };
+
+  const duplicateAsVersion = async (sourceId: string = item.id) => {
+    setCreatingVersion(true);
+    try {
+      const res = await fetch(`/api/workspace/items/${sourceId}/duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          version_note: versionNoteInput.trim(),
+        }),
+      });
+      if (!res.ok) {
+        throw new Error('Failed to duplicate version');
+      }
+      const data = await res.json();
+      if (data?.id) {
+        setShowVersionModal(false);
+        setVersionNoteInput('');
+        router.push(`/workspace/${data.id}`);
+      }
+    } catch (error) {
+      console.error('Failed to duplicate as version:', error);
+      alert('Failed to create a new version.');
+    } finally {
+      setCreatingVersion(false);
+    }
+  };
+
+  const loadVersions = async () => {
+    setLoadingVersions(true);
+    try {
+      const res = await fetch(`/api/workspace/items/${item.id}/versions`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setVersions(data.versions || []);
+    } catch (error) {
+      console.error('Failed to load versions:', error);
+    } finally {
+      setLoadingVersions(false);
+    }
+  };
+
+  const restoreVersionAsLatest = async (versionId: string) => {
+    try {
+      const res = await fetch(`/api/workspace/items/${versionId}/duplicate`, { method: 'POST' });
+      if (!res.ok) {
+        throw new Error('Failed to restore version');
+      }
+      const data = await res.json();
+      if (data?.id) {
+        router.push(`/workspace/${data.id}`);
+      }
+    } catch (error) {
+      console.error('Failed to restore version:', error);
+      alert('Failed to restore this version.');
+    }
+  };
+
+  const deleteVersion = async (versionId: string) => {
+    if (!confirm('Delete this version permanently?')) return;
+    try {
+      const res = await fetch(`/api/workspace/items/${versionId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        throw new Error('Failed to delete version');
+      }
+      if (versionId === item.id) {
+        router.push('/workspace');
+        return;
+      }
+      await loadVersions();
+    } catch (error) {
+      console.error('Failed to delete version:', error);
+      alert('Failed to delete this version.');
+    }
+  };
+
+  useEffect(() => {
+    loadVersions();
+  }, [item.id]);
+
+  const openSaveVersionModal = () => {
+    setVersionNoteInput('');
+    setShowVersionModal(true);
   };
 
   const formatDate = (dateStr: string) => {
@@ -178,7 +314,9 @@ export default function WorkspaceItemClient({ item }: Props) {
 
     return (
       <div>
-        {Object.entries(payload).map(([key, value]) => renderValue(key, value))}
+        {Object.entries(payload)
+          .filter(([key]) => !['folder', 'tags', 'version_group_id', 'version_number', 'duplicated_from_item_id'].includes(key))
+          .map(([key, value]) => renderValue(key, value))}
       </div>
     );
   };
@@ -197,13 +335,17 @@ export default function WorkspaceItemClient({ item }: Props) {
         </div>
 
         <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-          {item.thumbnail_url && (
+          {item.thumbnail_url ? (
             <div className="w-full aspect-video bg-zinc-100">
               <img 
                 src={item.thumbnail_url}
                 alt={item.title}
                 className="w-full h-full object-contain"
               />
+            </div>
+          ) : (
+            <div className="w-full aspect-video bg-zinc-100 flex items-center justify-center">
+              <IconComponent className="w-12 h-12 text-zinc-400" />
             </div>
           )}
           
@@ -218,6 +360,9 @@ export default function WorkspaceItemClient({ item }: Props) {
                   )}
                   <span className="text-xs text-zinc-500 uppercase bg-zinc-100 px-2 py-0.5 rounded">
                     {item.type.replace(/_/g, ' ')}
+                  </span>
+                  <span className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                    v{item.version_number || 1}
                   </span>
                 </div>
                 <h1 className="text-2xl font-bold text-zinc-900">{item.title}</h1>
@@ -248,6 +393,13 @@ export default function WorkspaceItemClient({ item }: Props) {
                   <Star className={`w-5 h-5 ${isStarred ? 'fill-yellow-400' : ''}`} />
                 </button>
                 <button
+                  onClick={openSaveVersionModal}
+                  className="p-2 bg-zinc-100 text-zinc-500 hover:bg-zinc-200 rounded-lg transition-colors"
+                  title="Save as new version"
+                >
+                  <GitBranch className="w-5 h-5" />
+                </button>
+                <button
                   onClick={deleteItem}
                   disabled={deleting}
                   className="p-2 bg-zinc-100 text-zinc-400 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors disabled:opacity-50"
@@ -271,6 +423,115 @@ export default function WorkspaceItemClient({ item }: Props) {
               )}
             </div>
 
+            <div className="mb-8 p-4 rounded-xl border border-zinc-200 bg-zinc-50">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-zinc-900">Project Organization</h3>
+                <button
+                  onClick={saveMetadata}
+                  disabled={savingMeta}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {savingMeta ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Folder</label>
+                  <div className="relative mt-1">
+                    <Folder className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={folderInput}
+                      onChange={(e) => setFolderInput(e.target.value)}
+                      placeholder="e.g. Client Campaigns"
+                      className="w-full pl-10 pr-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">Tags</label>
+                  <div className="relative mt-1">
+                    <Tag className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={tagsInput}
+                      onChange={(e) => setTagsInput(e.target.value)}
+                      placeholder="comma,separated,tags"
+                      className="w-full pl-10 pr-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-8 p-4 rounded-xl border border-zinc-200">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-zinc-900">Version History</h3>
+                <span className="text-xs text-zinc-500">Version group: {item.version_group_id}</span>
+              </div>
+              <div className="mb-3">
+                <button
+                  onClick={openSaveVersionModal}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 transition-colors"
+                >
+                  <GitBranch className="w-4 h-4" />
+                  Save as New Version
+                </button>
+              </div>
+              {loadingVersions ? (
+                <p className="text-sm text-zinc-500">Loading versions...</p>
+              ) : versions.length === 0 ? (
+                <p className="text-sm text-zinc-500">No versions found.</p>
+              ) : (
+                <div className="space-y-2">
+                  {versions.map((version) => (
+                    <div
+                      key={version.id}
+                      className={`flex items-center justify-between border rounded-lg px-3 py-2 text-sm transition-colors ${
+                        version.id === item.id
+                          ? 'border-orange-300 bg-orange-50 text-orange-700'
+                          : 'border-zinc-200 text-zinc-700'
+                      }`}
+                    >
+                      <Link href={`/workspace/${version.id}`} className="min-w-0 flex-1 pr-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium truncate">v{version.version_number} - {version.title}</span>
+                          {version.id === item.id && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">Current</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-zinc-500 mt-0.5">
+                          Updated {formatDate(version.updated_at)}
+                        </div>
+                        {version.version_note && (
+                          <div className="text-xs text-zinc-600 mt-1 line-clamp-2">
+                            Note: {version.version_note}
+                          </div>
+                        )}
+                      </Link>
+                      <div className="flex items-center gap-2">
+                        {version.id !== item.id && (
+                          <button
+                            onClick={() => restoreVersionAsLatest(version.id)}
+                            className="text-xs px-2 py-1 rounded border border-zinc-300 hover:border-zinc-400 hover:bg-zinc-50"
+                          >
+                            Restore as Latest
+                          </button>
+                        )}
+                        <button
+                          onClick={() => deleteVersion(version.id)}
+                          className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div>
               <h3 className="text-lg font-semibold text-zinc-900 mb-4">Content</h3>
               {renderPayload()}
@@ -278,6 +539,47 @@ export default function WorkspaceItemClient({ item }: Props) {
           </div>
         </div>
       </div>
+      {showVersionModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white rounded-2xl border border-zinc-200 shadow-xl p-5">
+            <h3 className="text-lg font-semibold text-zinc-900">Save as New Version</h3>
+            <p className="text-sm text-zinc-600 mt-1">
+              This keeps your current version unchanged and creates a new snapshot.
+            </p>
+            <div className="mt-4">
+              <label className="text-xs font-semibold text-zinc-600 uppercase tracking-wide">
+                Version Note (optional)
+              </label>
+              <textarea
+                value={versionNoteInput}
+                onChange={(e) => setVersionNoteInput(e.target.value)}
+                maxLength={280}
+                placeholder="What changed in this version?"
+                className="mt-1 w-full min-h-[110px] border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+              <div className="mt-1 text-right text-xs text-zinc-500">
+                {versionNoteInput.length}/280
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowVersionModal(false)}
+                disabled={creatingVersion}
+                className="px-3 py-2 text-sm rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => duplicateAsVersion(item.id)}
+                disabled={creatingVersion}
+                className="px-3 py-2 text-sm rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-50"
+              >
+                {creatingVersion ? 'Creating...' : 'Create Version'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

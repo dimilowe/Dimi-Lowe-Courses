@@ -187,6 +187,7 @@ export default function LogoGeneratorClient() {
                             key={logo.variant}
                             className="bg-white rounded-xl border border-gray-200 p-3 hover:border-orange-400 hover:shadow-md transition-all cursor-pointer group"
                             onClick={() => downloadLogo(logo.base64, logo.variant)}
+                            data-track-output="true"
                           >
                             <div className="aspect-square bg-gray-50 rounded-lg overflow-hidden mb-2">
                               <img

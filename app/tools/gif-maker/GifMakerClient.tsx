@@ -9,6 +9,8 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { useToolPresets, type ToolPresetRecord } from '@/lib/hooks/useToolPresets';
 import { ToolPresetBar } from '@/components/presets/ToolPresetBar';
+import { TOOL_QUICK_IMPORT_EVENT, type ToolQuickImportDetail } from '@/lib/workspace/toolQuickImport';
+import { fileFromWorkspaceDrag } from '@/lib/workspace/workspaceDragImport';
 
 type Mode = 'video' | 'images';
 
@@ -34,6 +36,37 @@ const defaultSettings: Settings = {
   loop: true,
   startTime: 0,
 };
+
+async function imageFileToPngBlob(
+  file: File,
+  targetWidth?: number,
+  targetHeight?: number
+): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const outWidth = targetWidth || bitmap.width;
+  const outHeight = targetHeight || bitmap.height;
+  const canvas = document.createElement('canvas');
+  canvas.width = outWidth;
+  canvas.height = outHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas not supported');
+
+  // Keep all frames identical size so GIF sequencing is deterministic.
+  // Paint an opaque background so prior GIF frames cannot show through
+  // in letterboxed regions when source aspect ratios differ.
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, outWidth, outHeight);
+  const scale = Math.min(outWidth / bitmap.width, outHeight / bitmap.height);
+  const drawW = Math.round(bitmap.width * scale);
+  const drawH = Math.round(bitmap.height * scale);
+  const dx = Math.round((outWidth - drawW) / 2);
+  const dy = Math.round((outHeight - drawH) / 2);
+  ctx.drawImage(bitmap, dx, dy, drawW, drawH);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) throw new Error('Failed to normalize image');
+  return blob;
+}
 
 export default function GifMakerClient() {
   const [mode, setMode] = useState<Mode>('video');
@@ -143,12 +176,96 @@ export default function GifMakerClient() {
     }
 
     setError('');
-    setImageFiles(files);
+    setImageFiles((prev) => [...prev, ...files]);
     setOutputGif(null);
-    
-    imagePreviews.forEach(url => URL.revokeObjectURL(url));
-    setImagePreviews(files.map(f => URL.createObjectURL(f)));
+
+    setImagePreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
+    e.target.value = '';
   };
+
+  const handleUploadDrop = async (e: React.DragEvent, targetMode: Mode) => {
+    e.preventDefault();
+
+    const droppedFiles = Array.from(e.dataTransfer.files || []);
+    if (droppedFiles.length > 0) {
+      if (targetMode === 'video') {
+        const droppedFile = droppedFiles[0];
+        if (!droppedFile.type.startsWith('video/')) {
+          setError('Please drop a video file in Video mode.');
+          return;
+        }
+        setMode('video');
+        setVideoFile(droppedFile);
+        setOutputGif(null);
+        setError('');
+        if (videoUrl) URL.revokeObjectURL(videoUrl);
+        setVideoUrl(URL.createObjectURL(droppedFile));
+        return;
+      }
+
+      const invalid = droppedFiles.filter((f) => !f.type.startsWith('image/'));
+      if (invalid.length > 0) {
+        setError('Please drop image files in Images mode.');
+        return;
+      }
+      setMode('images');
+      setImageFiles((prev) => [...prev, ...droppedFiles]);
+      setOutputGif(null);
+      setError('');
+      setImagePreviews((prev) => [...prev, ...droppedFiles.map((f) => URL.createObjectURL(f))]);
+      return;
+    }
+
+    const imported = await fileFromWorkspaceDrag(e.dataTransfer);
+    if (!imported) return;
+
+    if (targetMode === 'video') {
+      if (!imported.type.startsWith('video/')) return;
+      setMode('video');
+      setVideoFile(imported);
+      setOutputGif(null);
+      setError('');
+      if (videoUrl) URL.revokeObjectURL(videoUrl);
+      setVideoUrl(URL.createObjectURL(imported));
+      return;
+    }
+
+    if (!imported.type.startsWith('image/')) return;
+    setMode('images');
+    setImageFiles((prev) => [...prev, imported]);
+    setOutputGif(null);
+    setError('');
+    setImagePreviews((prev) => [...prev, URL.createObjectURL(imported)]);
+  };
+
+  useEffect(() => {
+    const onQuickImport = (event: Event) => {
+      const detail = (event as CustomEvent<ToolQuickImportDetail>).detail;
+      const file = detail?.file;
+      if (!file) return;
+
+      if (file.type.startsWith('video/')) {
+        setMode('video');
+        setError('');
+        setOutputGif(null);
+        setVideoFile(file);
+        if (videoUrl) URL.revokeObjectURL(videoUrl);
+        setVideoUrl(URL.createObjectURL(file));
+        return;
+      }
+
+      if (file.type.startsWith('image/')) {
+        setMode('images');
+        setError('');
+        setOutputGif(null);
+        setImageFiles((prev) => [...prev, file]);
+        setImagePreviews((prev) => [...prev, URL.createObjectURL(file)]);
+      }
+    };
+
+    window.addEventListener(TOOL_QUICK_IMPORT_EVENT, onQuickImport as EventListener);
+    return () => window.removeEventListener(TOOL_QUICK_IMPORT_EVENT, onQuickImport as EventListener);
+  }, [imagePreviews, videoUrl]);
 
   const resetSettings = () => {
     setSettings(defaultSettings);
@@ -227,28 +344,27 @@ export default function GifMakerClient() {
 
       } else {
         setProgressMessage('Processing images...');
-        
+
+        const normalizedFrameNames: string[] = [];
+        const firstBitmap = await createImageBitmap(imageFiles[0]);
+        const frameWidth = settings.width;
+        const frameHeight = Math.max(2, Math.round((firstBitmap.height / firstBitmap.width) * frameWidth));
+        firstBitmap.close();
+
         for (let i = 0; i < imageFiles.length; i++) {
-          const ext = imageFiles[i].name.match(/\.[^.]+$/)?.[0] || '.png';
-          await ffmpeg.writeFile(`img${i.toString().padStart(4, '0')}${ext}`, await fetchFile(imageFiles[i]));
+          const frameName = `img${i.toString().padStart(4, '0')}.png`;
+          const pngBlob = await imageFileToPngBlob(imageFiles[i], frameWidth, frameHeight);
+          await ffmpeg.writeFile(frameName, await fetchFile(pngBlob));
+          normalizedFrameNames.push(frameName);
         }
 
         setProgressMessage('Creating GIF...');
-        
-        const ext = imageFiles[0].name.match(/\.[^.]+$/)?.[0] || '.png';
-        
-        const filters = [
-          `fps=${settings.fps}`,
-          `scale=${settings.width}:-1:flags=lanczos`,
-          'split[s0][s1]',
-          '[s0]palettegen=max_colors=256[p]',
-          '[s1][p]paletteuse=dither=bayer:bayer_scale=5'
-        ].join(',');
 
         const args = [
-          '-framerate', settings.fps.toString(),
-          '-i', `img%04d${ext}`,
-          '-vf', filters,
+          '-framerate', '1',
+          '-start_number', '0',
+          '-i', 'img%04d.png',
+          '-vf', `fps=${Math.max(1, settings.fps)},split[s0][s1],[s0]palettegen=max_colors=256[p],[s1][p]paletteuse=dither=bayer:bayer_scale=5`,
           '-loop', settings.loop ? '0' : '-1',
           'output.gif'
         ];
@@ -258,7 +374,12 @@ export default function GifMakerClient() {
 
         const data = await ffmpeg.readFile('output.gif');
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const blob = new Blob([(data as any).buffer || data], { type: 'image/gif' });
+        const byteArray = data as Uint8Array;
+        if (!byteArray || byteArray.length === 0) {
+          throw new Error('Generated GIF is empty');
+        }
+        const copied = Uint8Array.from(byteArray);
+        const blob = new Blob([copied as unknown as BlobPart], { type: 'image/gif' });
         
         if (outputGif) URL.revokeObjectURL(outputGif);
         const url = URL.createObjectURL(blob);
@@ -271,9 +392,8 @@ export default function GifMakerClient() {
         };
         img.src = url;
 
-        for (let i = 0; i < imageFiles.length; i++) {
-          const ext = imageFiles[i].name.match(/\.[^.]+$/)?.[0] || '.png';
-          await ffmpeg.deleteFile(`img${i.toString().padStart(4, '0')}${ext}`);
+        for (const frameName of normalizedFrameNames) {
+          await ffmpeg.deleteFile(frameName);
         }
         await ffmpeg.deleteFile('output.gif');
       }
@@ -387,7 +507,11 @@ export default function GifMakerClient() {
           {mode === 'video' ? (
             <div>
               <label className="block">
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-purple-400 transition-colors cursor-pointer">
+                <div
+                  className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-purple-400 transition-colors cursor-pointer"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => handleUploadDrop(e, 'video')}
+                >
                   <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
                   <p className="text-gray-600 font-medium mb-1">
                     {videoFile ? videoFile.name : 'Click to upload a video'}
@@ -421,7 +545,11 @@ export default function GifMakerClient() {
           ) : (
             <div>
               <label className="block">
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-purple-400 transition-colors cursor-pointer">
+                <div
+                  className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-purple-400 transition-colors cursor-pointer"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => handleUploadDrop(e, 'images')}
+                >
                   <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
                   <p className="text-gray-600 font-medium mb-1">
                     {imageFiles.length > 0 
@@ -571,6 +699,7 @@ export default function GifMakerClient() {
 
             <button
               onClick={generateGif}
+              data-track-output="true"
               disabled={!hasInput || isProcessing || !ffmpegLoaded}
               className="w-full py-4 px-6 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
             >
@@ -621,6 +750,7 @@ export default function GifMakerClient() {
 
                 <button
                   onClick={downloadGif}
+                  data-track-output="true"
                   className="w-full py-3 px-6 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
                   <Download className="w-5 h-5" />

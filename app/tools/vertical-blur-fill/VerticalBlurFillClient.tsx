@@ -384,6 +384,7 @@ export default function VerticalBlurFillClient() {
 
             <button
               onClick={handleRun}
+              data-track-output="true"
               disabled={!inputKey || isRunning}
               className="mt-6 w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
             >
@@ -453,6 +454,7 @@ export default function VerticalBlurFillClient() {
             {status.status === "complete" && (
               <a
                 href={`/api/tools/vertical-blur-fill/download?jobId=${jobId}`}
+                data-track-output="true"
                 className="block w-full py-3 px-6 bg-green-600 hover:bg-green-700 rounded-lg font-medium text-center transition-colors"
               >
                 Download Video (.mp4)

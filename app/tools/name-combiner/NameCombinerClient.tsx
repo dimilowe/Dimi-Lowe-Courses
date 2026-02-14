@@ -202,6 +202,7 @@ export default function NameCombinerClient() {
                 <span className="font-semibold text-gray-900">{name}</span>
                 <button
                   onClick={() => copyToClipboard(name, index)}
+                  data-track-output="true"
                   className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-white rounded-lg"
                   title="Copy to clipboard"
                 >

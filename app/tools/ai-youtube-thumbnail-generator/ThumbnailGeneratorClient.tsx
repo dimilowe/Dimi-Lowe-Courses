@@ -451,6 +451,7 @@ export default function ThumbnailGeneratorClient() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => downloadImage(image.pngBase64, `thumbnail-${image.id}.png`)}
+                      data-track-output="true"
                       className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors text-sm"
                     >
                       Download 1280×720 PNG

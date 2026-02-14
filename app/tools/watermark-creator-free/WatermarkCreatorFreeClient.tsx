@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Image as ImageIcon, Type, Upload } from "lucide-react";
 import { useToolPresets, type ToolPresetRecord } from "@/lib/hooks/useToolPresets";
 import { ToolPresetBar } from "@/components/presets/ToolPresetBar";
+import { TOOL_QUICK_IMPORT_EVENT, type ToolQuickImportDetail } from "@/lib/workspace/toolQuickImport";
+import { fileFromWorkspaceDrag } from "@/lib/workspace/workspaceDragImport";
 
 type Position =
   | "top-left"
@@ -282,17 +284,39 @@ export default function WatermarkCreatorFreeClient() {
     setWatermarkImageUrl(url);
   };
 
-  const onDropBase = (e: React.DragEvent<HTMLLabelElement>) => {
+  const onDropBase = async (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
     setIsDraggingBase(false);
-    onBaseImageUpload(e.dataTransfer.files?.[0]);
+    const dropped = e.dataTransfer.files?.[0];
+    if (dropped) {
+      onBaseImageUpload(dropped);
+      return;
+    }
+    const imported = await fileFromWorkspaceDrag(e.dataTransfer);
+    if (imported && imported.type.startsWith("image/")) onBaseImageUpload(imported);
   };
 
-  const onDropLogo = (e: React.DragEvent<HTMLLabelElement>) => {
+  const onDropLogo = async (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
     setIsDraggingLogo(false);
-    onWatermarkImageUpload(e.dataTransfer.files?.[0]);
+    const dropped = e.dataTransfer.files?.[0];
+    if (dropped) {
+      onWatermarkImageUpload(dropped);
+      return;
+    }
+    const imported = await fileFromWorkspaceDrag(e.dataTransfer);
+    if (imported && imported.type.startsWith("image/")) onWatermarkImageUpload(imported);
   };
+
+  useEffect(() => {
+    const onQuickImport = (event: Event) => {
+      const detail = (event as CustomEvent<ToolQuickImportDetail>).detail;
+      if (!detail?.file || !detail.file.type.startsWith("image/")) return;
+      onBaseImageUpload(detail.file);
+    };
+    window.addEventListener(TOOL_QUICK_IMPORT_EVENT, onQuickImport as EventListener);
+    return () => window.removeEventListener(TOOL_QUICK_IMPORT_EVENT, onQuickImport as EventListener);
+  }, []);
 
   const downloadImage = () => {
     const canvas = canvasRef.current;
@@ -608,6 +632,7 @@ export default function WatermarkCreatorFreeClient() {
           <button
             type="button"
             onClick={downloadImage}
+            data-track-output="true"
             disabled={!canDownload}
             className={`w-full h-11 rounded-lg font-semibold inline-flex items-center justify-center gap-2 transition-colors ${
               canDownload

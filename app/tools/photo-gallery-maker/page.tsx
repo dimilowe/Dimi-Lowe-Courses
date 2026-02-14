@@ -1263,6 +1263,7 @@ ${imageCss}
           <div className="flex flex-wrap gap-3">
             <button
               onClick={generateGallery}
+              data-track-output="true"
               disabled={isGenerating}
               className="flex-1 sm:flex-none px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
@@ -1303,6 +1304,7 @@ ${imageCss}
             </button>
             <button
               onClick={downloadAsImage}
+              data-track-output="true"
               disabled={placedCount === 0}
               className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
@@ -1311,6 +1313,7 @@ ${imageCss}
             </button>
             <button
               onClick={copyHtmlCss}
+              data-track-output="true"
               disabled={placedCount === 0}
               className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >

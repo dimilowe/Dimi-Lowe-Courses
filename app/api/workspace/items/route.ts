@@ -11,7 +11,9 @@
  * GET params:
  * - scope=all (default) - returns all workspace items for user
  * - origin_cloud_id=<id> - filter by origin cloud (optional)
- * - q - search query
+ * - q - search query (title, preview, folder, tags)
+ * - folder - folder filter
+ * - tag - tag filter
  * - sort - recent|updated|name
  * - starred - true to filter starred items
  * - limit/offset - pagination
@@ -42,6 +44,8 @@ export async function GET(request: NextRequest) {
     const originCloudId = searchParams.get('origin_cloud_id');
     const cloudId = searchParams.get('cloud_id'); // Legacy param, treat as origin filter
     const q = searchParams.get('q');
+    const folder = searchParams.get('folder');
+    const tag = searchParams.get('tag');
     const sort = searchParams.get('sort') || 'recent';
     const starred = searchParams.get('starred');
     const includePresets = searchParams.get('include_presets') === 'true';
@@ -71,8 +75,33 @@ export async function GET(request: NextRequest) {
     // If no origin filter, return ALL items (global workspace behavior)
 
     if (q && q.trim()) {
-      conditions.push(`(title ILIKE $${paramIndex} OR preview_text ILIKE $${paramIndex})`);
+      conditions.push(`(
+        title ILIKE $${paramIndex}
+        OR preview_text ILIKE $${paramIndex}
+        OR COALESCE(payload_json->>'folder', '') ILIKE $${paramIndex}
+        OR EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements_text(COALESCE(payload_json->'tags', '[]'::jsonb)) AS t(tag_text)
+          WHERE t.tag_text ILIKE $${paramIndex}
+        )
+      )`);
       params.push(`%${q.trim()}%`);
+      paramIndex++;
+    }
+
+    if (folder && folder.trim()) {
+      conditions.push(`COALESCE(payload_json->>'folder', '') = $${paramIndex}`);
+      params.push(folder.trim());
+      paramIndex++;
+    }
+
+    if (tag && tag.trim()) {
+      conditions.push(`EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(COALESCE(payload_json->'tags', '[]'::jsonb)) AS t(tag_text)
+        WHERE LOWER(t.tag_text) = LOWER($${paramIndex})
+      )`);
+      params.push(tag.trim());
       paramIndex++;
     }
 
@@ -88,8 +117,12 @@ export async function GET(request: NextRequest) {
     const sortDirection = sort === 'name' ? 'ASC' : 'DESC';
 
     const sql = `
-      SELECT id, title, type, origin_cloud_id, cloud_id, tool_id, is_starred, preview_text, 
-             thumbnail_url, file_url, created_at, updated_at, last_opened_at
+      SELECT id, title, type, origin_cloud_id, cloud_id, tool_id, is_starred, preview_text,
+             thumbnail_url, file_url, created_at, updated_at, last_opened_at,
+             COALESCE(payload_json->>'folder', NULL) AS folder,
+             COALESCE(payload_json->'tags', '[]'::jsonb) AS tags_json,
+             COALESCE(NULLIF(payload_json->>'version_group_id', ''), id::text) AS version_group_id,
+             COALESCE(NULLIF(payload_json->>'version_number', '')::int, 1) AS version_number
       FROM workspace_items
       WHERE ${conditions.join(' AND ')}
       ORDER BY ${sortColumn} ${sortDirection}
@@ -107,9 +140,52 @@ export async function GET(request: NextRequest) {
     `;
     const countResult = await query(countSql, countParams);
 
+    const facetsResult = await query(
+      `
+        SELECT
+          COALESCE(
+            ARRAY(
+              SELECT DISTINCT f.folder
+              FROM (
+                SELECT NULLIF(TRIM(COALESCE(payload_json->>'folder', '')), '') AS folder
+                FROM workspace_items
+                WHERE user_id = $1
+                  AND type <> 'tool_preset'
+              ) f
+              WHERE f.folder IS NOT NULL
+              ORDER BY f.folder
+            ),
+            ARRAY[]::text[]
+          ) AS folders,
+          COALESCE(
+            ARRAY(
+              SELECT DISTINCT LOWER(TRIM(t.tag_text)) AS tag
+              FROM workspace_items wi
+              CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(wi.payload_json->'tags', '[]'::jsonb)) t(tag_text)
+              WHERE wi.user_id = $1
+                AND wi.type <> 'tool_preset'
+                AND TRIM(t.tag_text) <> ''
+              ORDER BY 1
+            ),
+            ARRAY[]::text[]
+          ) AS tags
+      `,
+      [session.userId]
+    );
+
     return NextResponse.json({
-      items: result.rows,
+      items: result.rows.map((row) => {
+        const { tags_json, ...rest } = row;
+        return {
+          ...rest,
+          tags: Array.isArray(tags_json) ? tags_json : [],
+        };
+      }),
       total: parseInt(countResult.rows[0]?.total || '0'),
+      facets: {
+        folders: facetsResult.rows[0]?.folders || [],
+        tags: facetsResult.rows[0]?.tags || [],
+      },
       limit,
       offset
     });
@@ -127,7 +203,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, type, origin_cloud_id, cloud_id, tool_id, workflow_id, preview_text, payload_json, thumbnail_url } = body;
+    const {
+      title,
+      type,
+      origin_cloud_id,
+      cloud_id,
+      tool_id,
+      workflow_id,
+      preview_text,
+      payload_json,
+      thumbnail_url,
+      folder,
+      tags,
+    } = body;
 
     const userIdNum = parseInt(session.userId, 10);
     if (!Number.isFinite(userIdNum)) {
@@ -167,6 +255,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const normalizedTags = Array.isArray(tags)
+      ? tags
+          .map((tag) => (typeof tag === 'string' ? tag.trim().toLowerCase() : ''))
+          .filter(Boolean)
+          .slice(0, 20)
+      : [];
+    const normalizedFolder = typeof folder === 'string' && folder.trim() ? folder.trim() : null;
+    const mergedPayload = {
+      ...(payload_json || {}),
+      ...(normalizedFolder ? { folder: normalizedFolder } : {}),
+      ...(normalizedTags.length > 0 ? { tags: normalizedTags } : {}),
+    };
+
     const result = await query(
       `INSERT INTO workspace_items 
        (user_id, title, type, origin_cloud_id, cloud_id, tool_id, workflow_id, preview_text, payload_json, thumbnail_url)
@@ -182,7 +283,7 @@ export async function POST(request: NextRequest) {
         tool_id || null,
         workflow_id || null,
         preview_text || null,
-        JSON.stringify(payload_json || {}),
+        JSON.stringify(mergedPayload),
         thumbnail_url || null
       ]
     );

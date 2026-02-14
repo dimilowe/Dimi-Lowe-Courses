@@ -297,6 +297,7 @@ export default function KeywordFinderClient() {
 
             <button
               onClick={findKeywords}
+              data-track-output="true"
               disabled={isLoading || !seed.trim()}
               className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold transition-all ${
                 isLoading || !seed.trim()
@@ -343,6 +344,7 @@ export default function KeywordFinderClient() {
               <div className="flex gap-2">
                 <button
                   onClick={copyKeywords}
+                  data-track-output="true"
                   disabled={keywords.length === 0}
                   className="flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-all disabled:opacity-50"
                 >
@@ -351,6 +353,7 @@ export default function KeywordFinderClient() {
                 </button>
                 <button
                   onClick={downloadCSV}
+                  data-track-output="true"
                   disabled={keywords.length === 0}
                   className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-all disabled:opacity-50"
                 >

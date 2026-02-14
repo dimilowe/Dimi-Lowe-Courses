@@ -317,6 +317,7 @@ export default function AiHumanizerFreeClient() {
               </h2>
               <button
                 onClick={copyToClipboard}
+                data-track-output="true"
                 className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
               >
                 {copied ? (

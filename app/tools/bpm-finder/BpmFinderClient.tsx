@@ -162,6 +162,7 @@ export default function BpmFinderClient() {
       <div className="flex flex-wrap gap-3">
         <button
           onClick={handleAnalyze}
+          data-track-output="true"
           disabled={!audioFile || isAnalyzing || isLoading}
           className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
         >

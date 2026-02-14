@@ -524,6 +524,7 @@ export default function MakeMoneyHomeFinderClient() {
         <div className="flex justify-center gap-4">
           <button
             onClick={handleExport}
+            data-track-output="true"
             className="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-xl font-semibold hover:bg-orange-600 transition-colors"
           >
             <Download className="w-4 h-4" />

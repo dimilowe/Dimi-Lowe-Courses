@@ -1139,6 +1139,7 @@ export default function PLReportBuilderClient() {
                     const monthName = MONTHS[state.month - 1]?.toLowerCase() || "report";
                     downloadFile(generateCsv(), `pl-report-${monthName}-${state.year}.csv`, "text/csv");
                   }}
+                  data-track-output="true"
                   className="flex flex-col items-center gap-2 p-6 border border-gray-200 rounded-xl hover:border-orange-300 hover:bg-orange-50 transition-colors"
                 >
                   <FileText className="w-8 h-8 text-orange-600" />
@@ -1151,6 +1152,7 @@ export default function PLReportBuilderClient() {
                     const monthName = MONTHS[state.month - 1]?.toLowerCase() || "report";
                     downloadFile(generateTxt(), `pl-report-${monthName}-${state.year}.txt`, "text/plain");
                   }}
+                  data-track-output="true"
                   className="flex flex-col items-center gap-2 p-6 border border-gray-200 rounded-xl hover:border-orange-300 hover:bg-orange-50 transition-colors"
                 >
                   <Download className="w-8 h-8 text-orange-600" />
@@ -1160,6 +1162,7 @@ export default function PLReportBuilderClient() {
 
                 <button
                   onClick={copyToClipboard}
+                  data-track-output="true"
                   className="flex flex-col items-center gap-2 p-6 border border-gray-200 rounded-xl hover:border-orange-300 hover:bg-orange-50 transition-colors"
                 >
                   {copySuccess ? (

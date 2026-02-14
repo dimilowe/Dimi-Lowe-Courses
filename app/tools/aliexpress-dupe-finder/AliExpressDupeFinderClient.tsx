@@ -790,6 +790,7 @@ export default function AliExpressDupeFinderClient() {
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <button
                             onClick={() => handleCopy(link.url, i)}
+                            data-track-output="true"
                             className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
                             title="Copy link"
                           >

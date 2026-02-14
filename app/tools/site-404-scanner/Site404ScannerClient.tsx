@@ -209,6 +209,7 @@ export default function Site404ScannerClient() {
           />
           <button
             onClick={startScan}
+            data-track-output="true"
             disabled={!url.trim() || scanState.status === "running"}
             className="px-6 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-zinc-700 disabled:text-gray-500 text-white font-medium rounded-lg transition-colors"
           >
@@ -334,6 +335,7 @@ export default function Site404ScannerClient() {
             <div className="ml-auto px-4 py-3">
               <a
                 href={`/api/tools/site-404-scanner/export?scanId=${scanState.scanId}`}
+                data-track-output="true"
                 className="text-sm text-orange-500 hover:text-orange-400"
               >
                 Export CSV

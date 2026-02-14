@@ -556,6 +556,7 @@ export default function HeicToJpgPage() {
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <button
             onClick={handleConvert}
+            data-track-output="true"
             disabled={files.length === 0 || isConverting}
             className="flex-1 px-6 py-4 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
@@ -575,6 +576,7 @@ export default function HeicToJpgPage() {
           {completedCount > 1 && (
             <button
               onClick={downloadAllAsZip}
+              data-track-output="true"
               className="px-6 py-4 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
             >
               <Package className="w-5 h-5" />

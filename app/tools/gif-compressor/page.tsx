@@ -387,6 +387,7 @@ export default function GifCompressorPage() {
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Button
                     onClick={handleDownload}
+                    data-track-output="true"
                     className="bg-orange-500 hover:bg-orange-600 text-white py-6 px-12 text-lg font-semibold"
                   >
                     <Download className="w-5 h-5 mr-2" />
@@ -395,6 +396,7 @@ export default function GifCompressorPage() {
                   
                   <Button
                     onClick={handleSaveToWorkspace}
+                    data-track-output="true"
                     disabled={saving || saved}
                     variant="outline"
                     className={`py-6 px-8 text-lg font-semibold border-2 ${

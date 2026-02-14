@@ -244,6 +244,7 @@ export default function SummarizerClient() {
 
               <button
                 type="submit"
+                data-track-output="true"
                 disabled={loading || charCount < 200}
                 className="mt-6 w-full py-4 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
               >
@@ -352,6 +353,7 @@ export default function SummarizerClient() {
                 <div className="flex gap-3">
                   <button
                     onClick={handleSaveToWorkspace}
+                    data-track-output="true"
                     disabled={saving || saved}
                     className={`flex-1 py-3 font-medium rounded-xl transition-colors flex items-center justify-center gap-2 ${
                       saved 

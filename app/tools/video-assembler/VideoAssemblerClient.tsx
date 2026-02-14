@@ -280,6 +280,7 @@ export default function VideoAssemblerClient() {
             {status.status === "complete" && (
               <a
                 href={`/api/tools/video-assembler/download?jobId=${jobId}`}
+                data-track-output="true"
                 className="block w-full py-3 px-6 bg-green-600 hover:bg-green-700 rounded-lg font-medium text-center transition-colors"
               >
                 Download Video (.mp4)

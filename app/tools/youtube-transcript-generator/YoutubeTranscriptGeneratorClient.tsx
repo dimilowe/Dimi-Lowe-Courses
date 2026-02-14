@@ -112,6 +112,7 @@ export default function YoutubeTranscriptGeneratorClient() {
         <div className="flex gap-3">
           <button
             onClick={handleGenerate}
+            data-track-output="true"
             disabled={loading || !url.trim()}
             className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-colors flex items-center justify-center gap-2"
           >
@@ -183,6 +184,7 @@ export default function YoutubeTranscriptGeneratorClient() {
             <div className="flex gap-2">
               <button
                 onClick={handleCopy}
+                data-track-output="true"
                 className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors text-sm"
               >
                 {copied ? (
@@ -203,6 +205,7 @@ export default function YoutubeTranscriptGeneratorClient() {
               </button>
               <button
                 onClick={handleDownload}
+                data-track-output="true"
                 className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors text-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

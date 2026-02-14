@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { Upload, FileImage, Download, ArrowRight, Check, Zap, Globe, Mail, HardDrive, Image as ImageIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import ExploreMoreTools from '@/components/ExploreMoreTools';
 import PostResultUpsell from '@/components/PostResultUpsell';
 import { useToolPresets, type ToolPresetRecord } from '@/lib/hooks/useToolPresets';
 import { ToolPresetBar } from '@/components/presets/ToolPresetBar';
+import { TOOL_QUICK_IMPORT_EVENT, type ToolQuickImportDetail } from '@/lib/workspace/toolQuickImport';
+import { fileFromWorkspaceDrag } from '@/lib/workspace/workspaceDragImport';
 
 type CompressionLevel = 'light' | 'balanced' | 'max';
 
@@ -103,6 +105,144 @@ export default function ImageCompressorPage() {
     reader.readAsDataURL(selectedFile);
   }, []);
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  useEffect(() => {
+    const onQuickImport = (event: Event) => {
+      const detail = (event as CustomEvent<ToolQuickImportDetail>).detail;
+      if (!detail?.file || !detail.file.type.startsWith("image/")) return;
+      handleFileSelect(detail.file);
+    };
+    window.addEventListener(TOOL_QUICK_IMPORT_EVENT, onQuickImport as EventListener);
+    return () => window.removeEventListener(TOOL_QUICK_IMPORT_EVENT, onQuickImport as EventListener);
+  }, [handleFileSelect]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
@@ -120,7 +260,7 @@ export default function ImageCompressorPage() {
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
@@ -128,6 +268,12 @@ export default function ImageCompressorPage() {
     const droppedFile = e.dataTransfer.files?.[0];
     if (droppedFile) {
       handleFileSelect(droppedFile);
+      return;
+    }
+
+    const imported = await fileFromWorkspaceDrag(e.dataTransfer);
+    if (imported && imported.type.startsWith('image/')) {
+      handleFileSelect(imported);
     }
   };
 
@@ -420,6 +566,7 @@ export default function ImageCompressorPage() {
               
               <button
                 onClick={handleDownload}
+                data-track-output="true"
                 className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-gray-900 font-semibold py-4 px-8 rounded-lg text-lg transition-all"
               >
                 <Download className="w-5 h-5" />

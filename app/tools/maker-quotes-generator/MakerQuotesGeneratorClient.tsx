@@ -394,6 +394,7 @@ export default function MakerQuotesGeneratorClient() {
                         <div className="flex gap-2 ml-auto">
                           <button
                             onClick={() => copyToClipboard(quote.displayText, index)}
+                            data-track-output="true"
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                               copiedIndex === index
                                 ? "bg-green-100 text-green-700"

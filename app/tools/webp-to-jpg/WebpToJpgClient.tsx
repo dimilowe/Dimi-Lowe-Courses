@@ -5,6 +5,8 @@ import { Upload, Download, Trash2, Image as ImageIcon, Check, AlertCircle, Loade
 import JSZip from "jszip";
 import { useToolPresets, type ToolPresetRecord } from "@/lib/hooks/useToolPresets";
 import { ToolPresetBar } from "@/components/presets/ToolPresetBar";
+import { TOOL_QUICK_IMPORT_EVENT, type ToolQuickImportDetail } from "@/lib/workspace/toolQuickImport";
+import { fileFromWorkspaceDrag } from "@/lib/workspace/workspaceDragImport";
 
 interface ConvertedFile {
   id: string;
@@ -234,12 +236,27 @@ export default function WebpToJpgClient() {
     [convertImage, autoDownload, outputFormat, triggerDownload]
   );
 
+  useEffect(() => {
+    const onQuickImport = (event: Event) => {
+      const detail = (event as CustomEvent<ToolQuickImportDetail>).detail;
+      if (!detail?.file || !detail.file.type.startsWith("image/")) return;
+      processFiles([detail.file]);
+    };
+    window.addEventListener(TOOL_QUICK_IMPORT_EVENT, onQuickImport as EventListener);
+    return () => window.removeEventListener(TOOL_QUICK_IMPORT_EVENT, onQuickImport as EventListener);
+  }, [processFiles]);
+
   const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
       if (e.dataTransfer.files.length > 0) {
         processFiles(e.dataTransfer.files);
+        return;
+      }
+      const imported = await fileFromWorkspaceDrag(e.dataTransfer);
+      if (imported && imported.type.startsWith("image/")) {
+        processFiles([imported]);
       }
     },
     [processFiles]
@@ -525,6 +542,7 @@ export default function WebpToJpgClient() {
                   <>
                     <button
                       onClick={downloadAllAsZip}
+                      data-track-output="true"
                       className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors"
                     >
                       <Archive className="w-4 h-4" />
@@ -532,6 +550,7 @@ export default function WebpToJpgClient() {
                     </button>
                     <button
                       onClick={handleSaveToWorkspace}
+                      data-track-output="true"
                       disabled={saving || saved}
                       className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors border-2 ${
                         saved

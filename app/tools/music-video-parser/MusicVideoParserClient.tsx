@@ -344,6 +344,7 @@ export default function MusicVideoParserClient() {
                   </code>
                   <button
                     onClick={handleCopyPackKey}
+                    data-track-output="true"
                     className={`px-4 py-3 rounded-lg font-medium transition-colors whitespace-nowrap ${
                       copied
                         ? "bg-green-600 text-white"
@@ -368,6 +369,7 @@ export default function MusicVideoParserClient() {
             <a
               href={downloadUrl}
               download="template-pack.zip"
+              data-track-output="true"
               className="block w-full py-3 px-6 bg-green-600 hover:bg-green-700 rounded-lg font-medium text-center transition-colors"
             >
               Download Template Pack (.zip)

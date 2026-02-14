@@ -77,6 +77,7 @@ function DiagramFlow({
             </button>
             <button
               onClick={onDownloadPng}
+              data-track-output="true"
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all"
             >
               <Download className="w-4 h-4" />

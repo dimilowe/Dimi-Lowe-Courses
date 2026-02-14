@@ -296,6 +296,7 @@ export default function SunoPromptGeneratorClient() {
                   </p>
                   <button
                     onClick={() => handleCopy(prompt.text, index)}
+                    data-track-output="true"
                     disabled={!prompt.text}
                     className="mt-4 flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-400 text-gray-700 text-sm font-medium rounded-lg transition-colors"
                   >

@@ -522,6 +522,7 @@ export default function UniversalShoppingCartClient() {
 
             <button
               onClick={handleGenerateShareLink}
+              data-track-output="true"
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               <Share2 className="w-4 h-4" />
@@ -539,6 +540,7 @@ export default function UniversalShoppingCartClient() {
               />
               <button
                 onClick={handleCopyShareLink}
+                data-track-output="true"
                 className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-sm font-medium hover:bg-emerald-600 transition-colors"
               >
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}

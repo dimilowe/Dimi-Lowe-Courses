@@ -306,6 +306,7 @@ export default function AffirmationAboutSelfLoveClient() {
                 <div className="flex items-center justify-center gap-4">
                   <button
                     onClick={copyAffirmation}
+                    data-track-output="true"
                     className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-all text-sm font-medium"
                   >
                     {copied ? (
