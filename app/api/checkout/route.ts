@@ -130,12 +130,12 @@ async function handleGlobalProCheckout(request: NextRequest) {
   const userId = session.userId;
 
   const priceId =
-    process.env.STRIPE_PRICE_GLOBAL_SUBSCRIPTION || process.env.STRIPE_PRICE_GLOBAL_PRO;
+    process.env.STRIPE_PRICE_UNIVERSAL_SUBSCRIPTION || process.env.STRIPE_PRICE_GLOBAL_PRO;
   if (!priceId) {
     return NextResponse.json(
       {
         error:
-          "Stripe price not configured for global subscription. Set STRIPE_PRICE_GLOBAL_SUBSCRIPTION.",
+          "Stripe price not configured for global subscription. Set STRIPE_PRICE_UNIVERSAL_SUBSCRIPTION.",
       },
       { status: 500 }
     );
