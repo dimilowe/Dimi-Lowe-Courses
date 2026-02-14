@@ -6,7 +6,7 @@ import os from 'os';
 import { getAudioInfo, normalizeAudioToWav } from '@/server/lib/audio/ffmpeg';
 import { acquireLock, releaseLock } from '@/server/lib/audio/ipRateLimit';
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024;
+const MAX_FILE_SIZE = 200 * 1024 * 1024;
 const MAX_DURATION_SECONDS = 600;
 const PROCESSING_TIMEOUT_MS = 30000;
 
@@ -41,59 +41,85 @@ function runPythonWorker(
 ): Promise<WorkerResult> {
   return new Promise((resolve) => {
     const workerPath = path.join(process.cwd(), 'python', 'audio_key_detector_worker.py');
-    
-    const proc = spawn('python3.11', [
-      workerPath,
-      '--input', inputPath,
-      '--out', outputDir
-    ], {
-      timeout: timeoutMs,
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
-    
-    let stdout = '';
-    let stderr = '';
-    
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-    
-    proc.on('close', (code) => {
-      if (code === 0) {
-        try {
-          const result = JSON.parse(stdout.trim());
-          resolve({ success: true, result });
-        } catch (e) {
-          resolve({ success: false, error: 'Failed to parse worker output' });
+
+    const pythonCandidates = Array.from(
+      new Set(
+        [process.env.PYTHON_BIN, process.env.PYTHON_PATH, 'python3.11', 'python3', 'python'].filter(Boolean)
+      )
+    ) as string[];
+
+    const trySpawn = (candidateIndex: number) => {
+      if (candidateIndex >= pythonCandidates.length) {
+        resolve({ success: false, error: 'No Python runtime found. Set PYTHON_BIN or install python3.' });
+        return;
+      }
+
+      const pythonCmd = pythonCandidates[candidateIndex];
+      const proc = spawn(pythonCmd, [
+        workerPath,
+        '--input', inputPath,
+        '--out', outputDir
+      ], {
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+
+      let settled = false;
+      let stdout = '';
+      let stderr = '';
+
+      const finish = (result: WorkerResult) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        resolve(result);
+      };
+
+      const timeoutId = setTimeout(() => {
+        proc.kill('SIGTERM');
+        finish({ success: false, error: 'Processing timed out. Try a shorter audio file.' });
+      }, timeoutMs);
+
+      proc.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      proc.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      proc.on('close', (code) => {
+        if (settled) return;
+        if (code === 0) {
+          try {
+            const result = JSON.parse(stdout.trim());
+            finish({ success: true, result });
+          } catch (e) {
+            finish({ success: false, error: 'Failed to parse worker output' });
+          }
+          return;
         }
-      } else {
+
         let errorMsg = 'Key detection failed';
         try {
           const errObj = JSON.parse(stderr.trim());
-          if (errObj.error) {
-            errorMsg = errObj.error;
-          }
+          if (errObj.error) errorMsg = errObj.error;
         } catch (e) {
-          if (stderr) {
-            errorMsg = stderr.substring(0, 200);
-          }
+          if (stderr) errorMsg = stderr.substring(0, 200);
         }
-        resolve({ success: false, error: errorMsg });
-      }
-    });
-    
-    proc.on('error', (err) => {
-      resolve({ success: false, error: `Worker error: ${err.message}` });
-    });
-    
-    setTimeout(() => {
-      proc.kill('SIGTERM');
-      resolve({ success: false, error: 'Processing timed out. Try a shorter audio file.' });
-    }, timeoutMs);
+        finish({ success: false, error: errorMsg });
+      });
+
+      proc.on('error', (err) => {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+          clearTimeout(timeoutId);
+          trySpawn(candidateIndex + 1);
+          return;
+        }
+        finish({ success: false, error: `Worker error: ${err.message}` });
+      });
+    };
+
+    trySpawn(0);
   });
 }
 
@@ -117,7 +143,7 @@ export async function POST(request: NextRequest) {
     
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 25MB.' },
+        { error: 'File too large. Maximum size is 200MB.' },
         { status: 400 }
       );
     }

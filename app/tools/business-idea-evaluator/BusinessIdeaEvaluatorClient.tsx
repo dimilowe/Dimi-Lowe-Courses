@@ -248,7 +248,7 @@ function CheckboxGroup({
   );
 }
 
-export default function DecisionHygieneClient() {
+export default function BusinessIdeaEvaluatorClient() {
   const [form, setForm] = useState<FormState>(initialFormState);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<EvaluationResult | null>(null);
@@ -284,7 +284,7 @@ export default function DecisionHygieneClient() {
     setResult(null);
 
     try {
-      const res = await fetch("/api/tools/decision-hygiene-evaluator/evaluate", {
+      const res = await fetch("/api/tools/business-idea-evaluator/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),

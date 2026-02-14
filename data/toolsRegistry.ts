@@ -1137,10 +1137,10 @@ export const toolsRegistry: Tool[] = [
     searchIntent: "action"
   },
   {
-    id: "decision-hygiene-evaluator",
-    name: "Decision Hygiene Evaluator",
-    slug: "decision-hygiene-evaluator",
-    description: "A deterministic pre-commitment filter that detects high-probability failure modes in business decisions. RED / YELLOW / GREEN verdicts. No coaching. No suggestions.",
+    id: "business-idea-evaluator",
+    name: "Business Idea Evaluator",
+    slug: "business-idea-evaluator",
+    description: "A deterministic pre-commitment filter that detects high-probability failure modes in business ideas. RED / YELLOW / GREEN verdicts. No coaching. No suggestions.",
     category: "business",
     cloud_ids: ["ecommerce"],
     required_tier: "free",
@@ -1154,8 +1154,8 @@ export const toolsRegistry: Tool[] = [
     outputType: "analysis",
     relatedTools: ["sale-business-by-owner", "p-and-l-report"],
     relatedArticles: [],
-    primaryKeyword: "decision hygiene",
-    secondaryKeywords: ["pre-commitment filter", "business idea validator", "startup idea evaluator", "idea risk assessment", "validate idea before committing", "decision quality", "commitment filter"],
+    primaryKeyword: "business idea evaluator",
+    secondaryKeywords: ["business idea validator", "startup idea evaluator", "idea risk assessment", "validate idea before committing", "pre-commitment filter", "decision quality", "commitment filter"],
     searchIntent: "action"
   },
   {
@@ -1174,7 +1174,7 @@ export const toolsRegistry: Tool[] = [
     engineType: "standalone",
     inputType: "selection",
     outputType: "interactive",
-    relatedTools: ["decision-hygiene-evaluator", "sale-business-by-owner"],
+    relatedTools: ["business-idea-evaluator", "sale-business-by-owner"],
     relatedArticles: [],
     primaryKeyword: "brand contact page finder",
     secondaryKeywords: ["influencer outreach", "brand partnerships contacts", "PR contact page", "affiliate program contact", "sponsorship inquiry page", "brand deals", "creator partnerships"],

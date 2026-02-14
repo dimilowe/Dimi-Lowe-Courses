@@ -2,6 +2,9 @@ import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
+const FFPROBE_TIMEOUT_MS = 30000;
+const FFMPEG_TIMEOUT_MS = 180000;
+
 export interface AudioInfo {
   duration: number;
   sampleRate: number;
@@ -17,7 +20,9 @@ export async function getAudioInfo(filePath: string): Promise<AudioInfo> {
       '-show_format',
       '-show_streams',
       filePath
-    ]);
+    ], {
+      timeout: FFPROBE_TIMEOUT_MS,
+    });
 
     let stdout = '';
     let stderr = '';
@@ -76,7 +81,9 @@ export async function normalizeAudioToWav(
       '-f', 'wav',
       '-acodec', 'pcm_s16le',
       outputPath
-    ]);
+    ], {
+      timeout: FFMPEG_TIMEOUT_MS,
+    });
 
     let stderr = '';
 
