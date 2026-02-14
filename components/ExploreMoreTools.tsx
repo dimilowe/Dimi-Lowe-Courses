@@ -10,6 +10,7 @@ const tools = [
   { name: "YouTube Transcript", href: "/tools/youtube-transcript-generator" },
   { name: "Keyword Finder", href: "/tools/keyword-finder" },
   { name: "Image Compressor", href: "/tools/image-compressor" },
+  { name: "Watermark Creator Free", href: "/tools/watermark-creator-free" },
   { name: "GIF Compressor", href: "/tools/gif-compressor" },
   { name: "GIF Maker", href: "/tools/gif-maker" },
   { name: "HEIC to JPG", href: "/tools/heic-to-jpg" },
@@ -32,7 +33,7 @@ const tools = [
   { name: "Vocal Melody Extractor", href: "/tools/vocal-melody-extractor" },
   { name: "Audio Key Detector", href: "/tools/audio-key-detector" },
   { name: "Chord Progression Finder", href: "/tools/chord-progression-finder" },
-  { name: "BuyLens", href: "/shopping/buylens" },
+  { name: "BuyLens", href: "/tools/buylens" },
   { name: "Ideas Hub", href: "/ideas" },
   { name: "VCM Answers", href: "/answers" },
 ];

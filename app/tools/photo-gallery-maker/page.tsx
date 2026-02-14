@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { 
   ArrowLeft, 
@@ -14,12 +14,31 @@ import {
   Columns,
   GalleryHorizontal,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  RotateCcw,
+  ArrowUp,
+  ArrowDown,
+  Shuffle
 } from "lucide-react";
 import MonetizationBar from "@/components/MonetizationBar";
 import PostResultUpsell from "@/components/PostResultUpsell";
+import { useToolPresets, type ToolPresetRecord } from "@/lib/hooks/useToolPresets";
+import { ToolPresetBar } from "@/components/presets/ToolPresetBar";
 
-type LayoutType = "grid-3" | "grid-4" | "masonry" | "horizontal";
+type LayoutType =
+  | "grid-2"
+  | "grid-3"
+  | "grid-4"
+  | "grid-5"
+  | "masonry-2"
+  | "masonry"
+  | "masonry-4"
+  | "horizontal-compact"
+  | "horizontal"
+  | "horizontal-tall"
+  | "collage"
+  | "polaroid";
+type FitMode = "cover" | "contain";
 
 interface UploadedImage {
   id: string;
@@ -27,7 +46,27 @@ interface UploadedImage {
   name: string;
   width: number;
   height: number;
+  caption: string;
 }
+
+type PhotoGalleryPresetJson = {
+  layout: LayoutType;
+  spacing: number;
+  borderRadius: number;
+  bgColor: string;
+  gridColumns: number;
+  masonryColumns: number;
+  horizontalHeight: number;
+  fitMode: FitMode;
+  showCaptions: boolean;
+  captionSize: number;
+  captionColor: string;
+};
+
+type PhotoGalleryPresetRecord = ToolPresetRecord<PhotoGalleryPresetJson>;
+
+const MAX_IMAGES = 80;
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 export default function PhotoGalleryMakerPage() {
   const [images, setImages] = useState<UploadedImage[]>([]);
@@ -35,6 +74,14 @@ export default function PhotoGalleryMakerPage() {
   const [spacing, setSpacing] = useState(8);
   const [borderRadius, setBorderRadius] = useState(8);
   const [bgColor, setBgColor] = useState("#ffffff");
+  const [gridColumns, setGridColumns] = useState(3);
+  const [masonryColumns, setMasonryColumns] = useState(3);
+  const [horizontalHeight, setHorizontalHeight] = useState(200);
+  const [fitMode, setFitMode] = useState<FitMode>("cover");
+  const [showCaptions, setShowCaptions] = useState(true);
+  const [captionSize, setCaptionSize] = useState(14);
+  const [captionColor, setCaptionColor] = useState("#111827");
+  const [presetName, setPresetName] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -44,47 +91,84 @@ export default function PhotoGalleryMakerPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [draggedImageId, setDraggedImageId] = useState<string | null>(null);
+  const [dragOverImageId, setDragOverImageId] = useState<string | null>(null);
+  const [slotImageIds, setSlotImageIds] = useState<Array<string | null>>([]);
+  const [dragOverSlotIndex, setDragOverSlotIndex] = useState<number | null>(null);
+  const { presets, savingPreset, savePreset } = useToolPresets<PhotoGalleryPresetJson>({
+    toolId: "photo-gallery-maker",
+    originCloudId: "creation",
+  });
 
-  const processFiles = useCallback((files: FileList) => {
-    if (files.length > 50) {
-      setError("Please upload no more than 50 images at a time.");
+  const processFiles = useCallback(async (files: FileList) => {
+    setError("");
+    const onlyImages = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (onlyImages.length === 0) {
+      setError("Please upload valid image files.");
       return;
     }
 
-    setError("");
-    const imageFiles = Array.from(files).filter(f => f.type.startsWith("image/"));
-    if (imageFiles.length === 0) return;
+    const availableSlots = MAX_IMAGES - images.length;
+    if (availableSlots <= 0) {
+      setError(`You can only add up to ${MAX_IMAGES} images.`);
+      return;
+    }
 
-    let loadedCount = 0;
-    const newImages: UploadedImage[] = [];
+    const capped = onlyImages.slice(0, availableSlots);
+    const oversizeCount = capped.filter((f) => f.size > MAX_FILE_SIZE).length;
+    const validFiles = capped.filter((f) => f.size <= MAX_FILE_SIZE);
+    if (validFiles.length === 0) {
+      setError(`All selected images were larger than ${Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB.`);
+      return;
+    }
 
-    imageFiles.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
+    const readDataUrl = (file: File) =>
+      new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+    const readDimensions = (src: string) =>
+      new Promise<{ width: number; height: number }>((resolve, reject) => {
         const img = new window.Image();
-        img.onload = () => {
-          newImages.push({
-            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            src: event.target?.result as string,
-            name: file.name,
-            width: img.width,
-            height: img.height,
-          });
-          loadedCount++;
+        img.onload = () => resolve({ width: img.width, height: img.height });
+        img.onerror = reject;
+        img.src = src;
+      });
 
-          if (loadedCount === imageFiles.length) {
-            setImages((prev) => [...prev, ...newImages]);
-          }
-        };
-        img.src = event.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-    });
-  }, []);
+    try {
+      const prepared: UploadedImage[] = [];
+      for (const file of validFiles) {
+        const src = await readDataUrl(file);
+        const dims = await readDimensions(src);
+        prepared.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+          src,
+          name: file.name,
+          width: dims.width,
+          height: dims.height,
+          caption: "",
+        });
+      }
+      setImages((prev) => [...prev, ...prepared]);
+      setShowPreview(true);
+      if (oversizeCount > 0) {
+        setStatusMessage(`Added ${prepared.length} images. Skipped ${oversizeCount} image(s) over 20MB.`);
+      } else {
+        setStatusMessage(`Added ${prepared.length} image(s).`);
+      }
+      setTimeout(() => setStatusMessage(""), 2500);
+    } catch {
+      setError("Some images could not be processed. Try different files.");
+    }
+  }, [images.length]);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) processFiles(files);
+    e.target.value = "";
   }, [processFiles]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -110,11 +194,169 @@ export default function PhotoGalleryMakerPage() {
 
   const removeImage = (id: string) => {
     setImages((prev) => prev.filter((img) => img.id !== id));
+    setSlotImageIds((prev) => prev.map((slotId) => (slotId === id ? null : slotId)));
   };
 
   const clearAllImages = () => {
     setImages([]);
-    setShowPreview(false);
+    setSlotImageIds((prev) => prev.map(() => null));
+  };
+
+  const moveImage = (id: string, direction: "up" | "down") => {
+    setImages((prev) => {
+      const idx = prev.findIndex((img) => img.id === id);
+      if (idx === -1) return prev;
+      const target = direction === "up" ? idx - 1 : idx + 1;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
+  };
+
+  const reorderImages = (sourceId: string, targetId: string) => {
+    setImages((prev) => {
+      const sourceIndex = prev.findIndex((img) => img.id === sourceId);
+      const targetIndex = prev.findIndex((img) => img.id === targetId);
+      if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const updateCaption = (id: string, caption: string) => {
+    setImages((prev) =>
+      prev.map((img) => (img.id === id ? { ...img, caption } : img))
+    );
+  };
+
+  const assignImageToSlot = (slotIndex: number, imageId: string) => {
+    setSlotImageIds((prev) => {
+      const next = [...prev];
+      for (let i = 0; i < next.length; i++) {
+        if (next[i] === imageId) next[i] = null;
+      }
+      next[slotIndex] = imageId;
+      return next;
+    });
+  };
+
+  const clearSlot = (slotIndex: number) => {
+    setSlotImageIds((prev) => {
+      const next = [...prev];
+      next[slotIndex] = null;
+      return next;
+    });
+  };
+
+  const autoFillSlots = () => {
+    setSlotImageIds((prev) => {
+      const used = new Set(prev.filter((id): id is string => Boolean(id)));
+      const available = images.map((img) => img.id).filter((id) => !used.has(id));
+      let cursor = 0;
+      const next = [...prev];
+      for (let i = 0; i < next.length && cursor < available.length; i++) {
+        if (!next[i]) {
+          next[i] = available[cursor];
+          cursor += 1;
+        }
+      }
+      return next;
+    });
+    setStatusMessage("Filled empty slots with uploaded images.");
+    setTimeout(() => setStatusMessage(""), 1500);
+  };
+
+  const shuffleSlots = () => {
+    setSlotImageIds((prev) => {
+      const filledIndices: number[] = [];
+      const values: string[] = [];
+      prev.forEach((slotId, index) => {
+        if (slotId) {
+          filledIndices.push(index);
+          values.push(slotId);
+        }
+      });
+      for (let i = values.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [values[i], values[j]] = [values[j], values[i]];
+      }
+      const next = [...prev];
+      filledIndices.forEach((slotIndex, idx) => {
+        next[slotIndex] = values[idx];
+      });
+      return next;
+    });
+    setStatusMessage("Shuffled placed images.");
+    setTimeout(() => setStatusMessage(""), 1500);
+  };
+
+  const resetStyle = () => {
+    setLayout("grid-3");
+    setSpacing(8);
+    setBorderRadius(8);
+    setBgColor("#ffffff");
+    setGridColumns(3);
+    setMasonryColumns(3);
+    setHorizontalHeight(200);
+    setFitMode("cover");
+    setShowCaptions(true);
+    setCaptionSize(14);
+    setCaptionColor("#111827");
+  };
+
+  const sanitizeHexColor = (value: string) => {
+    const candidate = value.trim();
+    const valid = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+    return valid.test(candidate) ? candidate : "#ffffff";
+  };
+
+  const sanitizeCaptionColor = (value: string) => {
+    const candidate = value.trim();
+    const valid = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+    return valid.test(candidate) ? candidate : "#111827";
+  };
+
+  const isHorizontalLayout = layout === "horizontal" || layout === "horizontal-compact" || layout === "horizontal-tall";
+  const isMasonryLayout = layout === "masonry" || layout === "masonry-2" || layout === "masonry-4";
+  const isCollageLayout = layout === "collage";
+  const isPolaroidLayout = layout === "polaroid";
+
+  const getSlotCount = useCallback(() => {
+    if (isCollageLayout) return 5;
+    if (isHorizontalLayout) return 6;
+    if (isMasonryLayout) return masonryColumns * 3;
+    return gridColumns * 2;
+  }, [gridColumns, isCollageLayout, isHorizontalLayout, isMasonryLayout, masonryColumns]);
+
+  useEffect(() => {
+    const nextCount = getSlotCount();
+    setSlotImageIds((prev) => {
+      const next = prev.slice(0, nextCount);
+      while (next.length < nextCount) next.push(null);
+      return next;
+    });
+  }, [getSlotCount]);
+
+  const applyLayoutPreset = (nextLayout: LayoutType) => {
+    setLayout(nextLayout);
+    if (nextLayout === "grid-2") setGridColumns(2);
+    if (nextLayout === "grid-3") setGridColumns(3);
+    if (nextLayout === "grid-4") setGridColumns(4);
+    if (nextLayout === "grid-5") setGridColumns(5);
+    if (nextLayout === "masonry-2") setMasonryColumns(2);
+    if (nextLayout === "masonry") setMasonryColumns(3);
+    if (nextLayout === "masonry-4") setMasonryColumns(4);
+    if (nextLayout === "horizontal-compact") setHorizontalHeight(140);
+    if (nextLayout === "horizontal") setHorizontalHeight(200);
+    if (nextLayout === "horizontal-tall") setHorizontalHeight(300);
+    if (nextLayout === "collage") setGridColumns(4);
+    if (nextLayout === "polaroid") {
+      setGridColumns(3);
+      setShowCaptions(true);
+    }
   };
 
   const generateGallery = () => {
@@ -124,34 +366,44 @@ export default function PhotoGalleryMakerPage() {
     }
     setError("");
     setIsGenerating(true);
+    setStatusMessage("Gallery generated successfully!");
     setTimeout(() => {
-      setShowPreview(true);
       setIsGenerating(false);
-      setStatusMessage("Gallery generated successfully!");
-      setTimeout(() => setStatusMessage(""), 3000);
-    }, 300);
+      setStatusMessage("");
+    }, 200);
   };
 
   const getLayoutStyles = (): React.CSSProperties => {
+    if (isCollageLayout) {
+      return {
+        display: "grid",
+        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+        gap: `${spacing}px`,
+        gridAutoRows: "minmax(80px, auto)",
+      };
+    }
+
     switch (layout) {
+      case "grid-2":
       case "grid-3":
-        return {
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: `${spacing}px`,
-        };
       case "grid-4":
+      case "grid-5":
+      case "polaroid":
         return {
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
           gap: `${spacing}px`,
         };
+      case "masonry-2":
       case "masonry":
+      case "masonry-4":
         return {
-          columnCount: 3,
+          columnCount: masonryColumns,
           columnGap: `${spacing}px`,
         };
+      case "horizontal-compact":
       case "horizontal":
+      case "horizontal-tall":
         return {
           display: "flex",
           gap: `${spacing}px`,
@@ -169,21 +421,20 @@ export default function PhotoGalleryMakerPage() {
       display: "block",
     };
 
-    if (layout === "masonry") {
+    if (isMasonryLayout) {
       return {
         ...baseStyles,
         width: "100%",
-        marginBottom: `${spacing}px`,
-        breakInside: "avoid",
       };
     }
 
-    if (layout === "horizontal") {
+    if (isHorizontalLayout) {
       return {
         ...baseStyles,
-        height: "200px",
+        height: `${horizontalHeight}px`,
         width: "auto",
         flexShrink: 0,
+        objectFit: fitMode,
       };
     }
 
@@ -191,14 +442,104 @@ export default function PhotoGalleryMakerPage() {
       ...baseStyles,
       width: "100%",
       height: "auto",
-      objectFit: "cover",
+      objectFit: fitMode,
       aspectRatio: "1",
     };
   };
 
+  const getItemStyles = (): React.CSSProperties => {
+    if (isMasonryLayout) {
+      return {
+        breakInside: "avoid",
+        marginBottom: `${spacing}px`,
+      };
+    }
+    if (isHorizontalLayout) {
+      return {
+        flexShrink: 0,
+      };
+    }
+    if (isCollageLayout) {
+      return {
+        margin: 0,
+      };
+    }
+    if (isPolaroidLayout) {
+      return {
+        margin: 0,
+        background: "#ffffff",
+        padding: "8px 8px 12px 8px",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.12)",
+        borderRadius: `${Math.max(6, borderRadius)}px`,
+      };
+    }
+    return {};
+  };
+
+  const getFigureStyles = (index: number): React.CSSProperties => {
+    if (isCollageLayout && index === 0) {
+      return {
+        gridColumn: "span 2",
+        gridRow: "span 2",
+      };
+    }
+    return {};
+  };
+
+  const shouldRenderCaptions = showCaptions && images.some((img) => img.caption.trim().length > 0);
+  const captionLineHeight = captionSize + 4;
+  const captionSpace = shouldRenderCaptions ? captionLineHeight + 8 : 0;
+
+  const drawRoundedImage = (
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ) => {
+    const scale = fitMode === "cover"
+      ? Math.max(w / img.width, h / img.height)
+      : Math.min(w / img.width, h / img.height);
+    const scaledWidth = img.width * scale;
+    const scaledHeight = img.height * scale;
+    const drawX = x + (w - scaledWidth) / 2;
+    const drawY = y + (h - scaledHeight) / 2;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, borderRadius);
+    ctx.clip();
+    ctx.drawImage(img, drawX, drawY, scaledWidth, scaledHeight);
+    ctx.restore();
+  };
+
+  const drawCaption = (
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number,
+    width: number
+  ) => {
+    if (!text.trim() || !shouldRenderCaptions) return;
+    ctx.save();
+    ctx.fillStyle = captionColor;
+    ctx.font = `${captionSize}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const maxChars = Math.max(12, Math.floor(width / (captionSize * 0.55)));
+    const compact = text.length > maxChars ? `${text.slice(0, maxChars - 1)}…` : text;
+    ctx.fillText(compact, x + width / 2, y);
+    ctx.restore();
+  };
+
   const downloadAsImage = async () => {
-    if (images.length === 0) {
-      setError("Please upload and generate a gallery first.");
+    const placedImages = slotImageIds
+      .map((id) => images.find((img) => img.id === id))
+      .filter((img): img is UploadedImage => Boolean(img));
+
+    if (placedImages.length === 0) {
+      setError("Drag uploaded images into the layout slots first.");
       return;
     }
 
@@ -219,10 +560,10 @@ export default function PhotoGalleryMakerPage() {
         });
       };
 
-      const loadedImages = await Promise.all(images.map(img => loadImage(img.src)));
+      const loadedImages = await Promise.all(placedImages.map(img => loadImage(img.src)));
 
-      if (layout === "horizontal") {
-        const fixedHeight = 300;
+      if (isHorizontalLayout) {
+        const fixedHeight = horizontalHeight;
         let totalWidth = spacing;
         const imageWidths: number[] = [];
         
@@ -233,7 +574,7 @@ export default function PhotoGalleryMakerPage() {
         });
 
         canvas.width = totalWidth;
-        canvas.height = fixedHeight + spacing * 2;
+        canvas.height = fixedHeight + spacing * 2 + captionSpace;
 
         ctx.fillStyle = bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -243,17 +584,13 @@ export default function PhotoGalleryMakerPage() {
           const img = loadedImages[i];
           const imgWidth = imageWidths[i];
           
-          ctx.save();
-          ctx.beginPath();
-          ctx.roundRect(currentX, spacing, imgWidth, fixedHeight, borderRadius);
-          ctx.clip();
-          ctx.drawImage(img, currentX, spacing, imgWidth, fixedHeight);
-          ctx.restore();
+          drawRoundedImage(ctx, img, currentX, spacing, imgWidth, fixedHeight);
+          drawCaption(ctx, placedImages[i].caption, currentX, spacing + fixedHeight + 4, imgWidth);
           
           currentX += imgWidth + spacing;
         }
-      } else if (layout === "masonry") {
-        const columns = 3;
+      } else if (isMasonryLayout) {
+        const columns = masonryColumns;
         const canvasWidth = 1200;
         const columnWidth = (canvasWidth - spacing * (columns + 1)) / columns;
         const columnHeights = new Array(columns).fill(spacing);
@@ -267,7 +604,7 @@ export default function PhotoGalleryMakerPage() {
           const y = columnHeights[shortestCol];
           
           imagePositions.push({ x, y, w: columnWidth, h: imgHeight, imgIndex: i });
-          columnHeights[shortestCol] += imgHeight + spacing;
+          columnHeights[shortestCol] += imgHeight + captionSpace + spacing;
         });
 
         const canvasHeight = Math.max(...columnHeights);
@@ -279,18 +616,63 @@ export default function PhotoGalleryMakerPage() {
 
         for (const pos of imagePositions) {
           const img = loadedImages[pos.imgIndex];
-          ctx.save();
-          ctx.beginPath();
-          ctx.roundRect(pos.x, pos.y, pos.w, pos.h, borderRadius);
-          ctx.clip();
-          ctx.drawImage(img, pos.x, pos.y, pos.w, pos.h);
-          ctx.restore();
+          drawRoundedImage(ctx, img, pos.x, pos.y, pos.w, pos.h);
+          drawCaption(
+            ctx,
+            placedImages[pos.imgIndex].caption,
+            pos.x,
+            pos.y + pos.h + 4,
+            pos.w
+          );
+        }
+      } else if (isCollageLayout) {
+        const cols = 4;
+        const canvasWidth = 1200;
+        const cell = (canvasWidth - spacing * (cols + 1)) / cols;
+        const rightStartX = spacing + (cell + spacing) * 2;
+        const rowsAfterHero = Math.ceil(Math.max(0, placedImages.length - 5) / cols);
+        const baseHeight = spacing + (cell * 2 + spacing) + spacing;
+        const extraRowsHeight = rowsAfterHero > 0 ? rowsAfterHero * (cell + captionSpace + spacing) + spacing : 0;
+        canvas.width = canvasWidth;
+        canvas.height = Math.max(baseHeight + captionSpace, baseHeight + extraRowsHeight);
+
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (loadedImages[0]) {
+          drawRoundedImage(ctx, loadedImages[0], spacing, spacing, cell * 2 + spacing, cell * 2 + spacing);
+          drawCaption(ctx, placedImages[0].caption, spacing, spacing + cell * 2 + spacing + 4, cell * 2 + spacing);
+        }
+
+        const slots = [
+          { x: rightStartX, y: spacing, w: cell, h: cell },
+          { x: rightStartX + cell + spacing, y: spacing, w: cell, h: cell },
+          { x: rightStartX, y: spacing + cell + spacing, w: cell, h: cell },
+          { x: rightStartX + cell + spacing, y: spacing + cell + spacing, w: cell, h: cell },
+        ];
+
+        for (let i = 1; i <= 4 && i < loadedImages.length; i++) {
+          const slot = slots[i - 1];
+          drawRoundedImage(ctx, loadedImages[i], slot.x, slot.y, slot.w, slot.h);
+            drawCaption(ctx, placedImages[i].caption, slot.x, slot.y + slot.h + 4, slot.w);
+        }
+
+        let remainingIndex = 5;
+        let y = spacing + cell * 2 + spacing + spacing;
+        while (remainingIndex < loadedImages.length) {
+          for (let col = 0; col < cols && remainingIndex < loadedImages.length; col++) {
+            const x = spacing + col * (cell + spacing);
+            drawRoundedImage(ctx, loadedImages[remainingIndex], x, y, cell, cell);
+            drawCaption(ctx, images[remainingIndex].caption, x, y + cell + 4, cell);
+            remainingIndex++;
+          }
+          y += cell + captionSpace + spacing;
         }
       } else {
-        const columns = layout === "grid-4" ? 4 : 3;
+        const columns = gridColumns;
         const canvasWidth = 1200;
         const cellWidth = (canvasWidth - spacing * (columns + 1)) / columns;
-        const cellHeight = cellWidth;
+        const cellHeight = cellWidth + captionSpace;
         const rows = Math.ceil(images.length / columns);
         const canvasHeight = rows * cellHeight + spacing * (rows + 1);
 
@@ -307,18 +689,18 @@ export default function PhotoGalleryMakerPage() {
           const x = spacing + col * (cellWidth + spacing);
           const y = spacing + row * (cellHeight + spacing);
 
-          const scale = Math.max(cellWidth / img.width, cellHeight / img.height);
-          const scaledWidth = img.width * scale;
-          const scaledHeight = img.height * scale;
-          const offsetX = (scaledWidth - cellWidth) / 2;
-          const offsetY = (scaledHeight - cellHeight) / 2;
-
-          ctx.save();
-          ctx.beginPath();
-          ctx.roundRect(x, y, cellWidth, cellHeight, borderRadius);
-          ctx.clip();
-          ctx.drawImage(img, x - offsetX, y - offsetY, scaledWidth, scaledHeight);
-          ctx.restore();
+          if (isPolaroidLayout) {
+            const framePad = 8;
+            const frameW = cellWidth;
+            const frameH = cellWidth + captionSpace + framePad * 2;
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(x, y, frameW, frameH);
+            drawRoundedImage(ctx, img, x + framePad, y + framePad, frameW - framePad * 2, frameW - framePad * 2);
+            drawCaption(ctx, placedImages[i].caption, x + framePad, y + frameW, frameW - framePad * 2);
+          } else {
+            drawRoundedImage(ctx, img, x, y, cellWidth, cellWidth);
+            drawCaption(ctx, placedImages[i].caption, x, y + cellWidth + 4, cellWidth);
+          }
         }
       }
 
@@ -337,19 +719,33 @@ export default function PhotoGalleryMakerPage() {
   };
 
   const generateHtmlCss = (): string => {
+    const placedImages = slotImageIds
+      .map((id) => images.find((img) => img.id === id))
+      .filter((img): img is UploadedImage => Boolean(img));
+
     const layoutCss = (() => {
-      switch (layout) {
-        case "grid-3":
-          return `  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: ${spacing}px;`;
-        case "grid-4":
-          return `  display: grid;
+      if (isCollageLayout) {
+        return `  display: grid;
   grid-template-columns: repeat(4, 1fr);
+  gap: ${spacing}px;
+  grid-auto-rows: minmax(80px, auto);`;
+      }
+      switch (layout) {
+        case "grid-2":
+        case "grid-5":
+        case "grid-4":
+        case "grid-3":
+        case "polaroid":
+          return `  display: grid;
+  grid-template-columns: repeat(${gridColumns}, 1fr);
   gap: ${spacing}px;`;
+        case "masonry-2":
+        case "masonry-4":
         case "masonry":
-          return `  column-count: 3;
+          return `  column-count: ${masonryColumns};
   column-gap: ${spacing}px;`;
+        case "horizontal-compact":
+        case "horizontal-tall":
         case "horizontal":
           return `  display: flex;
   gap: ${spacing}px;
@@ -359,21 +755,41 @@ export default function PhotoGalleryMakerPage() {
       }
     })();
 
-    const imageCss = layout === "masonry" 
-      ? `  width: 100%;
-  margin-bottom: ${spacing}px;
-  break-inside: avoid;`
-      : layout === "horizontal"
-      ? `  height: 200px;
+    const imageCss = isHorizontalLayout
+      ? `  height: ${horizontalHeight}px;
   width: auto;
-  flex-shrink: 0;`
+  flex-shrink: 0;
+  object-fit: ${fitMode};`
       : `  width: 100%;
   aspect-ratio: 1;
-  object-fit: cover;`;
+  object-fit: ${fitMode};`;
 
-    const imageHtml = images
-      .map((_, i) => `  <img src="photo-${i + 1}.jpg" alt="Gallery photo ${i + 1}">`)
+    const imageHtml = placedImages
+      .map((img, i) => {
+        const caption = img.caption.trim();
+        const safeCaption = caption
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+        const collageClass = isCollageLayout && i === 0 ? " gallery-item--hero" : "";
+        return `  <figure class="gallery-item${collageClass}">
+    <img src="photo-${i + 1}.jpg" alt="Gallery photo ${i + 1}">
+${caption && showCaptions ? `    <figcaption class="gallery-caption">${safeCaption}</figcaption>` : ""}
+  </figure>`;
+      })
       .join("\n");
+
+    const itemCss = isMasonryLayout
+      ? `  break-inside: avoid;
+  margin-bottom: ${spacing}px;`
+      : isHorizontalLayout
+      ? `  flex-shrink: 0;`
+      : isPolaroidLayout
+      ? `  background: #fff;
+  padding: 8px 8px 12px 8px;
+  border-radius: ${Math.max(6, borderRadius)}px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12);`
+      : ``;
 
     return `<!-- HTML -->
 <div class="my-photo-gallery">
@@ -388,10 +804,28 @@ ${layoutCss}
   padding: ${spacing}px;
 }
 
+.my-photo-gallery .gallery-item {
+${itemCss}
+  margin: 0;
+}
+
+.my-photo-gallery .gallery-item--hero {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
 .my-photo-gallery img {
 ${imageCss}
   border-radius: ${borderRadius}px;
   display: block;
+}
+
+.my-photo-gallery .gallery-caption {
+  margin-top: 6px;
+  font-size: ${captionSize}px;
+  line-height: ${captionSize + 4}px;
+  color: ${captionColor};
+  text-align: center;
 }
 </style>
 
@@ -399,8 +833,9 @@ ${imageCss}
   };
 
   const copyHtmlCss = async () => {
-    if (images.length === 0) {
-      setError("Please upload and generate a gallery first.");
+    const placedCount = slotImageIds.filter(Boolean).length;
+    if (placedCount === 0) {
+      setError("Drag uploaded images into the layout slots first.");
       return;
     }
 
@@ -418,12 +853,56 @@ ${imageCss}
     }
   };
 
+  const handleSavePreset = async () => {
+    const ok = await savePreset(presetName, {
+      layout,
+      spacing,
+      borderRadius,
+      bgColor,
+      gridColumns,
+      masonryColumns,
+      horizontalHeight,
+      fitMode,
+      showCaptions,
+      captionSize,
+      captionColor,
+    });
+    if (ok) setPresetName("");
+  };
+
+  const handleApplyPreset = (preset: PhotoGalleryPresetRecord) => {
+    const payload = preset?.preset_json;
+    if (!payload) return;
+    setLayout(payload.layout ?? "grid-3");
+    setSpacing(Math.min(40, Math.max(0, payload.spacing ?? 8)));
+    setBorderRadius(Math.min(30, Math.max(0, payload.borderRadius ?? 8)));
+    setBgColor(payload.bgColor || "#ffffff");
+    setGridColumns(Math.min(6, Math.max(2, payload.gridColumns ?? 3)));
+    setMasonryColumns(Math.min(6, Math.max(2, payload.masonryColumns ?? 3)));
+    setHorizontalHeight(Math.min(500, Math.max(120, payload.horizontalHeight ?? 200)));
+    setFitMode(payload.fitMode === "contain" ? "contain" : "cover");
+    setShowCaptions(Boolean(payload.showCaptions));
+    setCaptionSize(Math.min(28, Math.max(10, payload.captionSize ?? 14)));
+    setCaptionColor(sanitizeCaptionColor(payload.captionColor || "#111827"));
+    setShowPreview(true);
+  };
+
   const layoutOptions = [
-    { value: "grid-3", label: "Grid – 3 columns", icon: Grid3X3 },
-    { value: "grid-4", label: "Grid – 4 columns", icon: LayoutGrid },
-    { value: "masonry", label: "Masonry – Pinterest style", icon: Columns },
-    { value: "horizontal", label: "Horizontal strip", icon: GalleryHorizontal },
+    { value: "grid-2", label: "Grid 2", icon: Grid3X3 },
+    { value: "grid-3", label: "Grid 3", icon: Grid3X3 },
+    { value: "grid-4", label: "Grid 4", icon: LayoutGrid },
+    { value: "grid-5", label: "Grid 5", icon: LayoutGrid },
+    { value: "masonry-2", label: "Masonry 2", icon: Columns },
+    { value: "masonry", label: "Masonry 3", icon: Columns },
+    { value: "masonry-4", label: "Masonry 4", icon: Columns },
+    { value: "horizontal-compact", label: "Strip Compact", icon: GalleryHorizontal },
+    { value: "horizontal", label: "Strip Standard", icon: GalleryHorizontal },
+    { value: "horizontal-tall", label: "Strip Tall", icon: GalleryHorizontal },
+    { value: "collage", label: "Collage Hero", icon: LayoutGrid },
+    { value: "polaroid", label: "Polaroid", icon: ImageIcon },
   ];
+  const hasPreview = slotImageIds.length > 0;
+  const placedCount = slotImageIds.filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -473,7 +952,7 @@ ${imageCss}
                   {isDragging ? "Drop images here..." : "Click to upload or drag and drop"}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  PNG, JPG, GIF up to 50 images
+                  PNG, JPG, GIF, WEBP up to 80 images
                 </p>
               </div>
               <input
@@ -494,11 +973,11 @@ ${imageCss}
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Layout
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {layoutOptions.map((option) => (
                     <button
                       key={option.value}
-                      onClick={() => setLayout(option.value as LayoutType)}
+                      onClick={() => applyLayoutPreset(option.value as LayoutType)}
                       className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
                         layout === option.value
                           ? "border-orange-500 bg-orange-50 text-orange-700"
@@ -506,7 +985,7 @@ ${imageCss}
                       }`}
                     >
                       <option.icon className="w-4 h-4" />
-                      <span className="truncate">{option.label.split(" – ")[0]}</span>
+                      <span className="truncate">{option.label}</span>
                     </button>
                   ))}
                 </div>
@@ -543,6 +1022,108 @@ ${imageCss}
                 </div>
               </div>
 
+              {!isHorizontalLayout && !isCollageLayout && !isPolaroidLayout && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {isMasonryLayout ? `Masonry Columns: ${masonryColumns}` : `Grid Columns: ${gridColumns}`}
+                  </label>
+                  <input
+                    type="range"
+                    min="2"
+                    max="6"
+                    step="1"
+                    value={isMasonryLayout ? masonryColumns : gridColumns}
+                    onChange={(e) => {
+                      const next = Number(e.target.value);
+                      if (isMasonryLayout) setMasonryColumns(next);
+                      else setGridColumns(next);
+                    }}
+                    className="w-full accent-orange-500"
+                  />
+                </div>
+              )}
+
+              {isHorizontalLayout && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Strip Height: {horizontalHeight}px
+                  </label>
+                  <input
+                    type="range"
+                    min="120"
+                    max="500"
+                    step="10"
+                    value={horizontalHeight}
+                    onChange={(e) => setHorizontalHeight(Number(e.target.value))}
+                    className="w-full accent-orange-500"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Image Fit
+                </label>
+                <select
+                  value={fitMode}
+                  onChange={(e) => setFitMode(e.target.value as FitMode)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                >
+                  <option value="cover">Cover (crop to fill)</option>
+                  <option value="contain">Contain (no crop)</option>
+                </select>
+              </div>
+
+              <div className="space-y-3">
+                <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={showCaptions}
+                    onChange={(e) => setShowCaptions(e.target.checked)}
+                    className="accent-orange-500"
+                  />
+                  Show Captions
+                </label>
+                {showCaptions && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Caption Size: {captionSize}px
+                      </label>
+                      <input
+                        type="range"
+                        min="10"
+                        max="28"
+                        step="1"
+                        value={captionSize}
+                        onChange={(e) => setCaptionSize(Number(e.target.value))}
+                        className="w-full accent-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Caption Color
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="color"
+                          value={captionColor}
+                          onChange={(e) => setCaptionColor(e.target.value)}
+                          className="w-10 h-9 rounded border border-gray-200"
+                        />
+                        <input
+                          type="text"
+                          value={captionColor}
+                          onChange={(e) => setCaptionColor(e.target.value)}
+                          onBlur={(e) => setCaptionColor(sanitizeCaptionColor(e.target.value))}
+                          className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Background Color
@@ -558,10 +1139,20 @@ ${imageCss}
                     type="text"
                     value={bgColor}
                     onChange={(e) => setBgColor(e.target.value)}
+                    onBlur={(e) => setBgColor(sanitizeHexColor(e.target.value))}
                     className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono"
                   />
                 </div>
               </div>
+              <ToolPresetBar
+                presetName={presetName}
+                onPresetNameChange={setPresetName}
+                onSave={handleSavePreset}
+                saving={savingPreset}
+                presets={presets}
+                onApply={handleApplyPreset}
+                lockedMessage="Subscribe to save your gallery style presets."
+              />
             </div>
           </div>
 
@@ -579,14 +1170,70 @@ ${imageCss}
                   Clear all
                 </button>
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {images.map((img) => (
-                  <div key={img.id} className="relative flex-shrink-0">
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {images.map((img, idx) => (
+                  <div
+                    key={img.id}
+                    className={`relative flex-shrink-0 p-2 border rounded-lg bg-white w-32 ${
+                      dragOverImageId === img.id ? "border-orange-400" : "border-gray-200"
+                    }`}
+                    draggable
+                    onDragStart={(e) => {
+                      if ((e.target as HTMLElement).tagName.toLowerCase() === "input") {
+                        e.preventDefault();
+                        return;
+                      }
+                      e.dataTransfer.setData("text/plain", img.id);
+                      e.dataTransfer.effectAllowed = "move";
+                      setDraggedImageId(img.id);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOverImageId(img.id);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedImageId && draggedImageId !== img.id) {
+                        reorderImages(draggedImageId, img.id);
+                      }
+                      setDraggedImageId(null);
+                      setDragOverImageId(null);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedImageId(null);
+                      setDragOverImageId(null);
+                    }}
+                  >
                     <img
                       src={img.src}
                       alt={img.name}
-                      className="w-16 h-16 object-cover rounded-lg"
+                      className="w-full h-20 object-cover rounded-lg"
                     />
+                    <input
+                      type="text"
+                      value={img.caption}
+                      onChange={(e) => updateCaption(img.id, e.target.value)}
+                      placeholder="Caption (optional)"
+                      className="mt-2 w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md"
+                    />
+                    <div className="absolute -left-1 -bottom-1 flex gap-1">
+                      <button
+                        onClick={() => moveImage(img.id, "up")}
+                        disabled={idx === 0}
+                        className="w-5 h-5 bg-gray-800 text-white rounded-full flex items-center justify-center text-xs disabled:opacity-40"
+                        title="Move left"
+                      >
+                        <ArrowUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => moveImage(img.id, "down")}
+                        disabled={idx === images.length - 1}
+                        className="w-5 h-5 bg-gray-800 text-white rounded-full flex items-center justify-center text-xs disabled:opacity-40"
+                        title="Move right"
+                      >
+                        <ArrowDown className="w-3 h-3" />
+                      </button>
+                    </div>
                     <button
                       onClick={() => removeImage(img.id)}
                       className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
@@ -632,8 +1279,31 @@ ${imageCss}
               )}
             </button>
             <button
+              onClick={resetStyle}
+              className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Reset Style
+            </button>
+            <button
+              onClick={autoFillSlots}
+              disabled={images.length === 0}
+              className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <ImageIcon className="w-4 h-4" />
+              Auto-fill Slots
+            </button>
+            <button
+              onClick={shuffleSlots}
+              disabled={placedCount < 2}
+              className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <Shuffle className="w-4 h-4" />
+              Shuffle Slots
+            </button>
+            <button
               onClick={downloadAsImage}
-              disabled={!showPreview}
+              disabled={placedCount === 0}
               className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <Download className="w-4 h-4" />
@@ -641,7 +1311,7 @@ ${imageCss}
             </button>
             <button
               onClick={copyHtmlCss}
-              disabled={!showPreview}
+              disabled={placedCount === 0}
               className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {copied ? (
@@ -661,31 +1331,88 @@ ${imageCss}
 
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 md:p-8 mb-8">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Gallery Preview</h2>
+          <p className="text-sm text-gray-500 mb-3">
+            Drag your uploaded images into these slots.
+          </p>
           <div
             ref={previewRef}
             className="min-h-[200px] rounded-xl border border-dashed border-gray-300 overflow-hidden"
-            style={{ backgroundColor: bgColor, padding: showPreview ? `${spacing}px` : 0 }}
+            style={{ backgroundColor: bgColor, padding: hasPreview ? `${spacing}px` : 0 }}
           >
-            {!showPreview ? (
-              <div className="flex items-center justify-center h-[200px] text-gray-400">
-                <p>Upload photos and click "Generate Gallery" to see preview</p>
-              </div>
-            ) : images.length === 0 ? (
-              <div className="flex items-center justify-center h-[200px] text-gray-400">
-                <p>No photos to display</p>
-              </div>
-            ) : (
-              <div style={getLayoutStyles()}>
-                {images.map((img) => (
-                  <img
-                    key={img.id}
-                    src={img.src}
-                    alt={img.name}
-                    style={getImageStyles()}
-                  />
-                ))}
-              </div>
-            )}
+            <div style={getLayoutStyles()}>
+              {slotImageIds.map((slotImageId, index) => {
+                const slotted = images.find((img) => img.id === slotImageId) || null;
+                const isSlotActive = dragOverSlotIndex === index;
+                const placeholderStyle: React.CSSProperties = isHorizontalLayout
+                  ? {
+                      height: `${horizontalHeight}px`,
+                      width: "220px",
+                    }
+                  : {
+                      width: "100%",
+                      aspectRatio: isCollageLayout && index === 0 ? "2 / 2" : "1 / 1",
+                    };
+
+                return (
+                  <figure
+                    key={`slot-${index}`}
+                    style={{ ...getItemStyles(), ...getFigureStyles(index) }}
+                    className={`m-0 relative ${isSlotActive ? "ring-2 ring-orange-400 rounded-lg" : ""}`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOverSlotIndex(index);
+                    }}
+                    onDragLeave={() => {
+                      if (dragOverSlotIndex === index) setDragOverSlotIndex(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const droppedId = e.dataTransfer.getData("text/plain") || draggedImageId;
+                      if (droppedId) assignImageToSlot(index, droppedId);
+                      setDragOverSlotIndex(null);
+                      setDraggedImageId(null);
+                    }}
+                  >
+                    {slotted ? (
+                      <>
+                        <img
+                          src={slotted.src}
+                          alt={slotted.name}
+                          style={getImageStyles()}
+                        />
+                        {shouldRenderCaptions && slotted.caption.trim() && (
+                          <figcaption
+                            style={{
+                              marginTop: 6,
+                              fontSize: `${captionSize}px`,
+                              lineHeight: `${captionSize + 4}px`,
+                              color: captionColor,
+                              textAlign: "center",
+                            }}
+                          >
+                            {slotted.caption}
+                          </figcaption>
+                        )}
+                        <button
+                          onClick={() => clearSlot(index)}
+                          className="absolute top-1 right-1 w-6 h-6 bg-black/60 text-white rounded-full text-xs hover:bg-black/75"
+                          title="Clear slot"
+                        >
+                          ×
+                        </button>
+                      </>
+                    ) : (
+                      <div
+                        style={placeholderStyle}
+                        className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-100/80 flex items-center justify-center text-gray-400 text-xs font-medium"
+                      >
+                        Drop image
+                      </div>
+                    )}
+                  </figure>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -736,7 +1463,7 @@ ${imageCss}
                 <span className="flex-shrink-0 w-7 h-7 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-medium">1</span>
                 <div>
                   <p className="font-medium text-gray-900">Upload your photos</p>
-                  <p className="text-sm text-gray-600">Click the upload area or drag and drop up to 50 images. All processing happens in your browser for complete privacy.</p>
+                  <p className="text-sm text-gray-600">Click the upload area or drag and drop up to 80 images. All processing happens in your browser for complete privacy.</p>
                 </div>
               </li>
               <li className="flex gap-3">

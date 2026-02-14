@@ -19,31 +19,31 @@ const tools = [
   },
   {
     name: 'Instagram Story Resizer',
-    href: '/tools/instagram-story-size',
+    href: '/tools/instagram-story-resizer',
     icon: Image,
     color: 'bg-pink-100 text-pink-600'
   },
   {
     name: 'YouTube Thumbnail Resizer',
-    href: '/tools/youtube-thumbnail-size',
+    href: '/tools/youtube-thumbnail-resizer',
     icon: Image,
     color: 'bg-red-100 text-red-600'
   },
   {
     name: 'TDEE Calculator',
-    href: '/tools/tdee-calculator',
+    href: '/tools/calorie-counter-maintenance',
     icon: Calculator,
     color: 'bg-green-100 text-green-600'
   },
   {
     name: 'LinkedIn Banner Resizer',
-    href: '/tools/linkedin-banner-size',
+    href: '/tools/linkedin-banner-resizer',
     icon: Image,
     color: 'bg-blue-100 text-blue-600'
   },
   {
     name: 'Maintenance Calories',
-    href: '/tools/maintenance-calorie-calculator',
+    href: '/tools/calorie-counter-maintenance',
     icon: Calculator,
     color: 'bg-purple-100 text-purple-600'
   }

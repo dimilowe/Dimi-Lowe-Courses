@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Upload, FileImage, Download, ArrowRight, Check, Zap, Globe, Mail, HardDrive, Image as ImageIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import ExploreMoreTools from '@/components/ExploreMoreTools';
 import PostResultUpsell from '@/components/PostResultUpsell';
+import { useToolPresets, type ToolPresetRecord } from '@/lib/hooks/useToolPresets';
+import { ToolPresetBar } from '@/components/presets/ToolPresetBar';
 
 type CompressionLevel = 'light' | 'balanced' | 'max';
 
@@ -18,6 +20,12 @@ interface CompressionResult {
   outputFormat: string;
   remaining: number;
 }
+
+type ImageCompressorPresetJson = {
+  level: CompressionLevel;
+};
+
+type ImageCompressorPresetRecord = ToolPresetRecord<ImageCompressorPresetJson>;
 
 function FAQItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -52,7 +60,12 @@ export default function ImageCompressorPage() {
   const [result, setResult] = useState<CompressionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [presetName, setPresetName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { presets, savingPreset, savePreset } = useToolPresets<ImageCompressorPresetJson>({
+    toolId: 'image-compressor',
+    originCloudId: 'file',
+  });
 
   const resetUpload = () => {
     setFile(null);
@@ -151,6 +164,16 @@ export default function ImageCompressorPage() {
   const handleDownload = () => {
     if (!result) return;
     window.location.href = `/api/image-download/${result.jobId}`;
+  };
+
+  const handleSavePreset = async () => {
+    const ok = await savePreset(presetName, { level });
+    if (ok) setPresetName('');
+  };
+
+  const handleApplyPreset = (preset: ImageCompressorPresetRecord) => {
+    if (!preset?.preset_json?.level) return;
+    setLevel(preset.preset_json.level);
   };
 
   return (
@@ -328,6 +351,18 @@ export default function ImageCompressorPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div className="mt-6">
+                <ToolPresetBar
+                  presetName={presetName}
+                  onPresetNameChange={setPresetName}
+                  onSave={handleSavePreset}
+                  saving={savingPreset}
+                  presets={presets}
+                  onApply={handleApplyPreset}
+                  lockedMessage="Subscribe to save your favorite compression preset."
+                />
               </div>
 
               {error && (

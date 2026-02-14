@@ -18,9 +18,20 @@ import {
 } from 'lucide-react';
 import ExploreMoreTools from '@/components/ExploreMoreTools';
 import PostResultUpsell from '@/components/PostResultUpsell';
+import { useToolPresets, type ToolPresetRecord } from '@/lib/hooks/useToolPresets';
+import { ToolPresetBar } from '@/components/presets/ToolPresetBar';
 
 type Mode = 'custom' | 'upload';
 type VoiceId = 'female_soft' | 'male_hype' | 'robotic' | 'female_warm' | 'male_deep';
+type ProducerTagPresetJson = {
+  mode: Mode;
+  phrase: string;
+  voiceId: VoiceId;
+  intervalSeconds: number;
+  tagVolumeDb: number;
+  sourceVolumeDb: number;
+};
+type ProducerTagPresetRecord = ToolPresetRecord<ProducerTagPresetJson>;
 
 const VOICE_OPTIONS: { id: VoiceId; label: string; description: string }[] = [
   { id: 'female_soft', label: 'Female Soft', description: 'Smooth and subtle' },
@@ -54,8 +65,13 @@ export default function ProducerTagGeneratorClient() {
   const [uploadedTagPreviewUrl, setUploadedTagPreviewUrl] = useState<string | null>(null);
   const [mixPreviewUrl, setMixPreviewUrl] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [presetName, setPresetName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tagFileInputRef = useRef<HTMLInputElement>(null);
+  const { presets, savingPreset, savePreset } = useToolPresets<ProducerTagPresetJson>({
+    toolId: 'producer-tag-generator',
+    originCloudId: 'music',
+  });
 
   const validateAndSetFile = (selectedFile: File) => {
     if (selectedFile.size > 200 * 1024 * 1024) {
@@ -384,6 +400,32 @@ export default function ProducerTagGeneratorClient() {
     }
   };
 
+  const handleSavePreset = async () => {
+    const ok = await savePreset(presetName, {
+      mode,
+      phrase,
+      voiceId,
+      intervalSeconds,
+      tagVolumeDb,
+      sourceVolumeDb,
+    });
+    if (ok) setPresetName('');
+  };
+
+  const handleApplyPreset = (preset: ProducerTagPresetRecord) => {
+    const payload = preset?.preset_json;
+    if (!payload) return;
+    setMode(payload.mode === 'upload' ? 'upload' : 'custom');
+    setPhrase(payload.phrase ?? '');
+    if (payload.voiceId && VOICE_OPTIONS.some((voice) => voice.id === payload.voiceId)) {
+      setVoiceId(payload.voiceId);
+    }
+    setIntervalSeconds(Math.max(5, Math.min(60, payload.intervalSeconds ?? 15)));
+    setSourceVolumeDb(Math.max(-20, Math.min(6, payload.sourceVolumeDb ?? 0)));
+    setTagVolumeDb(Math.max(-20, Math.min(6, payload.tagVolumeDb ?? -3)));
+    setShowAdvanced(true);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <header className="border-b border-gray-200 bg-white">
@@ -699,6 +741,16 @@ export default function ProducerTagGeneratorClient() {
                 </div>
               </div>
             )}
+
+            <ToolPresetBar
+              presetName={presetName}
+              onPresetNameChange={setPresetName}
+              onSave={handleSavePreset}
+              saving={savingPreset}
+              presets={presets}
+              onApply={handleApplyPreset}
+              lockedMessage="Subscribe to save producer tag presets."
+            />
 
             {error && (
               <div className="flex items-center gap-2 text-red-600 bg-red-50 px-4 py-3 rounded-xl">

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useToolPresets, type ToolPresetRecord } from "@/lib/hooks/useToolPresets";
+import { ToolPresetBar } from "@/components/presets/ToolPresetBar";
 
 interface JobStatus {
   ok: boolean;
@@ -23,6 +25,12 @@ interface Config {
   bg_saturation: number;
 }
 
+type VerticalBlurFillPresetJson = {
+  config: Config;
+};
+
+type VerticalBlurFillPresetRecord = ToolPresetRecord<VerticalBlurFillPresetJson>;
+
 const DEFAULT_CONFIG: Config = {
   target_w: 720,
   target_h: 1280,
@@ -42,8 +50,13 @@ export default function VerticalBlurFillClient() {
   const [isUploading, setIsUploading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
+  const [presetName, setPresetName] = useState("");
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { presets, savingPreset, savePreset } = useToolPresets<VerticalBlurFillPresetJson>({
+    toolId: "vertical-blur-fill",
+    originCloudId: "file",
+  });
 
   const handleUpload = async (file: File) => {
     if (!file.type.startsWith("video/")) {
@@ -181,6 +194,26 @@ export default function VerticalBlurFillClient() {
       cleanup: "Finishing up..."
     };
     return labels[stage] || stage;
+  };
+
+  const handleSavePreset = async () => {
+    const ok = await savePreset(presetName, { config });
+    if (ok) setPresetName("");
+  };
+
+  const handleApplyPreset = (preset: VerticalBlurFillPresetRecord) => {
+    const nextConfig = preset?.preset_json?.config;
+    if (!nextConfig) return;
+    setConfig({
+      target_w: nextConfig.target_w === 1080 ? 1080 : 720,
+      target_h: nextConfig.target_h === 1920 ? 1920 : 1280,
+      fps: nextConfig.fps === 60 ? 60 : 30,
+      blur_sigma: Math.min(80, Math.max(10, nextConfig.blur_sigma ?? DEFAULT_CONFIG.blur_sigma)),
+      bg_scale: Math.min(2.5, Math.max(1, nextConfig.bg_scale ?? DEFAULT_CONFIG.bg_scale)),
+      bg_dim: Math.min(0.5, Math.max(0, nextConfig.bg_dim ?? DEFAULT_CONFIG.bg_dim)),
+      bg_saturation: Math.min(1, Math.max(0, nextConfig.bg_saturation ?? DEFAULT_CONFIG.bg_saturation)),
+    });
+    setShowAdvanced(true);
   };
 
   return (
@@ -328,6 +361,18 @@ export default function VerticalBlurFillClient() {
                     </div>
                   </div>
                 )}
+
+                <div className="mt-6">
+                  <ToolPresetBar
+                    presetName={presetName}
+                    onPresetNameChange={setPresetName}
+                    onSave={handleSavePreset}
+                    saving={savingPreset}
+                    presets={presets}
+                    onApply={handleApplyPreset}
+                    lockedMessage="Subscribe to save vertical blur fill presets."
+                  />
+                </div>
               </div>
             </div>
 

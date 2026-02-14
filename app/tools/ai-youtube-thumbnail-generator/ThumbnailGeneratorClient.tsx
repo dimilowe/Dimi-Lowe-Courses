@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useToolPresets, type ToolPresetRecord } from "@/lib/hooks/useToolPresets";
+import { ToolPresetBar } from "@/components/presets/ToolPresetBar";
 
 interface GeneratedImage {
   id: string;
@@ -13,6 +15,18 @@ interface GenerationResult {
   images: GeneratedImage[];
   warning?: string;
 }
+
+type ThumbnailGeneratorPresetJson = {
+  videoTitle: string;
+  topic: string;
+  hookAngle: string;
+  textOverlay: string;
+  styleRef: string;
+  count: number;
+  customPrompt: string;
+};
+
+type ThumbnailGeneratorPresetRecord = ToolPresetRecord<ThumbnailGeneratorPresetJson>;
 
 const HOOK_ANGLES = [
   { value: "curiosity", label: "Curiosity", description: "Makes viewers wonder what happens" },
@@ -46,6 +60,11 @@ export default function ThumbnailGeneratorClient() {
   const [error, setError] = useState<string | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [presetName, setPresetName] = useState("");
+  const { presets, savingPreset, savePreset } = useToolPresets<ThumbnailGeneratorPresetJson>({
+    toolId: "ai-youtube-thumbnail-generator",
+    originCloudId: "creation",
+  });
 
   const handleGenerate = async (variantHint: string = "") => {
     if (!videoTitle.trim() && !customPrompt.trim()) {
@@ -135,6 +154,31 @@ export default function ThumbnailGeneratorClient() {
     if (len === 1) return "grid-cols-1 max-w-xl mx-auto";
     if (len === 2) return "grid-cols-1 md:grid-cols-2";
     return "grid-cols-1 md:grid-cols-2";
+  };
+
+  const handleSavePreset = async () => {
+    const ok = await savePreset(presetName, {
+      videoTitle,
+      topic,
+      hookAngle,
+      textOverlay,
+      styleRef,
+      count,
+      customPrompt,
+    });
+    if (ok) setPresetName("");
+  };
+
+  const handleApplyPreset = (preset: ThumbnailGeneratorPresetRecord) => {
+    const payload = preset?.preset_json;
+    if (!payload) return;
+    setVideoTitle(payload.videoTitle ?? "");
+    setTopic(payload.topic ?? "");
+    setHookAngle(payload.hookAngle ?? "curiosity");
+    setTextOverlay(payload.textOverlay ?? "");
+    setStyleRef(payload.styleRef ?? "");
+    setCount(payload.count === 1 || payload.count === 2 || payload.count === 4 ? payload.count : 4);
+    setCustomPrompt(payload.customPrompt ?? "");
   };
 
   return (
@@ -268,6 +312,16 @@ export default function ThumbnailGeneratorClient() {
               </button>
             </div>
           </div>
+
+          <ToolPresetBar
+            presetName={presetName}
+            onPresetNameChange={setPresetName}
+            onSave={handleSavePreset}
+            saving={savingPreset}
+            presets={presets}
+            onApply={handleApplyPreset}
+            lockedMessage="Subscribe to save thumbnail generation presets."
+          />
         </div>
       </div>
 

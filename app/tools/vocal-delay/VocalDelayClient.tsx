@@ -24,6 +24,8 @@ import {
   type DelaySettings,
 } from "@/lib/audio/vocalDelayEngine";
 import { encodeWav, downloadBlob } from "@/lib/audio/wav";
+import { useToolPresets, type ToolPresetRecord } from "@/lib/hooks/useToolPresets";
+import { ToolPresetBar } from "@/components/presets/ToolPresetBar";
 
 const DEFAULT_SETTINGS: DelaySettings = {
   bpm: 120,
@@ -32,6 +34,9 @@ const DEFAULT_SETTINGS: DelaySettings = {
   mix: 0.25,
   pingPong: true,
 };
+
+type VocalDelayPresetJson = DelaySettings;
+type VocalDelayPresetRecord = ToolPresetRecord<VocalDelayPresetJson>;
 
 export default function VocalDelayClient() {
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -45,10 +50,15 @@ export default function VocalDelayClient() {
   const [feedback, setFeedback] = useState(DEFAULT_SETTINGS.feedback);
   const [mix, setMix] = useState(DEFAULT_SETTINGS.mix);
   const [pingPong, setPingPong] = useState(DEFAULT_SETTINGS.pingPong);
+  const [presetName, setPresetName] = useState("");
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const engineRef = useRef<VocalDelayEngine | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const { presets, savingPreset, savePreset } = useToolPresets<VocalDelayPresetJson>({
+    toolId: "vocal-delay",
+    originCloudId: "music",
+  });
 
   const delayMs = calculateDelayTime(bpm, division) * 1000;
 
@@ -189,6 +199,31 @@ export default function VocalDelayClient() {
     setFeedback(DEFAULT_SETTINGS.feedback);
     setMix(DEFAULT_SETTINGS.mix);
     setPingPong(DEFAULT_SETTINGS.pingPong);
+  };
+
+  const handleSavePreset = async () => {
+    const ok = await savePreset(presetName, {
+      bpm,
+      division,
+      feedback,
+      mix,
+      pingPong,
+    });
+    if (ok) setPresetName("");
+  };
+
+  const handleApplyPreset = (preset: VocalDelayPresetRecord) => {
+    const payload = preset?.preset_json;
+    if (!payload) return;
+    setBpm(clampBpm(payload.bpm ?? DEFAULT_SETTINGS.bpm));
+    setDivision(
+      payload.division === "1/4" || payload.division === "1/8" || payload.division === "1/16"
+        ? payload.division
+        : DEFAULT_SETTINGS.division
+    );
+    setFeedback(clampFeedback(payload.feedback ?? DEFAULT_SETTINGS.feedback));
+    setMix(Math.min(1, Math.max(0, payload.mix ?? DEFAULT_SETTINGS.mix)));
+    setPingPong(Boolean(payload.pingPong));
   };
 
   const formatDuration = (seconds: number) => {
@@ -339,6 +374,16 @@ export default function VocalDelayClient() {
           />
         </button>
       </div>
+
+      <ToolPresetBar
+        presetName={presetName}
+        onPresetNameChange={setPresetName}
+        onSave={handleSavePreset}
+        saving={savingPreset}
+        presets={presets}
+        onApply={handleApplyPreset}
+        lockedMessage="Subscribe to save your vocal delay presets."
+      />
 
       <div className="flex flex-wrap gap-3">
         {!isPlaying ? (

@@ -16,8 +16,12 @@ import {
 } from 'lucide-react';
 import ExploreMoreTools from '@/components/ExploreMoreTools';
 import PostResultUpsell from '@/components/PostResultUpsell';
+import { useToolPresets, type ToolPresetRecord } from '@/lib/hooks/useToolPresets';
+import { ToolPresetBar } from '@/components/presets/ToolPresetBar';
 
 type Bitrate = '128' | '192' | '320';
+type M4aToMp3PresetJson = { bitrate: Bitrate };
+type M4aToMp3PresetRecord = ToolPresetRecord<M4aToMp3PresetJson>;
 
 const MAX_FILE_SIZE = 200 * 1024 * 1024;
 
@@ -37,9 +41,14 @@ export default function M4aToMp3ConversionClient() {
   const [convertedBlob, setConvertedBlob] = useState<Blob | null>(null);
   const [convertedUrl, setConvertedUrl] = useState<string | null>(null);
   const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
+  const [presetName, setPresetName] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ffmpegRef = useRef<FFmpeg | null>(null);
+  const { presets, savingPreset, savePreset } = useToolPresets<M4aToMp3PresetJson>({
+    toolId: 'm4a-to-mp3-conversion',
+    originCloudId: 'music',
+  });
 
   const loadFFmpeg = useCallback(async () => {
     if (ffmpegRef.current) return ffmpegRef.current;
@@ -180,6 +189,18 @@ export default function M4aToMp3ConversionClient() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleSavePreset = async () => {
+    const ok = await savePreset(presetName, { bitrate });
+    if (ok) setPresetName('');
+  };
+
+  const handleApplyPreset = (preset: M4aToMp3PresetRecord) => {
+    const nextBitrate = preset?.preset_json?.bitrate;
+    if (nextBitrate === '128' || nextBitrate === '192' || nextBitrate === '320') {
+      setBitrate(nextBitrate);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <div className="max-w-4xl mx-auto px-4 py-10">
@@ -266,6 +287,16 @@ export default function M4aToMp3ConversionClient() {
                 </button>
               </div>
             </div>
+
+            <ToolPresetBar
+              presetName={presetName}
+              onPresetNameChange={setPresetName}
+              onSave={handleSavePreset}
+              saving={savingPreset}
+              presets={presets}
+              onApply={handleApplyPreset}
+              lockedMessage="Subscribe to save MP3 conversion presets."
+            />
 
             {error && (
               <div className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 px-4 py-3 rounded-xl">

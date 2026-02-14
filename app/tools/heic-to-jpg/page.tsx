@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { ArrowLeft, Upload, Download, Image as ImageIcon, Settings, ChevronDown, ChevronUp, Loader2, CheckCircle2, XCircle, FileImage, Package, Sparkles, ArrowRight } from 'lucide-react';
 import ExploreMoreTools from '@/components/ExploreMoreTools';
 import PostResultUpsell from '@/components/PostResultUpsell';
+import { useToolPresets, type ToolPresetRecord } from '@/lib/hooks/useToolPresets';
+import { ToolPresetBar } from '@/components/presets/ToolPresetBar';
 
 interface FileItem {
   id: string;
@@ -22,6 +24,9 @@ interface Settings {
   resizeMode: 'original' | 'resize';
   maxSize: number;
 }
+
+type HeicPresetJson = Settings;
+type HeicPresetRecord = ToolPresetRecord<HeicPresetJson>;
 
 const defaultSettings: Settings = {
   quality: 85,
@@ -47,7 +52,12 @@ export default function HeicToJpgPage() {
   const [showFaq, setShowFaq] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [conversionComplete, setConversionComplete] = useState(false);
+  const [presetName, setPresetName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { presets, savingPreset, savePreset } = useToolPresets<HeicPresetJson>({
+    toolId: 'heic-to-jpg',
+    originCloudId: 'file',
+  });
 
   const validateFiles = (fileList: FileList | File[]): FileItem[] => {
     const validFiles: FileItem[] = [];
@@ -263,6 +273,22 @@ export default function HeicToJpgPage() {
     });
     setFiles([]);
     setConversionComplete(false);
+  };
+
+  const handleSavePreset = async () => {
+    const ok = await savePreset(presetName, settings);
+    if (ok) setPresetName('');
+  };
+
+  const handleApplyPreset = (preset: HeicPresetRecord) => {
+    const payload = preset?.preset_json;
+    if (!payload) return;
+    setSettings({
+      quality: Math.min(100, Math.max(50, payload.quality ?? defaultSettings.quality)),
+      resizeMode: payload.resizeMode === 'resize' ? 'resize' : 'original',
+      maxSize: Math.min(4000, Math.max(500, payload.maxSize ?? defaultSettings.maxSize)),
+    });
+    setShowSettings(true);
   };
 
   const totalSize = files.reduce((acc, f) => acc + f.size, 0);
@@ -513,6 +539,18 @@ export default function HeicToJpgPage() {
               </div>
             </div>
           )}
+
+          <div className="mt-6">
+            <ToolPresetBar
+              presetName={presetName}
+              onPresetNameChange={setPresetName}
+              onSave={handleSavePreset}
+              saving={savingPreset}
+              presets={presets}
+              onApply={handleApplyPreset}
+              lockedMessage="Subscribe to save HEIC conversion presets."
+            />
+          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-6">

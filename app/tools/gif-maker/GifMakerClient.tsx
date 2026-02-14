@@ -7,6 +7,8 @@ import ExploreMoreTools from '@/components/ExploreMoreTools';
 import PostResultUpsell from '@/components/PostResultUpsell';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import { useToolPresets, type ToolPresetRecord } from '@/lib/hooks/useToolPresets';
+import { ToolPresetBar } from '@/components/presets/ToolPresetBar';
 
 type Mode = 'video' | 'images';
 
@@ -17,6 +19,13 @@ interface Settings {
   loop: boolean;
   startTime: number;
 }
+
+type GifMakerPresetJson = {
+  mode: Mode;
+  settings: Settings;
+};
+
+type GifMakerPresetRecord = ToolPresetRecord<GifMakerPresetJson>;
 
 const defaultSettings: Settings = {
   width: 480,
@@ -42,9 +51,14 @@ export default function GifMakerClient() {
   const [error, setError] = useState<string>('');
   const [showFaq, setShowFaq] = useState(false);
   const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
+  const [presetName, setPresetName] = useState('');
   
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const { presets, savingPreset, savePreset } = useToolPresets<GifMakerPresetJson>({
+    toolId: 'gif-maker',
+    originCloudId: 'creation',
+  });
 
   const loadFFmpeg = useCallback(async () => {
     if (ffmpegRef.current) return ffmpegRef.current;
@@ -284,6 +298,24 @@ export default function GifMakerClient() {
     document.body.removeChild(a);
   };
 
+  const handleSavePreset = async () => {
+    const ok = await savePreset(presetName, { mode, settings });
+    if (ok) setPresetName('');
+  };
+
+  const handleApplyPreset = (preset: GifMakerPresetRecord) => {
+    const payload = preset?.preset_json;
+    if (!payload?.settings) return;
+    setMode(payload.mode === 'images' ? 'images' : 'video');
+    setSettings({
+      width: Math.min(1280, Math.max(120, payload.settings.width ?? defaultSettings.width)),
+      fps: Math.min(30, Math.max(5, payload.settings.fps ?? defaultSettings.fps)),
+      duration: Math.min(60, Math.max(1, payload.settings.duration ?? defaultSettings.duration)),
+      loop: Boolean(payload.settings.loop),
+      startTime: Math.max(0, payload.settings.startTime ?? defaultSettings.startTime),
+    });
+  };
+
   const hasInput = mode === 'video' ? !!videoFile : imageFiles.length > 0;
 
   return (
@@ -512,6 +544,18 @@ export default function GifMakerClient() {
                   Loop forever
                 </label>
               </div>
+            </div>
+
+            <div className="mt-6">
+              <ToolPresetBar
+                presetName={presetName}
+                onPresetNameChange={setPresetName}
+                onSave={handleSavePreset}
+                saving={savingPreset}
+                presets={presets}
+                onApply={handleApplyPreset}
+                lockedMessage="Subscribe to save GIF settings presets."
+              />
             </div>
           </div>
 

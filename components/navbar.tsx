@@ -67,6 +67,7 @@ const resourceCategories: ResourceCategory[] = [
     name: "Image Tools",
     items: [
       { label: "Image Size Guide", href: "/tools/social-media-image-sizes", description: "All platform dimensions", icon: Image, iconBg: "bg-orange-500" },
+      { label: "Watermark Creator", href: "/tools/watermark-creator-free", description: "Add text/logo watermarks", icon: Image, iconBg: "bg-indigo-500" },
       { label: "Calorie Calculator", href: "/tools/calorie-deficit-calculator", description: "AI food calorie counter", icon: Calculator, iconBg: "bg-green-500" },
       { label: "Image Compressor", href: "/tools/image-compressor", description: "Compress JPG, PNG, WebP", icon: Image, iconBg: "bg-sky-500" },
       { label: "GIF Compressor", href: "/tools/gif-compressor", description: "Compress GIF files", icon: FileImage, iconBg: "bg-violet-500" },
