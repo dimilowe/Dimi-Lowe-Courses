@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { notifyFeedbackSubmission } from '@/lib/feedback-notifications';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,9 +20,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await query(
+    const result = await query(
       `INSERT INTO feedback (feedback_type, subject, message, email, priority, author_name, author_bio)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, created_at`,
       [
         feedback_type, 
         subject, 
@@ -33,7 +35,19 @@ export async function POST(req: NextRequest) {
       ]
     );
 
-    return NextResponse.json({ success: true }, { status: 201 });
+    const inserted = result.rows[0];
+    await notifyFeedbackSubmission({
+      feedbackType: feedback_type,
+      subject,
+      message,
+      email: email || null,
+      priority: priority || 'medium',
+      authorName: author_name || null,
+      authorBio: author_bio || null,
+      createdAt: inserted?.created_at ?? null,
+    });
+
+    return NextResponse.json({ success: true, id: inserted?.id ?? null }, { status: 201 });
   } catch (error) {
     console.error('Error submitting feedback:', error);
     return NextResponse.json(

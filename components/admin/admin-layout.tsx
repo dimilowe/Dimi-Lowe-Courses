@@ -12,6 +12,7 @@ import {
   LogOut,
   Package,
   FileText,
+  MessageSquare,
   Menu,
   X,
 } from "lucide-react";
@@ -32,6 +33,12 @@ const NAV_ITEMS = [
     label: "SEO",
     icon: Globe,
     description: "Health, indexing, publishing",
+  },
+  {
+    href: "/admin/feedback",
+    label: "Feedback",
+    icon: MessageSquare,
+    description: "Tool requests and user feedback",
   },
 ];
 

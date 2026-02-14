@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,11 @@ const feedbackTypes = [
   { value: 'article', label: 'Submit Blog Article', icon: FileText, color: 'border-green-200 hover:border-green-400 hover:bg-green-50' },
 ];
 
-export function FeedbackDialog() {
+interface FeedbackDialogProps {
+  hideTrigger?: boolean;
+}
+
+export function FeedbackDialog({ hideTrigger = false }: FeedbackDialogProps) {
   const [open, setOpen] = useState(false);
   const [selectedType, setSelectedType] = useState('');
   const [subject, setSubject] = useState('');
@@ -31,6 +35,37 @@ export function FeedbackDialog() {
 
   const isArticleSubmission = selectedType === 'article';
   const isToolIdea = selectedType === 'tool_idea';
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const feedbackType = params.get('feedback');
+    if (!feedbackType) return;
+
+    const isValidType = feedbackTypes.some((type) => type.value === feedbackType);
+    if (!isValidType) return;
+
+    setSelectedType(feedbackType);
+    setOpen(true);
+  }, []);
+
+  useEffect(() => {
+    const onOpenFeedback = (event: Event) => {
+      const customEvent = event as CustomEvent<{ type?: string }>;
+      const type = customEvent.detail?.type;
+      if (type) {
+        const isValidType = feedbackTypes.some((feedbackType) => feedbackType.value === type);
+        if (isValidType) {
+          setSelectedType(type);
+        }
+      }
+      setOpen(true);
+    };
+
+    window.addEventListener('open-feedback-dialog', onOpenFeedback as EventListener);
+    return () => {
+      window.removeEventListener('open-feedback-dialog', onOpenFeedback as EventListener);
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,15 +109,17 @@ export function FeedbackDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button 
-          variant="outline" 
-          className="border-gray-300 hover:border-orange-400 hover:bg-orange-50 transition-all"
-        >
-          <MessageSquare className="w-4 h-4 mr-2" />
-          Feedback
-        </Button>
-      </DialogTrigger>
+      {!hideTrigger && (
+        <DialogTrigger asChild>
+          <Button 
+            variant="outline" 
+            className="border-gray-300 hover:border-orange-400 hover:bg-orange-50 transition-all"
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Feedback
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold flex items-center gap-2">

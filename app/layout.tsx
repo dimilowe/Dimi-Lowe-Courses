@@ -8,6 +8,7 @@ import FloatingToolsButton from "@/components/FloatingToolsButton";
 import { AppProvider } from "@/components/providers/AppProvider";
 import { getCurrentUserWithTier } from "@/lib/pricing/getCurrentUserWithTier";
 import type { UserTier } from "@/lib/pricing/types";
+import { FeedbackDialog } from "@/components/FeedbackDialog";
 
 export const dynamic = 'force-dynamic';
 
@@ -62,6 +63,7 @@ export default async function RootLayout({
             <main className="min-h-screen">
               {children}
             </main>
+            <FeedbackDialog hideTrigger />
             <FloatingToolsButton />
           </AppProvider>
         </CartProvider>

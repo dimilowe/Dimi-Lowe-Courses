@@ -186,6 +186,13 @@ export function Navbar() {
     }, 150);
   };
 
+  const handleRequestToolClick = () => {
+    window.dispatchEvent(
+      new CustomEvent('open-feedback-dialog', { detail: { type: 'tool_idea' } })
+    );
+    setIsMobileMenuOpen(false);
+  };
+
   return (
     <nav className="bg-white border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-6 py-4">
@@ -363,6 +370,16 @@ export function Navbar() {
           </div>
           
           <div className="flex items-center space-x-3">
+            <div className="hidden md:inline-flex">
+              <Button
+                type="button"
+                className="bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg px-4"
+                onClick={handleRequestToolClick}
+              >
+                Request a Tool
+              </Button>
+            </div>
+
             <div className="hidden sm:block">
               <GoogleTranslate />
             </div>
@@ -663,6 +680,14 @@ export function Navbar() {
             >
               Magazine
             </Link>
+
+            <button
+              type="button"
+              className="block text-sm font-medium py-3 text-orange-600 hover:text-orange-700 transition-colors"
+              onClick={handleRequestToolClick}
+            >
+              Request a Tool
+            </button>
           </div>
         </div>
       )}
