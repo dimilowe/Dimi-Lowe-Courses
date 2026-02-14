@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +15,6 @@ export function SignupForm({ prefillEmail }: SignupFormProps) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,6 +123,12 @@ export function SignupForm({ prefillEmail }: SignupFormProps) {
           >
             {loading ? 'Creating Account...' : 'Create Account & Access Purchase'}
           </Button>
+          <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <a href="/login" className="text-orange-600 hover:text-orange-700 font-medium">
+              Sign in
+            </a>
+          </p>
         </form>
       </CardContent>
     </Card>

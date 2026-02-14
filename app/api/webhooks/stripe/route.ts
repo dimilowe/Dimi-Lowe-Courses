@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { grantAccessForOffer, storePendingPurchase } from "@/lib/offers";
+import {
+  storePendingGlobalSubscription,
+  updatePendingGlobalSubscriptionStatus,
+} from "@/lib/subscription/pending";
 import { PUBLIC_CLOUD_IDS } from "@/lib/types/cloudEntitlements";
 import Stripe from "stripe";
 
@@ -243,6 +247,7 @@ async function handleGlobalProCheckoutCompleted(
 
   const subscriptionResponse = await stripe.subscriptions.retrieve(session.subscription as string);
   const subscription = subscriptionResponse as Stripe.Subscription;
+  const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
 
   let finalUserId = userIdStr ? parseInt(userIdStr, 10) : null;
 
@@ -254,11 +259,23 @@ async function handleGlobalProCheckoutCompleted(
   }
 
   if (!finalUserId) {
+    if (customerEmail) {
+      await storePendingGlobalSubscription({
+        email: customerEmail,
+        stripeSubscriptionId: subscription.id,
+        stripeCustomerId: (session.customer as string) || null,
+        status: "active",
+        currentPeriodEnd,
+      });
+      console.log(
+        `[Webhook] Stored pending Global Pro subscription for email=${customerEmail}, subscriptionId=${subscription.id}`
+      );
+      return;
+    }
+
     console.error("[Webhook] Could not determine user for Global Pro subscription:", session.id);
     return;
   }
-
-  const currentPeriodEnd = new Date((subscription as any).current_period_end * 1000);
 
   for (const cloudId of PUBLIC_CLOUD_IDS) {
     await upsertCloudEntitlementGrant({
@@ -335,11 +352,22 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     status = "canceled";
   }
 
+  await updatePendingGlobalSubscriptionStatus({
+    stripeSubscriptionId,
+    status,
+    currentPeriodEnd: currentPeriodEnd ?? null,
+  });
+
   await updateGrantsAndRecompute(stripeSubscriptionId, status, currentPeriodEnd);
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const stripeSubscriptionId = subscription.id;
+  await updatePendingGlobalSubscriptionStatus({
+    stripeSubscriptionId,
+    status: "canceled",
+    currentPeriodEnd: null,
+  });
   await updateGrantsAndRecompute(stripeSubscriptionId, "canceled");
 }
 

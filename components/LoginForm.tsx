@@ -111,6 +111,20 @@ export function LoginForm({ prefillEmail }: LoginFormProps) {
           >
             {loading ? 'Logging in...' : 'Login'}
           </Button>
+          <div className="flex items-center justify-between text-sm">
+            <a href="/forgot-password" className="text-orange-600 hover:text-orange-700">
+              Forgot password?
+            </a>
+            <a href="/forgot-username" className="text-orange-600 hover:text-orange-700">
+              Forgot username?
+            </a>
+          </div>
+          <p className="text-center text-sm text-muted-foreground">
+            Don&apos;t have an account?{" "}
+            <a href="/signup" className="text-orange-600 hover:text-orange-700 font-medium">
+              Sign up
+            </a>
+          </p>
         </form>
       </CardContent>
     </Card>

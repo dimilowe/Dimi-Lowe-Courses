@@ -1,17 +1,9 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Check, Loader2, CheckCircle, XCircle, LogIn } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { useSearchParams } from "next/navigation";
+import { Check, Loader2, CheckCircle, XCircle } from "lucide-react";
+import Link from "next/link";
 
 type Plan = {
   id: "global";
@@ -38,65 +30,116 @@ const GLOBAL_PLAN: Plan = {
   ],
 };
 
+const VALUE_STACK = [
+  {
+    title: "Never rebuild your setup again",
+    detail:
+      "Save tool presets once and reuse your exact settings any time you come back.",
+  },
+  {
+    title: "Keep every output in one place",
+    detail:
+      "Save generated work to Workspace so you can organize, revisit, and reuse it later.",
+  },
+  {
+    title: "One upgrade for the whole site",
+    detail:
+      "You do not need separate subscriptions per cloud. One plan unlocks saving across tools.",
+  },
+];
+
+const COMPARISON_ROWS = [
+  { label: "Use all tools", free: "Yes", pro: "Yes" },
+  { label: "Save tool presets", free: "No", pro: "Yes" },
+  { label: "Save outputs to Workspace", free: "No", pro: "Yes" },
+  { label: "Access from any device after login", free: "Limited", pro: "Yes" },
+  { label: "Monthly price", free: "$0", pro: "$11" },
+];
+
+const FAQS = [
+  {
+    q: "Do I need this to use the tools?",
+    a: "No. Tools remain free to use. Subscription is only for saving presets and saved outputs.",
+  },
+  {
+    q: "What happens if I cancel?",
+    a: "You can cancel anytime. Your plan will not renew, and free usage remains available.",
+  },
+  {
+    q: "Why pay if tools are free?",
+    a: "Because saved work and reusable presets remove repeat setup and protect your best outputs.",
+  },
+];
+
+const PROOF_STATS = [
+  { label: "Tools available today", value: "100+" },
+  { label: "Pricing plans to choose from", value: "1" },
+  { label: "Cost per day", value: "~$0.37" },
+];
+
+const TESTIMONIALS = [
+  {
+    quote:
+      "I stopped redoing settings every session. Presets alone saved me a lot of repeat work.",
+    role: "Creator workflow user",
+  },
+  {
+    quote:
+      "Workspace saving made it easier to reuse outputs for clients instead of rebuilding from scratch.",
+    role: "Freelancer",
+  },
+  {
+    quote:
+      "The tools are free, but the saved system is what made me stay and keep using the platform.",
+    role: "Weekly power user",
+  },
+];
+
 function PricingPageContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [checkoutEmail, setCheckoutEmail] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionChecking, setSessionChecking] = useState(false);
+  const [copiedSessionId, setCopiedSessionId] = useState(false);
 
   useEffect(() => {
-    fetch("/api/auth/session", {
-      method: "GET",
-      credentials: "include",
-    })
-      .then((res) => {
-        if (!res.ok) {
-          setIsLoggedIn(false);
-          return null;
-        }
-        return res.json();
-      })
-      .then((data) => {
-        if (data) {
-          setIsLoggedIn(data.isLoggedIn === true);
-        }
-      })
-      .catch(() => {
-        setIsLoggedIn(false);
-      });
-  }, []);
+    const checkoutSessionId = searchParams.get("session_id");
+    setSessionId(checkoutSessionId);
 
-  useEffect(() => {
     if (searchParams.get("success") === "1") {
       setMessage({
         type: "success",
-        text: "Subscription successful. Preset and Workspace saving are now unlocked.",
+        text: "Subscription successful. Finish account setup to activate saving features.",
       });
     } else if (searchParams.get("canceled") === "1") {
       setMessage({ type: "error", text: "Checkout was canceled. You can try again anytime." });
     }
+
+    if (searchParams.get("success") === "1" && checkoutSessionId) {
+      setSessionChecking(true);
+      fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: checkoutSessionId }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.email) {
+            setCheckoutEmail(data.email);
+          }
+        })
+        .catch(() => {
+          setCheckoutEmail(null);
+        })
+        .finally(() => {
+          setSessionChecking(false);
+        });
+    }
   }, [searchParams]);
 
-  const buildLoginRedirect = () => {
-    const redirectUrl = "/pricing";
-    return `/login?next=${encodeURIComponent(redirectUrl)}`;
-  };
-
-  const handleSignIn = () => {
-    setShowAuthModal(false);
-    router.push(buildLoginRedirect());
-  };
-
   const handleSubscribe = async () => {
-    if (isLoggedIn === null) return;
-
-    if (isLoggedIn === false) {
-      setShowAuthModal(true);
-      return;
-    }
-
     setIsLoading(true);
     setMessage(null);
 
@@ -126,6 +169,17 @@ function PricingPageContent() {
     }
   };
 
+  const handleCopySessionId = async () => {
+    if (!sessionId) return;
+    try {
+      await navigator.clipboard.writeText(sessionId);
+      setCopiedSessionId(true);
+      setTimeout(() => setCopiedSessionId(false), 1500);
+    } catch (error) {
+      console.error("Failed to copy session id:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50">
       <div className="max-w-4xl mx-auto px-4 py-12 pb-32">
@@ -143,6 +197,41 @@ function PricingPageContent() {
               <XCircle className="w-5 h-5 text-red-600" />
             )}
             <span className="font-medium">{message.text}</span>
+          </div>
+        )}
+
+        {searchParams.get("success") === "1" && (
+          <div className="mb-8 p-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900">
+            <p className="font-semibold">Activate your subscription</p>
+            <p className="text-sm mt-1">
+              {sessionChecking
+                ? "Confirming checkout details..."
+                : checkoutEmail
+                ? `Use this exact email to sign in or create your account: ${checkoutEmail}`
+                : "Use the same email you entered in Stripe checkout when signing in or creating your account."}
+            </p>
+            {sessionId && (
+              <div className="mt-3 space-y-3">
+                <div className="flex items-start gap-2">
+                  <p className="flex-1 text-xs font-mono break-all bg-white/60 border border-emerald-200 rounded-md px-2 py-1">
+                    Checkout Session ID: {sessionId}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCopySessionId}
+                    className="inline-flex items-center rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                  >
+                    {copiedSessionId ? "Copied" : "Copy"}
+                  </button>
+                </div>
+                <Link
+                  href={`/dashboard?session_id=${encodeURIComponent(sessionId)}`}
+                  className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors"
+                >
+                  Continue to Account Setup
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
@@ -182,6 +271,126 @@ function PricingPageContent() {
             <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${GLOBAL_PLAN.gradient}`} />
           </div>
         </section>
+
+        <section className="mt-10">
+          <h3 className="text-2xl font-bold text-zinc-900 mb-4">Quick proof</h3>
+          <div className="grid md:grid-cols-3 gap-4">
+            {PROOF_STATS.map((item) => (
+              <div key={item.label} className="rounded-xl bg-white border border-zinc-200 p-5">
+                <p className="text-3xl font-bold text-zinc-900">{item.value}</p>
+                <p className="text-sm text-zinc-600 mt-1">{item.label}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <h3 className="text-2xl font-bold text-zinc-900 mb-4">Why people upgrade</h3>
+          <div className="grid md:grid-cols-3 gap-4">
+            {VALUE_STACK.map((item) => (
+              <div key={item.title} className="rounded-xl bg-white border border-zinc-200 p-4">
+                <p className="font-semibold text-zinc-900">{item.title}</p>
+                <p className="text-sm text-zinc-600 mt-2">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <h3 className="text-2xl font-bold text-zinc-900 mb-4">Free vs Pro Save</h3>
+          <div className="rounded-2xl bg-white border border-zinc-200 overflow-hidden">
+            <div className="grid grid-cols-3 bg-zinc-100 text-sm font-semibold text-zinc-700">
+              <div className="px-4 py-3">Feature</div>
+              <div className="px-4 py-3 text-center">Free</div>
+              <div className="px-4 py-3 text-center">VCM Pro Save</div>
+            </div>
+            {COMPARISON_ROWS.map((row) => (
+              <div key={row.label} className="grid grid-cols-3 border-t border-zinc-100 text-sm">
+                <div className="px-4 py-3 text-zinc-700">{row.label}</div>
+                <div className="px-4 py-3 text-center text-zinc-600">{row.free}</div>
+                <div className="px-4 py-3 text-center font-semibold text-emerald-700">{row.pro}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <h3 className="text-2xl font-bold text-zinc-900 mb-4">Who this is for</h3>
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="rounded-xl bg-white border border-zinc-200 p-4">
+              <p className="font-semibold text-zinc-900">Weekly creators</p>
+              <p className="text-sm text-zinc-600 mt-2">You want repeatable outputs without setup every time.</p>
+            </div>
+            <div className="rounded-xl bg-white border border-zinc-200 p-4">
+              <p className="font-semibold text-zinc-900">Freelancers & agencies</p>
+              <p className="text-sm text-zinc-600 mt-2">You need organized saved work for client production speed.</p>
+            </div>
+            <div className="rounded-xl bg-white border border-zinc-200 p-4">
+              <p className="font-semibold text-zinc-900">System builders</p>
+              <p className="text-sm text-zinc-600 mt-2">You value structure, recall, and reliable tool workflows.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <h3 className="text-2xl font-bold text-zinc-900 mb-4">What users say</h3>
+          <div className="grid md:grid-cols-3 gap-4">
+            {TESTIMONIALS.map((item) => (
+              <div key={item.quote} className="rounded-xl bg-white border border-zinc-200 p-4">
+                <p className="text-sm text-zinc-700">&ldquo;{item.quote}&rdquo;</p>
+                <p className="text-xs text-zinc-500 mt-3">{item.role}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-10 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+          <h3 className="text-2xl font-bold text-zinc-900">If you use tools weekly, this pays for itself</h3>
+          <p className="mt-2 text-zinc-700">
+            The subscription is for people who want consistency, speed, and a reliable place to keep what they create.
+          </p>
+          <button
+            onClick={handleSubscribe}
+            disabled={isLoading}
+            className={`mt-4 px-5 py-2.5 rounded-lg font-semibold transition ${
+              !isLoading
+                ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:opacity-90"
+                : "bg-zinc-200 text-zinc-400 cursor-not-allowed"
+            }`}
+          >
+            {isLoading ? "Redirecting..." : "Start Pro Save"}
+          </button>
+        </section>
+
+        <section className="mt-10 pb-8">
+          <h3 className="text-2xl font-bold text-zinc-900 mb-4">Questions before subscribing?</h3>
+          <div className="space-y-3">
+            {FAQS.map((item) => (
+              <div key={item.q} className="rounded-xl bg-white border border-zinc-200 p-4">
+                <p className="font-semibold text-zinc-900">{item.q}</p>
+                <p className="text-sm text-zinc-600 mt-1">{item.a}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-10 pb-8 rounded-2xl bg-zinc-900 text-white p-6">
+          <h3 className="text-2xl font-bold">Start with one plan. Cancel anytime.</h3>
+          <p className="text-zinc-300 mt-2">
+            Keep tools free for usage, and only pay when you want saved systems and reusable workflows.
+          </p>
+          <button
+            onClick={handleSubscribe}
+            disabled={isLoading}
+            className={`mt-4 px-5 py-2.5 rounded-lg font-semibold transition ${
+              !isLoading
+                ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:opacity-90"
+                : "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+            }`}
+          >
+            {isLoading ? "Redirecting..." : "Subscribe to VCM Pro Save"}
+          </button>
+        </section>
       </div>
 
       <div className="fixed bottom-0 inset-x-0 border-t border-zinc-200 bg-white/95 backdrop-blur-sm shadow-lg">
@@ -193,38 +402,18 @@ function PricingPageContent() {
 
           <button
             onClick={handleSubscribe}
-            disabled={isLoading || isLoggedIn === null}
+            disabled={isLoading}
             className={`px-6 py-3 rounded-xl font-semibold transition flex items-center gap-2 ${
-              !isLoading && isLoggedIn !== null
+              !isLoading
                 ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:opacity-90 shadow-md"
                 : "bg-zinc-200 text-zinc-400 cursor-not-allowed"
             }`}
           >
-            {(isLoading || isLoggedIn === null) && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isLoading ? "Redirecting..." : isLoggedIn === null ? "Loading..." : "Subscribe"}
+            {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isLoading ? "Redirecting..." : "Subscribe"}
           </button>
         </div>
       </div>
-
-      <Dialog open={showAuthModal} onOpenChange={setShowAuthModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <LogIn className="w-5 h-5" />
-              Sign in required
-            </DialogTitle>
-            <DialogDescription>You must be signed in to start a subscription.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowAuthModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSignIn} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90">
-              Sign in
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

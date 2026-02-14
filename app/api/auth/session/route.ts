@@ -28,18 +28,39 @@ export async function POST(request: NextRequest) {
     
     const customerEmail = checkoutSession.customer_email || checkoutSession.customer_details?.email;
     const productId = checkoutSession.metadata?.productId;
+    const checkoutType = checkoutSession.metadata?.type || checkoutSession.metadata?.checkout_type;
     const paymentIntentId = checkoutSession.payment_intent;
     const amount = checkoutSession.amount_total;
+    const { query } = await import("@/lib/db");
     
     if (!customerEmail) {
       return NextResponse.json({ error: "No email found" }, { status: 400 });
     }
 
+    if (checkoutType === "global" && checkoutSession.subscription) {
+      const result = await query(
+        "SELECT id, email FROM users WHERE email = $1",
+        [customerEmail.toLowerCase().trim()]
+      );
+
+      if (result.rows.length > 0) {
+        return NextResponse.json({
+          userExists: true,
+          email: customerEmail,
+          purchaseType: "subscription",
+        });
+      }
+
+      return NextResponse.json({
+        userExists: false,
+        email: customerEmail,
+        purchaseType: "subscription",
+      });
+    }
+
     if (!productId || !paymentIntentId) {
       return NextResponse.json({ error: "Invalid purchase data" }, { status: 400 });
     }
-
-    const { query } = await import("@/lib/db");
 
     // Record the purchase immediately (if not already recorded)
     const existingPurchase = await query(

@@ -119,15 +119,8 @@ async function handleCmsProductCheckout(
 
 async function handleGlobalProCheckout(request: NextRequest) {
   const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);
-  
-  if (!session.isLoggedIn || !session.userId) {
-    return NextResponse.json(
-      { error: "You must be signed in to subscribe. Please sign in first." },
-      { status: 401 }
-    );
-  }
-
-  const userId = session.userId;
+  const userId = session.isLoggedIn && session.userId ? session.userId : null;
+  const customerEmail = session.email || undefined;
 
   const priceId =
     process.env.STRIPE_PRICE_UNIVERSAL_SUBSCRIPTION || process.env.STRIPE_PRICE_GLOBAL_PRO;
@@ -144,12 +137,14 @@ async function handleGlobalProCheckout(request: NextRequest) {
   const stripe = getStripeClient();
   const baseUrl = getBaseUrl(request);
 
-  const metadata = {
+  const metadata: Record<string, string> = {
     type: "global",
     tier: "pro",
-    user_id: userId,
     offer_key: "global_workspace_subscription_monthly",
   };
+  if (userId) {
+    metadata.user_id = String(userId);
+  }
 
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "subscription",
@@ -159,8 +154,9 @@ async function handleGlobalProCheckout(request: NextRequest) {
         quantity: 1,
       },
     ],
-    success_url: `${baseUrl}/pricing?success=1`,
+    success_url: `${baseUrl}/pricing?success=1&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${baseUrl}/pricing?canceled=1`,
+    customer_email: customerEmail,
     metadata,
     subscription_data: {
       metadata,

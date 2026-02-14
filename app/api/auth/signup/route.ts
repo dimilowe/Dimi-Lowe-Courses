@@ -3,6 +3,7 @@ import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import { createUser } from "@/lib/auth";
+import { claimPendingGlobalSubscriptions } from "@/lib/subscription/pending";
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,6 +31,15 @@ export async function POST(request: NextRequest) {
     session.isLoggedIn = true;
     session.isAdmin = false;
     await session.save();
+
+    try {
+      await claimPendingGlobalSubscriptions({
+        userId: user.id,
+        email: user.email,
+      });
+    } catch (claimError) {
+      console.error("Failed to claim pending global subscriptions on signup:", claimError);
+    }
 
     return NextResponse.json({ success: true, userId: user.id, email: user.email });
   } catch (error: any) {

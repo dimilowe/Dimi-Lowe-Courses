@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PasswordChangeForm } from "@/components/PasswordChangeForm";
 import { EmailChangeForm } from "@/components/EmailChangeForm";
+import { SubscriptionLinkForm } from "@/components/SubscriptionLinkForm";
 import { query } from "@/lib/db";
 
 export const dynamic = 'force-dynamic';
@@ -71,6 +72,19 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent>
             <PasswordChangeForm />
+          </CardContent>
+        </Card>
+
+        {/* Subscription Linking */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Paid with a different email?</CardTitle>
+            <CardDescription>
+              Link your existing global subscription to this account using your Stripe checkout session ID.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SubscriptionLinkForm />
           </CardContent>
         </Card>
       </div>
