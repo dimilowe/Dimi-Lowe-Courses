@@ -262,12 +262,26 @@ export default function PDFEditorClient() {
       
       const link = document.createElement("a");
       const baseName = fileName.replace(/\.pdf$/i, "");
+      const outputName = `${baseName}-edited.pdf`;
       link.href = url;
-      link.download = `${baseName}-edited.pdf`;
+      link.download = outputName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("vcm:tool-output-ready", {
+            detail: {
+              mode: "pdf",
+              type: "uploaded_document",
+              title: outputName,
+              blob,
+              fileName: outputName,
+            },
+          }),
+        );
+      }
 
       setStatus("PDF downloaded successfully!");
       setIsLoading(false);

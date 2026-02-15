@@ -396,6 +396,15 @@ export default function FloatingToolsButton() {
                             {importingId === item.id ? "Using..." : "Use here"}
                           </button>
                         )}
+                        {workstationMode && workstationHref && (
+                          <Link
+                            href={workstationHref}
+                            onClick={() => setIsOpen(false)}
+                            className="text-xs px-2 py-1 rounded-md bg-orange-500 text-white hover:bg-orange-600 font-semibold"
+                          >
+                            {getWorkstationLabelForMode(workstationMode)}
+                          </Link>
+                        )}
                         <Link
                           href={`/workspace/${item.id}`}
                           onClick={() => setIsOpen(false)}
@@ -403,15 +412,6 @@ export default function FloatingToolsButton() {
                         >
                           Open
                         </Link>
-                        {workstationMode && workstationHref && (
-                          <Link
-                            href={workstationHref}
-                            onClick={() => setIsOpen(false)}
-                            className="text-xs px-2 py-1 rounded-md bg-orange-500 text-white hover:bg-orange-600"
-                          >
-                            {getWorkstationLabelForMode(workstationMode)}
-                          </Link>
-                        )}
                         {item.file_url && (
                           <a
                             href={item.file_url}

@@ -81,9 +81,29 @@ export default function LogoGeneratorClient() {
   };
 
   const downloadLogo = (base64: string, variant: number) => {
+    const fileName = `logo-design-v${variant}.png`;
+    if (typeof window !== "undefined") {
+      try {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: "image/png" });
+        window.dispatchEvent(
+          new CustomEvent("vcm:tool-output-ready", {
+            detail: {
+              mode: "image",
+              type: "uploaded_image",
+              title: fileName,
+              blob,
+              fileName,
+            },
+          }),
+        );
+      } catch {}
+    }
     const link = document.createElement('a');
     link.href = `data:image/png;base64,${base64}`;
-    link.download = `logo-design-v${variant}.png`;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

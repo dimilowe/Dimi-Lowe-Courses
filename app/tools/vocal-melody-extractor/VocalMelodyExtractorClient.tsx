@@ -225,6 +225,8 @@ export default function VocalMelodyExtractorClient() {
               href={result.midiUrl}
               download
               data-track-output="true"
+              data-output-url={result.midiUrl}
+              data-output-name="vocal-melody.mid"
               className="flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 px-4 rounded-lg transition-colors"
             >
               <Download className="w-4 h-4" />
@@ -234,6 +236,8 @@ export default function VocalMelodyExtractorClient() {
               href={result.notesUrl}
               download
               data-track-output="true"
+              data-output-url={result.notesUrl}
+              data-output-name="vocal-notes.csv"
               className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white font-medium py-3 px-4 rounded-lg transition-colors"
             >
               <FileText className="w-4 h-4" />
@@ -243,6 +247,8 @@ export default function VocalMelodyExtractorClient() {
               href={result.pitchUrl}
               download
               data-track-output="true"
+              data-output-url={result.pitchUrl}
+              data-output-name="vocal-pitch.csv"
               className="flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
             >
               <FileText className="w-4 h-4" />
@@ -252,6 +258,8 @@ export default function VocalMelodyExtractorClient() {
               href={result.wavUrl}
               download
               data-track-output="true"
+              data-output-url={result.wavUrl}
+              data-output-name="vocal-preview.wav"
               className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
             >
               <AudioLines className="w-4 h-4" />

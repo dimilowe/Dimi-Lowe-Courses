@@ -787,6 +787,8 @@ export default function ProducerTagGeneratorClient() {
                     href={downloadUrl}
                     download
                     data-track-output="true"
+                    data-output-url={downloadUrl}
+                    data-output-name={file ? `tagged-${file.name.replace(/\.[^.]+$/, "")}.wav` : "tagged-audio.wav"}
                     className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
                   >
                     <Download className="w-5 h-5" />

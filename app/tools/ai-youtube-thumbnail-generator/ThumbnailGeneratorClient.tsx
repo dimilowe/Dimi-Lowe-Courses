@@ -123,6 +123,25 @@ export default function ThumbnailGeneratorClient() {
   };
 
   const downloadImage = (base64: string, filename: string) => {
+    if (typeof window !== "undefined") {
+      try {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: "image/png" });
+        window.dispatchEvent(
+          new CustomEvent("vcm:tool-output-ready", {
+            detail: {
+              mode: "image",
+              type: "uploaded_image",
+              title: filename,
+              blob,
+              fileName: filename,
+            },
+          }),
+        );
+      } catch {}
+    }
     const link = document.createElement("a");
     link.href = `data:image/png;base64,${base64}`;
     link.download = filename;

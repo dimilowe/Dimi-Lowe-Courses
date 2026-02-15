@@ -3,6 +3,7 @@
 import MonetizationBar from "@/components/MonetizationBar";
 import CreatorStack from "@/components/CreatorStack";
 import SaveUpgradeSection from "@/components/monetization/SaveUpgradeSection";
+import ToolOutputHandoffPrompt from "@/components/workstations/ToolOutputHandoffPrompt";
 import { useSearchParams } from "next/navigation";
 
 export default function ToolsLayout({
@@ -17,6 +18,7 @@ export default function ToolsLayout({
     <>
       <div className="pb-14">
         {children}
+        {!isEmbedMode && <ToolOutputHandoffPrompt />}
         {!isEmbedMode && (
           <>
             <div className="max-w-4xl mx-auto px-4">

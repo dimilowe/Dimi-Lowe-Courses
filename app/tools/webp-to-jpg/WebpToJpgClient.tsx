@@ -153,6 +153,27 @@ export default function WebpToJpgClient() {
   );
 
   const triggerDownload = useCallback((blob: Blob, filename: string) => {
+    if (typeof window !== "undefined") {
+      const lower = filename.toLowerCase();
+      const ext = lower.includes(".") ? lower.split(".").pop() : "";
+      const mode =
+        ext === "pdf" ? "pdf" :
+        ext === "wav" || ext === "mp3" || ext === "m4a" ? "audio" :
+        ext === "jpg" || ext === "jpeg" || ext === "png" || ext === "webp" ? "image" :
+        null;
+      if (mode) {
+        window.dispatchEvent(
+          new CustomEvent("vcm:tool-output-ready", {
+            detail: {
+              mode,
+              title: filename,
+              blob,
+              fileName: filename,
+            },
+          }),
+        );
+      }
+    }
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

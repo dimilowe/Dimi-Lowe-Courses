@@ -388,6 +388,8 @@ export default function GifCompressorPage() {
                   <Button
                     onClick={handleDownload}
                     data-track-output="true"
+                    data-output-url={result ? `/api/gif-download/${result.jobId}` : undefined}
+                    data-output-name={file ? `compressed-${file.name}` : "compressed.gif"}
                     className="bg-orange-500 hover:bg-orange-600 text-white py-6 px-12 text-lg font-semibold"
                   >
                     <Download className="w-5 h-5 mr-2" />

@@ -305,6 +305,7 @@ export default function ChordProgressionFinderClient() {
             <a
               href={result.files.jsonUrl}
               download
+              data-output-name="chord-progressions.json"
               data-track-output="true"
               className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white font-medium py-3 px-4 rounded-lg transition-colors text-sm"
             >
@@ -314,6 +315,7 @@ export default function ChordProgressionFinderClient() {
             <a
               href={result.files.csvUrl}
               download
+              data-output-name="chord-progressions.csv"
               data-track-output="true"
               className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white font-medium py-3 px-4 rounded-lg transition-colors text-sm"
             >
@@ -324,6 +326,7 @@ export default function ChordProgressionFinderClient() {
               <a
                 href={result.files.midiUrl}
                 download
+                data-output-name="chord-progressions.mid"
                 data-track-output="true"
                 className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-colors text-sm"
               >

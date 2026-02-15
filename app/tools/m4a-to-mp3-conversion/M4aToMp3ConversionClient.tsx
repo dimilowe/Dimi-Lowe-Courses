@@ -170,9 +170,23 @@ export default function M4aToMp3ConversionClient() {
   const download = () => {
     if (!convertedBlob || !file) return;
     const base = file.name.replace(/\.[^.]+$/, '');
+    const outputName = `${base}.mp3`;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('vcm:tool-output-ready', {
+          detail: {
+            mode: 'audio',
+            type: 'uploaded_audio',
+            title: outputName,
+            blob: convertedBlob,
+            fileName: outputName,
+          },
+        }),
+      );
+    }
     const a = document.createElement('a');
     a.href = convertedUrl!;
-    a.download = `${base}.mp3`;
+    a.download = outputName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

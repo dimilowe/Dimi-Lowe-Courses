@@ -186,20 +186,20 @@ export default function ToolsRecentFilesDock() {
                         {importingId === item.id ? 'Using...' : 'Use here'}
                       </button>
                     )}
+                    {workstationMode && workstationHref && (
+                      <Link
+                        href={workstationHref}
+                        className="text-xs px-2 py-1 rounded-md bg-white text-orange-700 hover:bg-orange-50 font-semibold"
+                      >
+                        {getWorkstationLabelForMode(workstationMode)}
+                      </Link>
+                    )}
                     <Link
                       href={`/workspace/${item.id}`}
                       className="text-xs px-2 py-1 rounded-md bg-white/15 hover:bg-white/25"
                     >
                       Open
                     </Link>
-                    {workstationMode && workstationHref && (
-                      <Link
-                        href={workstationHref}
-                        className="text-xs px-2 py-1 rounded-md bg-white text-orange-700 hover:bg-orange-50"
-                      >
-                        {getWorkstationLabelForMode(workstationMode)}
-                      </Link>
-                    )}
                     {item.file_url && (
                       <a
                         href={item.file_url}

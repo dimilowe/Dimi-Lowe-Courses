@@ -209,6 +209,21 @@ export default function AudioEffectTool({
     originCloudId,
   });
 
+  const emitOutputReady = useCallback((blob: Blob, fileName: string) => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("vcm:tool-output-ready", {
+        detail: {
+          mode: "audio",
+          type: "uploaded_audio",
+          title: fileName,
+          blob,
+          fileName,
+        },
+      }),
+    );
+  }, []);
+
   const getCtx = useCallback(async () => {
     if (!ctxRef.current) ctxRef.current = new AudioContext();
     if (ctxRef.current.state === "suspended") await ctxRef.current.resume();
@@ -498,7 +513,8 @@ export default function AudioEffectTool({
     }
     const blob = encodeWav(rendered);
     downloadBlob(blob, downloadName);
-  }, [audioBuffer, connectSingleEffect, downloadName, kind, settings]);
+    emitOutputReady(blob, downloadName);
+  }, [audioBuffer, connectSingleEffect, downloadName, emitOutputReady, kind, settings]);
 
   const exportAudio = useCallback(async () => {
     if (!file && !audioBuffer) return;
@@ -520,6 +536,7 @@ export default function AudioEffectTool({
         if (res.ok) {
           const blob = await res.blob();
           downloadBlob(blob, downloadName);
+          emitOutputReady(blob, downloadName);
           return;
         }
 
@@ -534,7 +551,7 @@ export default function AudioEffectTool({
     } finally {
       setExporting(false);
     }
-  }, [audioBuffer, downloadName, exportAudioLocal, file, kind, settings]);
+  }, [audioBuffer, downloadName, emitOutputReady, exportAudioLocal, file, kind, settings]);
 
   const handleSavePreset = async () => {
     const ok = await savePreset(presetName, settings);

@@ -325,10 +325,30 @@ export default function WatermarkCreatorFreeClient() {
     const mime = outputFormat === "png" ? "image/png" : "image/jpeg";
     const quality = outputFormat === "jpeg" ? jpegQuality : undefined;
     const dataUrl = canvas.toDataURL(mime, quality);
+    const outputName = `watermark-creator-free.${outputFormat === "jpeg" ? "jpg" : "png"}`;
+
+    if (typeof window !== "undefined") {
+      fetch(dataUrl)
+        .then((res) => res.blob())
+        .then((blob) => {
+          window.dispatchEvent(
+            new CustomEvent("vcm:tool-output-ready", {
+              detail: {
+                mode: "image",
+                type: "uploaded_image",
+                title: outputName,
+                blob,
+                fileName: outputName,
+              },
+            }),
+          );
+        })
+        .catch(() => {});
+    }
 
     const a = document.createElement("a");
     a.href = dataUrl;
-    a.download = `watermark-creator-free.${outputFormat === "jpeg" ? "jpg" : "png"}`;
+    a.download = outputName;
     a.click();
   };
 

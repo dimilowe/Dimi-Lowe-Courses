@@ -238,6 +238,8 @@ export default function AudioToMidiClient() {
                 href={result.midiUrl}
                 download
                 data-track-output="true"
+                data-output-url={result.midiUrl}
+                data-output-name="converted-midi.mid"
                 className="flex items-center justify-center gap-2 py-3 px-4 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors"
               >
                 <Download className="w-4 h-4" />
@@ -247,6 +249,8 @@ export default function AudioToMidiClient() {
                 href={result.csvUrl}
                 download
                 data-track-output="true"
+                data-output-url={result.csvUrl}
+                data-output-name="converted-notes.csv"
                 className="flex items-center justify-center gap-2 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
               >
                 <FileText className="w-4 h-4" />
@@ -256,6 +260,8 @@ export default function AudioToMidiClient() {
                 href={result.wavUrl}
                 download
                 data-track-output="true"
+                data-output-url={result.wavUrl}
+                data-output-name="converted-preview.wav"
                 className="flex items-center justify-center gap-2 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
               >
                 <Music className="w-4 h-4" />

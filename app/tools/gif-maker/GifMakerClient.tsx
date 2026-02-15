@@ -751,6 +751,8 @@ export default function GifMakerClient() {
                 <button
                   onClick={downloadGif}
                   data-track-output="true"
+                  data-output-url={outputGif}
+                  data-output-name="vcm-gif-maker-output.gif"
                   className="w-full py-3 px-6 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
                   <Download className="w-5 h-5" />

@@ -227,10 +227,23 @@ export default function HeicToJpgPage() {
 
   const downloadFile = (fileItem: FileItem) => {
     if (!fileItem.convertedBlob) return;
-    
+    const outputName = fileItem.name.replace(/\.(heic|heif)$/i, '.jpg');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('vcm:tool-output-ready', {
+          detail: {
+            mode: 'image',
+            type: 'uploaded_image',
+            title: outputName,
+            blob: fileItem.convertedBlob,
+            fileName: outputName,
+          },
+        }),
+      );
+    }
     const link = document.createElement('a');
     link.href = fileItem.convertedUrl!;
-    link.download = fileItem.name.replace(/\.(heic|heif)$/i, '.jpg');
+    link.download = outputName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -32,7 +32,6 @@ export default function SaveUpgradeSection() {
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [canSave, setCanSave] = useState(false);
   const [usage, setUsage] = useState<UsageSnapshot>({ sessions: 0, outputs: 0 });
-  const [showPeakPrompt, setShowPeakPrompt] = useState(false);
 
   const toolSlug = getToolSlug(pathname || "");
   const weekKey = getWeekKey();
@@ -110,8 +109,6 @@ export default function SaveUpgradeSection() {
       const next = { ...current, outputs: current.outputs + 1 };
       window.localStorage.setItem(storageKey, JSON.stringify(next));
       setUsage(next);
-      setShowPeakPrompt(true);
-      window.setTimeout(() => setShowPeakPrompt(false), 6000);
     };
 
     window.addEventListener("click", onClick);
@@ -129,20 +126,6 @@ export default function SaveUpgradeSection() {
 
   return (
     <>
-      {showPeakPrompt && (
-        <div className="fixed top-20 inset-x-0 z-40 pointer-events-none">
-          <div className="max-w-3xl mx-auto px-4">
-            <div className="pointer-events-auto rounded-xl border border-emerald-300 bg-white shadow-lg px-4 py-3">
-              <p className="text-sm text-gray-800">
-                Nice output. Save it now or it disappears when this tab closes.
-                <Link href="/pricing" className="font-semibold text-emerald-700 hover:text-emerald-800 ml-1">
-                  Upgrade to save
-                </Link>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
       <section className="max-w-4xl mx-auto px-4 mt-4 mb-8">
         <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-6 md:p-8">
           <div className="flex items-start justify-between gap-4">

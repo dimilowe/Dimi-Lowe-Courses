@@ -297,6 +297,7 @@ export default function AudioKeyDetectorClient() {
             <a
               href={result.analysisUrl}
               download
+              data-output-name="key-analysis.json"
               data-track-output="true"
               className="flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-900 text-white font-medium py-3 px-4 rounded-lg transition-colors"
             >

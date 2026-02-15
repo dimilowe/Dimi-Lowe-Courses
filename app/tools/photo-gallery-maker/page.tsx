@@ -366,11 +366,30 @@ export default function PhotoGalleryMakerPage() {
     }
     setError("");
     setIsGenerating(true);
-    setStatusMessage("Gallery generated successfully!");
+    setShowPreview(true);
+
+    // Primary action: if no slots are filled yet, auto-place images into the current layout.
+    const hasPlacedImages = slotImageIds.some(Boolean);
+    if (!hasPlacedImages) {
+      setSlotImageIds((prev) => {
+        const next = [...prev];
+        for (let i = 0; i < next.length; i++) {
+          next[i] = images[i]?.id || null;
+        }
+        return next;
+      });
+      setStatusMessage("Gallery generated. Images were placed into preview slots.");
+    } else {
+      setStatusMessage("Gallery preview updated.");
+    }
+
+    // Bring users directly to the live preview region.
+    previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+
     setTimeout(() => {
       setIsGenerating(false);
       setStatusMessage("");
-    }, 200);
+    }, 900);
   };
 
   const getLayoutStyles = (): React.CSSProperties => {
@@ -704,11 +723,35 @@ export default function PhotoGalleryMakerPage() {
         }
       }
 
-      const dataUrl = canvas.toDataURL("image/png");
+      const pngBlob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error("Failed to create PNG output."));
+            return;
+          }
+          resolve(blob);
+        }, "image/png");
+      });
+
+      const fileName = `photo-gallery-${Date.now()}.png`;
+      const dataUrl = URL.createObjectURL(pngBlob);
       const link = document.createElement("a");
-      link.download = "photo-gallery.png";
+      link.download = fileName;
       link.href = dataUrl;
       link.click();
+      setTimeout(() => URL.revokeObjectURL(dataUrl), 1500);
+
+      window.dispatchEvent(
+        new CustomEvent("vcm:tool-output-ready", {
+          detail: {
+            mode: "image",
+            type: "uploaded_image",
+            title: fileName,
+            blob: pngBlob,
+            fileName,
+          },
+        })
+      );
 
       setStatusMessage("PNG downloaded successfully!");
       setTimeout(() => setStatusMessage(""), 3000);
@@ -1263,7 +1306,6 @@ ${imageCss}
           <div className="flex flex-wrap gap-3">
             <button
               onClick={generateGallery}
-              data-track-output="true"
               disabled={isGenerating}
               className="flex-1 sm:flex-none px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
@@ -1335,7 +1377,7 @@ ${imageCss}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 md:p-8 mb-8">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Gallery Preview</h2>
           <p className="text-sm text-gray-500 mb-3">
-            Drag your uploaded images into these slots.
+            Live preview: drag your uploaded images into slots, or click Generate Gallery to auto-fill.
           </p>
           <div
             ref={previewRef}
@@ -1487,7 +1529,7 @@ ${imageCss}
                 <span className="flex-shrink-0 w-7 h-7 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-medium">4</span>
                 <div>
                   <p className="font-medium text-gray-900">Generate and export</p>
-                  <p className="text-sm text-gray-600">Click "Generate Gallery" to preview, then download as PNG for social media or copy HTML/CSS code for your website.</p>
+                  <p className="text-sm text-gray-600">Use the live preview to arrange slots. Click "Generate Gallery" to auto-fill the layout, then download PNG or copy HTML/CSS.</p>
                 </div>
               </li>
             </ol>

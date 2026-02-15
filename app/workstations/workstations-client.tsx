@@ -256,8 +256,19 @@ function WidgetDock({
   );
 }
 
-function PdfStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLoggedIn: boolean; tools: ToolOption[] }) {
+function PdfStudio({
+  onBack,
+  isLoggedIn,
+  tools,
+  preloadPdf,
+}: {
+  onBack: () => void;
+  isLoggedIn: boolean;
+  tools: ToolOption[];
+  preloadPdf?: { src?: string | null; title?: string | null; itemId?: string | null };
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastPreloadKeyRef = useRef<string | null>(null);
   const [docs, setDocs] = useState<UploadedAsset[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
@@ -342,6 +353,55 @@ function PdfStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogged
   }
 
   const activeDoc = docs[activeIndex];
+
+  useEffect(() => {
+    const preloadKey = `${preloadPdf?.itemId || ""}::${preloadPdf?.src || ""}`;
+    if (!preloadPdf || (!preloadPdf.src && !preloadPdf.itemId)) return;
+    if (lastPreloadKeyRef.current === preloadKey) return;
+    const currentPreload = preloadPdf;
+
+    let cancelled = false;
+    async function run() {
+      let src = currentPreload.src || "";
+      if (!src && currentPreload.itemId) {
+        try {
+          const res = await fetch(`/api/workspace/items/${encodeURIComponent(currentPreload.itemId)}`, { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            if (typeof data?.file_url === "string") src = data.file_url;
+          }
+        } catch {}
+      }
+      if (!src || cancelled) return;
+      lastPreloadKeyRef.current = preloadKey;
+      const title = currentPreload.title?.trim() || "Imported PDF";
+
+      setDocs((prev) => {
+        const existingIndex = prev.findIndex((d) => d.src === src);
+        if (existingIndex >= 0) {
+          setActiveIndex(existingIndex);
+          return prev;
+        }
+        setActiveIndex(0);
+        return [
+          {
+            localId: currentPreload.itemId || makeId(),
+            id: currentPreload.itemId || undefined,
+            title,
+            src,
+            status: currentPreload.itemId ? "uploaded" : "local",
+            type: "pdf",
+          },
+          ...prev,
+        ];
+      });
+      setNotice(`Loaded: ${title}`);
+    }
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [preloadPdf?.itemId, preloadPdf?.src, preloadPdf?.title]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2398,7 +2458,16 @@ export default function WorkstationsClient({ isLoggedIn }: WorkstationsClientPro
     );
   }
 
-  if (mode === "pdf") return <PdfStudio onBack={() => setMode(null)} isLoggedIn={isLoggedIn} tools={tools} />;
+  if (mode === "pdf") {
+    return (
+      <PdfStudio
+        onBack={() => setMode(null)}
+        isLoggedIn={isLoggedIn}
+        tools={tools}
+        preloadPdf={preloadImage}
+      />
+    );
+  }
   if (mode === "image") return <ImageStudio onBack={() => setMode(null)} isLoggedIn={isLoggedIn} tools={tools} preloadImage={preloadImage} />;
   return <AudioStudio onBack={() => setMode(null)} isLoggedIn={isLoggedIn} tools={tools} />;
 }

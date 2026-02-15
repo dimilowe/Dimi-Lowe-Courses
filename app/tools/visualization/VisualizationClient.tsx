@@ -151,6 +151,24 @@ export default function VisualizationClient() {
         backgroundColor: '#fafaf9',
         quality: 1,
       }).then((dataUrl) => {
+        if (typeof window !== "undefined") {
+          fetch(dataUrl)
+            .then((res) => res.blob())
+            .then((blob) => {
+              window.dispatchEvent(
+                new CustomEvent("vcm:tool-output-ready", {
+                  detail: {
+                    mode: "image",
+                    type: "uploaded_image",
+                    title: "diagram.png",
+                    blob,
+                    fileName: "diagram.png",
+                  },
+                }),
+              );
+            })
+            .catch(() => {});
+        }
         const link = document.createElement('a');
         link.download = 'diagram.png';
         link.href = dataUrl;

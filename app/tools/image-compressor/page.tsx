@@ -567,6 +567,8 @@ export default function ImageCompressorPage() {
               <button
                 onClick={handleDownload}
                 data-track-output="true"
+                data-output-url={result ? `/api/image-download/${result.jobId}` : undefined}
+                data-output-name={file ? `compressed-${file.name}` : "compressed-image.jpg"}
                 className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-gray-900 font-semibold py-4 px-8 rounded-lg text-lg transition-all"
               >
                 <Download className="w-5 h-5" />

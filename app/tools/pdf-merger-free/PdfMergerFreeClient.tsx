@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import Link from "next/link";
 import {
   DndContext,
   closestCenter,
@@ -18,6 +19,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { getWorkstationHrefForItem } from "@/lib/workstations/getWorkstationTarget";
 
 interface FileItem {
   id: string;
@@ -96,7 +98,14 @@ export default function PdfMergerFreeClient() {
   const [isMerging, setIsMerging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [mergedResult, setMergedResult] = useState<{
+    fileName: string;
+    downloadUrl: string;
+    workstationHref: string;
+    savedToWorkspace: boolean;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previousBlobUrlRef = useRef<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -106,6 +115,12 @@ export default function PdfMergerFreeClient() {
   );
 
   const totalSize = files.reduce((acc, f) => acc + f.size, 0);
+
+  useEffect(() => {
+    return () => {
+      if (previousBlobUrlRef.current) URL.revokeObjectURL(previousBlobUrlRef.current);
+    };
+  }, []);
 
   const validateAndAddFiles = (fileList: FileList | File[]) => {
     const filesArray = Array.from(fileList);
@@ -194,6 +209,34 @@ export default function PdfMergerFreeClient() {
     setError(null);
   };
 
+  const uploadMergedOutput = async (blob: Blob, fileName: string): Promise<{
+    itemId?: string;
+    fileUrl?: string;
+    title: string;
+  } | null> => {
+    try {
+      const formData = new FormData();
+      formData.append("file", new File([blob], fileName, { type: "application/pdf" }));
+      formData.append("cloud_id", "file-data");
+
+      const res = await fetch("/api/workspace/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "same-origin",
+      });
+
+      if (!res.ok) return null;
+      const data = await res.json();
+      return {
+        itemId: typeof data?.id === "string" || typeof data?.id === "number" ? String(data.id) : undefined,
+        fileUrl: typeof data?.file_url === "string" ? data.file_url : undefined,
+        title: typeof data?.title === "string" && data.title.trim() ? data.title : fileName,
+      };
+    } catch {
+      return null;
+    }
+  };
+
   const handleMerge = async () => {
     if (files.length < 2) {
       setError("Add at least 2 PDFs to merge.");
@@ -220,14 +263,32 @@ export default function PdfMergerFreeClient() {
       }
 
       const blob = await response.blob();
+      const fileName = `merged-${Date.now()}.pdf`;
       const url = URL.createObjectURL(blob);
+      if (previousBlobUrlRef.current) URL.revokeObjectURL(previousBlobUrlRef.current);
+      previousBlobUrlRef.current = url;
       const link = document.createElement("a");
       link.href = url;
-      link.download = "merged.pdf";
+      link.download = fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+
+      const uploaded = await uploadMergedOutput(blob, fileName);
+      const workstationHref =
+        getWorkstationHrefForItem({
+          type: "uploaded_document",
+          fileUrl: uploaded?.fileUrl || url,
+          title: uploaded?.title || fileName,
+          itemId: uploaded?.itemId,
+        }) || "/workstations?mode=pdf";
+
+      setMergedResult({
+        fileName,
+        downloadUrl: url,
+        workstationHref,
+        savedToWorkspace: Boolean(uploaded?.itemId || uploaded?.fileUrl),
+      });
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");
     } finally {
@@ -326,8 +387,39 @@ export default function PdfMergerFreeClient() {
         </div>
       )}
 
+      {mergedResult && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+          <p className="text-sm font-semibold text-gray-900">Merged and downloaded.</p>
+          <p className="text-xs text-gray-600 mt-1">
+            Continue working in PDF Workstation to edit this file further.
+            {!mergedResult.savedToWorkspace && " (This handoff may only work in this tab until you upload to workspace.)"}
+          </p>
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <Link
+              href={mergedResult.workstationHref}
+              data-track-output="true"
+              className="inline-flex items-center gap-2 rounded-lg bg-orange-500 text-white px-3 py-2 text-sm font-semibold hover:bg-orange-600 transition-colors"
+            >
+              Open in PDF Workstation
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+            <a
+              href={mergedResult.downloadUrl}
+              download={mergedResult.fileName}
+              data-track-output="true"
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white text-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              Download Again
+            </a>
+          </div>
+        </div>
+      )}
+
       <button
         onClick={handleMerge}
+        data-track-output="true"
         disabled={files.length < 2 || isMerging}
         className={`w-full py-4 rounded-xl font-semibold text-white transition-all flex items-center justify-center gap-2 ${
           files.length < 2 || isMerging

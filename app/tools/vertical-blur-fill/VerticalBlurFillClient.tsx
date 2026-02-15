@@ -454,6 +454,7 @@ export default function VerticalBlurFillClient() {
             {status.status === "complete" && (
               <a
                 href={`/api/tools/vertical-blur-fill/download?jobId=${jobId}`}
+                data-output-name="vertical-blur-fill.mp4"
                 data-track-output="true"
                 className="block w-full py-3 px-6 bg-green-600 hover:bg-green-700 rounded-lg font-medium text-center transition-colors"
               >
