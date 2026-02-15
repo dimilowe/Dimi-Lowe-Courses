@@ -355,10 +355,10 @@ export function Navbar() {
               )}
               
               <Link 
-                href="/workflows" 
+                href="/workstations" 
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-orange-500 hover:bg-gray-50 transition-colors rounded-lg"
               >
-                Workflows
+                Workstations
               </Link>
               
               <Link 
@@ -667,11 +667,11 @@ export function Navbar() {
             </div>
             
             <Link 
-              href="/workflows" 
+              href="/workstations" 
               className="block text-sm font-medium py-3 text-gray-700 hover:text-orange-500 transition-colors"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Workflows
+              Workstations
             </Link>
             
             <Link 

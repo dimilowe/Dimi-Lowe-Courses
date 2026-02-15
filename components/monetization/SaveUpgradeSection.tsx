@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { BookmarkPlus, FolderOpen, ArrowRight, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 type UsageSnapshot = {
   sessions: number;
@@ -27,6 +27,8 @@ function getWeekKey(): string {
 
 export default function SaveUpgradeSection() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isEmbedMode = searchParams?.get("embed") === "1";
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [canSave, setCanSave] = useState(false);
   const [usage, setUsage] = useState<UsageSnapshot>({ sessions: 0, outputs: 0 });
@@ -116,7 +118,7 @@ export default function SaveUpgradeSection() {
     return () => window.removeEventListener("click", onClick);
   }, [toolSlug, storageKey, canSave]);
 
-  if (canSave) return null;
+  if (canSave || isEmbedMode) return null;
 
   const repeatTrigger = usage.sessions >= 2 || usage.outputs >= 3;
   const proofLine = usage.outputs >= 4
