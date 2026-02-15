@@ -11,6 +11,11 @@ import {
   isToolQuickImportCompatible,
 } from "@/lib/workspace/toolQuickImport";
 import { setWorkspaceDragPayload } from "@/lib/workspace/workspaceDragImport";
+import {
+  getWorkstationHrefForItem,
+  getWorkstationLabelForMode,
+  getWorkstationModeForItemType,
+} from "@/lib/workstations/getWorkstationTarget";
 
 type WorkspaceItem = {
   id: string;
@@ -332,6 +337,13 @@ export default function FloatingToolsButton() {
                 {items.map((item) => {
                   const kind = mapType(item.type);
                   const Icon = TYPE_ICON[kind] || TYPE_ICON.default;
+                  const workstationMode = getWorkstationModeForItemType(item.type);
+                  const workstationHref = getWorkstationHrefForItem({
+                    type: item.type,
+                    fileUrl: item.file_url,
+                    title: item.title,
+                    itemId: item.id,
+                  });
                   return (
                     <div
                       key={item.id}
@@ -391,6 +403,15 @@ export default function FloatingToolsButton() {
                         >
                           Open
                         </Link>
+                        {workstationMode && workstationHref && (
+                          <Link
+                            href={workstationHref}
+                            onClick={() => setIsOpen(false)}
+                            className="text-xs px-2 py-1 rounded-md bg-orange-500 text-white hover:bg-orange-600"
+                          >
+                            {getWorkstationLabelForMode(workstationMode)}
+                          </Link>
+                        )}
                         {item.file_url && (
                           <a
                             href={item.file_url}

@@ -2,8 +2,10 @@
 
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, FileText, Image as ImageIcon, Music2, Pause, Play, Scissors, Upload, X, Undo2, Redo2, Square, Type, Layers, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, FileText, Image as ImageIcon, Music2, Pause, Play, Scissors, Upload, X, Undo2, Redo2, Square, Type, Layers, Trash2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { getToolUI } from "@/lib/ui/get-tool-ui";
+import { getWorkspaceDragPayload, WORKSPACE_DRAG_MIME } from "@/lib/workspace/workspaceDragImport";
 
 type WorkstationMode = "pdf" | "image" | "audio";
 
@@ -72,6 +74,82 @@ async function uploadToWorkspace(file: File): Promise<{ id?: string; title: stri
 
 function makeLocalAsset(file: File, type: UploadedAsset["type"]): UploadedAsset {
   return { localId: makeId(), title: file.name, src: URL.createObjectURL(file), status: "local", type };
+}
+
+function loadImageElement(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+    img.crossOrigin = "anonymous";
+    img.src = src;
+  });
+}
+
+function stripFileExt(name: string): string {
+  return name.replace(/\.[a-z0-9]{2,6}$/i, "");
+}
+
+function triggerDownloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+async function fetchCanExportClean(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/user/subscription-capabilities", { cache: "no-store" });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Boolean(data?.isLoggedIn && data?.canSaveWorkspace);
+  } catch {
+    return false;
+  }
+}
+
+function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const numFrames = buffer.length;
+  const bitsPerSample = 16;
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  const byteRate = sampleRate * blockAlign;
+  const dataSize = numFrames * blockAlign;
+  const wavSize = 44 + dataSize;
+  const arrayBuffer = new ArrayBuffer(wavSize);
+  const view = new DataView(arrayBuffer);
+
+  const writeString = (offset: number, s: string) => {
+    for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
+  };
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+  writeString(36, "data");
+  view.setUint32(40, dataSize, true);
+
+  let offset = 44;
+  for (let i = 0; i < numFrames; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i] || 0));
+      const s = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+      view.setInt16(offset, s, true);
+      offset += 2;
+    }
+  }
+  return new Blob([arrayBuffer], { type: "audio/wav" });
 }
 
 function ModeCard({
@@ -188,6 +266,8 @@ function PdfStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogged
   const [pdfZoom, setPdfZoom] = useState(1);
   const [pdfRotate, setPdfRotate] = useState(0);
   const [pdfInvert, setPdfInvert] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [canExportClean, setCanExportClean] = useState(false);
 
   function removeWidget(id: string) {
     setWidgets((prev) => prev.filter((w) => w.id !== id));
@@ -263,12 +343,102 @@ function PdfStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogged
 
   const activeDoc = docs[activeIndex];
 
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      const allowed = await fetchCanExportClean();
+      if (!cancelled) setCanExportClean(allowed);
+    }
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function exportPdf() {
+    if (!activeDoc?.src || exporting) return;
+    setExporting(true);
+    setNotice(null);
+    try {
+      const res = await fetch(activeDoc.src);
+      if (!res.ok) throw new Error("Unable to load PDF for export.");
+      const sourceBlob = await res.blob();
+      let outputBlob = sourceBlob;
+
+      if (!canExportClean) {
+        const { PDFDocument, StandardFonts, rgb, degrees } = await import("pdf-lib");
+        const bytes = await sourceBlob.arrayBuffer();
+        const pdf = await PDFDocument.load(bytes);
+        const font = await pdf.embedFont(StandardFonts.HelveticaBold);
+        for (const page of pdf.getPages()) {
+          const { width, height } = page.getSize();
+          for (let y = -height * 0.4; y < height * 1.4; y += 140) {
+            for (let x = -width * 0.4; x < width * 1.4; x += 280) {
+              page.drawText("Made with VCM Suite • vcmsuite.com", {
+                x,
+                y,
+                size: 16,
+                rotate: degrees(-28),
+                color: rgb(0.12, 0.12, 0.18),
+                opacity: 0.12,
+                font,
+              });
+            }
+          }
+          page.drawRectangle({
+            x: width - 230,
+            y: 16,
+            width: 214,
+            height: 28,
+            color: rgb(0.1, 0.12, 0.16),
+            opacity: 0.78,
+          });
+          page.drawText("Made with VCM Suite", {
+            x: width - 220,
+            y: 24,
+            size: 13,
+            color: rgb(1, 1, 1),
+            font,
+          });
+        }
+        const pdfBytes = await pdf.save();
+        const pdfArrayBuffer = pdfBytes.buffer.slice(
+          pdfBytes.byteOffset,
+          pdfBytes.byteOffset + pdfBytes.byteLength
+        ) as ArrayBuffer;
+        outputBlob = new Blob([pdfArrayBuffer], { type: "application/pdf" });
+      }
+
+      const base = stripFileExt(activeDoc.title || "workstation-document");
+      triggerDownloadBlob(outputBlob, `${base}${canExportClean ? "" : "-vcm-watermarked"}.pdf`);
+      setNotice(
+        canExportClean
+          ? "Exported clean PDF."
+          : "Exported watermarked PDF. Subscribe to remove watermark exports.",
+      );
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-4">
       <button onClick={onBack} className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"><ArrowLeft className="h-4 w-4" /> Back</button>
       <div className="rounded-xl border border-gray-200 bg-white p-3 flex items-center justify-between">
         <div className="text-sm font-medium text-gray-900">PDF Workstation</div>
-        <button onClick={() => inputRef.current?.click()} className="text-xs border rounded-lg px-3 py-1.5 inline-flex items-center gap-1"><Upload className="h-3.5 w-3.5" /> Open PDF</button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportPdf}
+            data-track-output="true"
+            disabled={!activeDoc || exporting}
+            className="text-xs border rounded-lg px-3 py-1.5 inline-flex items-center gap-1 disabled:opacity-50"
+          >
+            <Download className="h-3.5 w-3.5" /> {exporting ? "Exporting..." : "Export"}
+          </button>
+          <button onClick={() => inputRef.current?.click()} className="text-xs border rounded-lg px-3 py-1.5 inline-flex items-center gap-1"><Upload className="h-3.5 w-3.5" /> Open PDF</button>
+        </div>
       </div>
       <input ref={inputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
       {notice && <div className="rounded-lg border border-blue-200 bg-blue-50 text-blue-800 px-4 py-2 text-sm">{notice}</div>}
@@ -337,7 +507,17 @@ function PdfStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogged
   );
 }
 
-function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLoggedIn: boolean; tools: ToolOption[] }) {
+function ImageStudio({
+  onBack,
+  isLoggedIn,
+  tools,
+  preloadImage,
+}: {
+  onBack: () => void;
+  isLoggedIn: boolean;
+  tools: ToolOption[];
+  preloadImage?: { src?: string | null; title?: string | null; itemId?: string | null };
+}) {
   type CanvasItem = {
     id: string;
     type: "image" | "text" | "shape";
@@ -416,6 +596,7 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     originY: number;
     originW: number;
     originH: number;
+    originFontSize?: number;
     snapshot: CanvasItem[];
   } | null>(null);
   const widgetWindowInteractionRef = useRef<{
@@ -425,6 +606,7 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     startY: number;
     startRect: { x: number; y: number; w: number; h: number };
   } | null>(null);
+  const lastPreloadKeyRef = useRef<string | null>(null);
 
   const [assets, setAssets] = useState<UploadedAsset[]>([]);
   const [uploadsOpen, setUploadsOpen] = useState(false);
@@ -448,6 +630,12 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<CanvasItem[][]>([]);
   const [redoStack, setRedoStack] = useState<CanvasItem[][]>([]);
+  const [exporting, setExporting] = useState(false);
+  const [canExportClean, setCanExportClean] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exportPreviewUrl, setExportPreviewUrl] = useState<string | null>(null);
+  const [exportPreviewLoading, setExportPreviewLoading] = useState(false);
+  const [exportPreviewWatermarked, setExportPreviewWatermarked] = useState(true);
 
   const canvasItems = pages[activePageIndex]?.items || [];
   const selected = useMemo(() => canvasItems.find((i) => i.id === selectedId) || null, [canvasItems, selectedId]);
@@ -562,6 +750,274 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     setUploadsOpen(false);
   }
 
+  useEffect(() => {
+    const preloadKey = `${preloadImage?.itemId || ""}::${preloadImage?.src || ""}`;
+    if (!preloadImage || (!preloadImage.src && !preloadImage.itemId)) return;
+    if (lastPreloadKeyRef.current === preloadKey) return;
+    const currentPreload = preloadImage;
+
+    let cancelled = false;
+    async function run() {
+      let src = currentPreload.src || "";
+      if (!src && currentPreload.itemId) {
+        try {
+          const res = await fetch(`/api/workspace/items/${encodeURIComponent(currentPreload.itemId)}`, { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            if (typeof data?.file_url === "string") src = data.file_url;
+          }
+        } catch {}
+      }
+      if (!src || cancelled) return;
+      lastPreloadKeyRef.current = preloadKey;
+      const title = currentPreload.title?.trim() || "Imported image";
+      const asset: UploadedAsset = {
+        localId: currentPreload.itemId || makeId(),
+        id: currentPreload.itemId || undefined,
+        title,
+        src,
+        status: "uploaded",
+        type: "image",
+      };
+      setAssets((prev) => {
+        if (prev.some((a) => a.src === src)) return prev;
+        return [asset, ...prev];
+      });
+      addImageAsset(asset);
+      setNotice(`Loaded: ${title}`);
+    }
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [preloadImage?.itemId, preloadImage?.src, preloadImage?.title]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCapabilities() {
+      try {
+        const res = await fetch("/api/user/subscription-capabilities", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setCanExportClean(Boolean(data?.isLoggedIn && data?.canSaveWorkspace));
+      } catch {}
+    }
+    void loadCapabilities();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (exportPreviewUrl) URL.revokeObjectURL(exportPreviewUrl);
+    };
+  }, [exportPreviewUrl]);
+
+  async function buildCanvasExportBlob(includeWatermark: boolean): Promise<Blob> {
+    const out = document.createElement("canvas");
+    out.width = canvasSize.w;
+    out.height = canvasSize.h;
+    const ctx = out.getContext("2d");
+    if (!ctx) throw new Error("Canvas export is unavailable in this browser.");
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, out.width, out.height);
+
+    const sorted = [...canvasItems].sort((a, b) => a.zIndex - b.zIndex);
+    for (const item of sorted) {
+      ctx.save();
+      ctx.globalAlpha = item.opacity;
+      ctx.translate(item.x + item.w / 2, item.y + item.h / 2);
+      ctx.rotate((item.rotation * Math.PI) / 180);
+
+      if (item.type === "image" && item.src) {
+        try {
+          const img = await loadImageElement(item.src);
+          const iw = img.naturalWidth || img.width;
+          const ih = img.naturalHeight || img.height;
+          const scale = Math.min(item.w / iw, item.h / ih);
+          const dw = iw * scale;
+          const dh = ih * scale;
+          ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+        } catch {}
+      } else if (item.type === "shape") {
+        ctx.fillStyle = item.color;
+        const x = -item.w / 2;
+        const y = -item.h / 2;
+        const w = item.w;
+        const h = item.h;
+        if (item.shapeKind === "line") {
+          ctx.fillRect(x, y + h / 2 - 2, w, 4);
+        } else if (item.shapeKind === "triangle") {
+          ctx.beginPath();
+          ctx.moveTo(x + w / 2, y);
+          ctx.lineTo(x, y + h);
+          ctx.lineTo(x + w, y + h);
+          ctx.closePath();
+          ctx.fill();
+        } else if (item.shapeKind === "diamond") {
+          ctx.beginPath();
+          ctx.moveTo(x + w / 2, y);
+          ctx.lineTo(x + w, y + h / 2);
+          ctx.lineTo(x + w / 2, y + h);
+          ctx.lineTo(x, y + h / 2);
+          ctx.closePath();
+          ctx.fill();
+        } else if (item.shapeKind === "star") {
+          const cx = x + w / 2;
+          const cy = y + h / 2;
+          const outer = Math.min(w, h) / 2;
+          const inner = outer * 0.45;
+          ctx.beginPath();
+          for (let i = 0; i < 10; i++) {
+            const r = i % 2 === 0 ? outer : inner;
+            const a = -Math.PI / 2 + (i * Math.PI) / 5;
+            const px = cx + Math.cos(a) * r;
+            const py = cy + Math.sin(a) * r;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          const radius = item.shapeKind === "circle" || item.shapeKind === "pill" ? Math.min(w, h) / 2 : 8;
+          ctx.beginPath();
+          ctx.moveTo(x + radius, y);
+          ctx.lineTo(x + w - radius, y);
+          ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+          ctx.lineTo(x + w, y + h - radius);
+          ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+          ctx.lineTo(x + radius, y + h);
+          ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+          ctx.lineTo(x, y + radius);
+          ctx.quadraticCurveTo(x, y, x + radius, y);
+          ctx.closePath();
+          ctx.fill();
+        }
+      } else if (item.type === "text") {
+        const fontSize = item.fontSize || 30;
+        const lineHeight = Math.max(12, Math.round(fontSize * 1.12));
+        const text = item.text || "";
+        ctx.fillStyle = item.color;
+        ctx.font = `${fontSize}px ${item.fontFamily || "Inter"}, sans-serif`;
+        ctx.textBaseline = "top";
+        const maxWidth = Math.max(10, item.w);
+        const words = text.split(/\s+/);
+        const lines: string[] = [];
+        let line = "";
+        for (const word of words) {
+          const next = line ? `${line} ${word}` : word;
+          if (ctx.measureText(next).width <= maxWidth || !line) {
+            line = next;
+          } else {
+            lines.push(line);
+            line = word;
+          }
+        }
+        if (line) lines.push(line);
+        const startX = -item.w / 2;
+        const startY = -item.h / 2;
+        lines.forEach((ln, idx) => {
+          const y = startY + idx * lineHeight;
+          if (y > startY + item.h - lineHeight) return;
+          ctx.fillText(ln, startX, y, maxWidth);
+        });
+      }
+      ctx.restore();
+    }
+
+    if (includeWatermark) {
+      ctx.save();
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = "#111827";
+      ctx.font = "700 22px Inter, Arial, sans-serif";
+      ctx.rotate((-22 * Math.PI) / 180);
+      for (let y = -out.height; y < out.height * 1.8; y += 170) {
+        for (let x = -out.width; x < out.width * 1.8; x += 360) {
+          ctx.fillText("Made with VCM Suite • vcmsuite.com", x, y);
+        }
+      }
+      ctx.restore();
+
+      const badgeW = 292;
+      const badgeH = 38;
+      const bx = out.width - badgeW - 16;
+      const by = out.height - badgeH - 16;
+      ctx.save();
+      ctx.fillStyle = "rgba(17,24,39,0.86)";
+      ctx.beginPath();
+      ctx.roundRect(bx, by, badgeW, badgeH, 10);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "600 16px Inter, Arial, sans-serif";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Made with VCM Suite", bx + 14, by + badgeH / 2);
+      ctx.restore();
+    }
+
+    const blob = await new Promise<Blob | null>((resolve) => out.toBlob(resolve, "image/png"));
+    if (!blob) throw new Error("Failed to generate export.");
+    return blob;
+  }
+
+  async function openExportMenu() {
+    if (exportMenuOpen) {
+      setExportMenuOpen(false);
+      return;
+    }
+    const useWatermark = !canExportClean;
+    setExportPreviewWatermarked(useWatermark);
+    setExportMenuOpen(true);
+    setExportPreviewLoading(true);
+    setNotice(null);
+    try {
+      const blob = await buildCanvasExportBlob(useWatermark);
+      const url = URL.createObjectURL(blob);
+      setExportPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return url;
+      });
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Export preview failed.");
+    } finally {
+      setExportPreviewLoading(false);
+    }
+  }
+
+  async function downloadWatermarkedExport() {
+    if (exporting) return;
+    setExporting(true);
+    setNotice(null);
+    try {
+      const blob = await buildCanvasExportBlob(true);
+      triggerDownloadBlob(blob, `vcm-workstation-${Date.now()}-watermarked.png`);
+      setNotice("Downloaded watermarked export.");
+      setExportMenuOpen(false);
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function downloadCleanExport() {
+    if (exporting || !canExportClean) return;
+    setExporting(true);
+    setNotice(null);
+    try {
+      const blob = await buildCanvasExportBlob(false);
+      triggerDownloadBlob(blob, `vcm-workstation-${Date.now()}.png`);
+      setNotice("Downloaded clean export.");
+      setExportMenuOpen(false);
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   function bringToFront(id: string) {
     const maxZ = Math.max(1, ...canvasItems.map((i) => i.zIndex));
     commit(canvasItems.map((i) => (i.id === id ? { ...i, zIndex: maxZ + 1 } : i)));
@@ -606,6 +1062,39 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
   function onCanvasWidgetDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setWidgetCanvasDragOver(false);
+    const workspacePayload = getWorkspaceDragPayload(e.dataTransfer);
+    if (workspacePayload?.fileUrl && canvasRef.current) {
+      const isImageType =
+        workspacePayload.type.includes("image") ||
+        /\.(png|jpe?g|webp|gif|svg|bmp|avif)$/i.test(workspacePayload.title);
+      if (isImageType) {
+        const scale = zoom / 100;
+        const rect = canvasRef.current.getBoundingClientRect();
+        const dropX = (e.clientX - rect.left) / scale;
+        const dropY = (e.clientY - rect.top) / scale;
+        const z = canvasItems.length + 1;
+        commit([
+          ...canvasItems,
+          {
+            id: makeId(),
+            type: "image",
+            x: Math.max(8, Math.min(canvasSize.w - 260, dropX - 130)),
+            y: Math.max(8, Math.min(canvasSize.h - 180, dropY - 90)),
+            w: 260,
+            h: 180,
+            rotation: 0,
+            opacity: 1,
+            color: "#ffffff",
+            src: workspacePayload.fileUrl,
+            zIndex: z,
+          },
+        ]);
+        setNotice(`Added from Recent Files: ${workspacePayload.title}`);
+      } else {
+        setNotice("Only image files can be dropped onto the image canvas.");
+      }
+      return;
+    }
     const outputRaw = e.dataTransfer.getData("application/x-vcm-image-output");
     if (outputRaw && canvasRef.current) {
       try {
@@ -797,6 +1286,14 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
             if (h < minSize) {
               if (r.dir.includes("n")) y -= minSize - h;
               h = minSize;
+            }
+            if (i.type === "text") {
+              // Make text size directly follow the resized box so dragging borders is always visible.
+              const textLen = Math.max(1, (i.text || "").length);
+              const widthFit = (w / textLen) * 1.8;
+              const heightFit = h * 0.8;
+              const nextFontSize = Math.max(8, Math.min(240, Math.round(Math.min(widthFit, heightFit))));
+              return { ...i, x, y, w, h, fontSize: nextFontSize };
             }
             return { ...i, x, y, w, h };
           }),
@@ -1006,6 +1503,76 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
           <button onClick={redo} disabled={redoStack.length === 0} className="text-xs px-2.5 py-1.5 rounded bg-white/10 disabled:opacity-50 inline-flex items-center gap-1">
             <Redo2 className="h-3.5 w-3.5" /> Redo
           </button>
+          <div className="relative">
+            <button
+              onClick={openExportMenu}
+              className="text-xs px-2.5 py-1.5 rounded bg-white/10 disabled:opacity-50 inline-flex items-center gap-1"
+            >
+              <Download className="h-3.5 w-3.5" /> {exporting ? "Exporting..." : "Export"}
+            </button>
+            {exportMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-[340px] rounded-xl border border-gray-200 bg-white text-gray-900 shadow-xl p-3 z-40">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div>
+                    <p className="text-sm font-semibold">{canExportClean ? "Clean Export Ready" : "Watermarked Export Preview"}</p>
+                    <p className="text-xs text-gray-500">
+                      {canExportClean
+                        ? "Your subscription removes watermarks."
+                        : "Free exports include VCM branding. Subscribe to remove watermark."}
+                    </p>
+                  </div>
+                  <button onClick={() => setExportMenuOpen(false)} className="text-gray-400 hover:text-gray-700">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 h-40 overflow-hidden flex items-center justify-center">
+                  {exportPreviewLoading && <p className="text-xs text-gray-500">Generating preview...</p>}
+                  {!exportPreviewLoading && exportPreviewUrl && (
+                    <img
+                      src={exportPreviewUrl}
+                      alt="Export preview"
+                      className="w-full h-full object-contain"
+                    />
+                  )}
+                </div>
+                {!canExportClean && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <Link href="/pricing" className="text-xs rounded-lg px-3 py-2 bg-orange-500 text-white hover:bg-orange-600">
+                      Subscribe to Remove Watermark
+                    </Link>
+                    <button
+                      onClick={downloadWatermarkedExport}
+                      data-track-output="true"
+                      disabled={exporting}
+                      className="text-xs rounded-lg px-3 py-2 border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Download Watermarked
+                    </button>
+                  </div>
+                )}
+                {canExportClean && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      onClick={downloadCleanExport}
+                      data-track-output="true"
+                      disabled={exporting}
+                      className="text-xs rounded-lg px-3 py-2 bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50"
+                    >
+                      Download Clean
+                    </button>
+                    <button
+                      onClick={downloadWatermarkedExport}
+                      data-track-output="true"
+                      disabled={exporting}
+                      className="text-xs rounded-lg px-3 py-2 border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Download Watermarked
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <button onClick={() => inputRef.current?.click()} className="text-xs px-2.5 py-1.5 rounded bg-white text-gray-900 inline-flex items-center gap-1">
             <Upload className="h-3.5 w-3.5" /> Upload
           </button>
@@ -1229,7 +1796,10 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
                   if (e.target === e.currentTarget) setSelectedId(null);
                 }}
                 onDragOver={(e) => {
-                  if (e.dataTransfer.types.includes("application/x-tool-widget")) {
+                  if (
+                    e.dataTransfer.types.includes("application/x-tool-widget") ||
+                    e.dataTransfer.types.includes(WORKSPACE_DRAG_MIME)
+                  ) {
                     e.preventDefault();
                     setWidgetCanvasDragOver(true);
                   }
@@ -1315,6 +1885,7 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
                                   originY: item.y,
                                   originW: item.w,
                                   originH: item.h,
+                                  originFontSize: item.type === "text" ? item.fontSize || 30 : undefined,
                                   snapshot: canvasItems,
                                 };
                               }}
@@ -1499,6 +2070,8 @@ function AudioStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
   const [dragOver, setDragOver] = useState(false);
   const [gainLevel, setGainLevel] = useState(1);
   const [lowPassOn, setLowPassOn] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [canExportClean, setCanExportClean] = useState(false);
   const tracks = useMemo(() => ["Track 1", "Track 2", "Track 3", "Track 4"], []);
 
   function removeWidget(id: string) {
@@ -1612,12 +2185,99 @@ function AudioStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     }
   }
 
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      const allowed = await fetchCanExportClean();
+      if (!cancelled) setCanExportClean(allowed);
+    }
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function exportAudio() {
+    if (!selectedClip || exporting) return;
+    setExporting(true);
+    setNotice(null);
+    try {
+      const res = await fetch(selectedClip);
+      if (!res.ok) throw new Error("Unable to load audio for export.");
+      const sourceBlob = await res.blob();
+
+      if (canExportClean) {
+        const base = stripFileExt((clips.find((c) => c.src === selectedClip)?.title || "workstation-audio").trim());
+        const ext = sourceBlob.type.includes("mpeg") ? "mp3" : sourceBlob.type.includes("wav") ? "wav" : "audio";
+        triggerDownloadBlob(sourceBlob, `${base}.${ext}`);
+        setNotice("Exported clean audio.");
+        return;
+      }
+
+      const bytes = await sourceBlob.arrayBuffer();
+      const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) throw new Error("Audio export is unavailable in this browser.");
+      const decodeCtx = new AudioCtx();
+      const original = await decodeCtx.decodeAudioData(bytes.slice(0));
+      decodeCtx.close().catch(() => {});
+
+      const offline = new OfflineAudioContext(original.numberOfChannels, original.length, original.sampleRate);
+      const src = offline.createBufferSource();
+      src.buffer = original;
+      const mainGain = offline.createGain();
+      mainGain.gain.value = 0.95;
+      src.connect(mainGain);
+      mainGain.connect(offline.destination);
+      src.start(0);
+
+      const totalSeconds = original.length / original.sampleRate;
+      const addTone = (at: number, freq: number, dur = 0.12, amp = 0.045) => {
+        if (at >= totalSeconds) return;
+        const osc = offline.createOscillator();
+        const g = offline.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(0, at);
+        g.gain.linearRampToValueAtTime(amp, at + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+        osc.connect(g);
+        g.connect(offline.destination);
+        osc.start(at);
+        osc.stop(at + dur + 0.01);
+      };
+
+      for (let t = 0.4; t < totalSeconds; t += 4.5) {
+        addTone(t, 880);
+        addTone(t + 0.16, 988, 0.1, 0.04);
+        addTone(t + 0.29, 1318, 0.08, 0.035);
+      }
+
+      const rendered = await offline.startRendering();
+      const watermarked = audioBufferToWavBlob(rendered);
+      const base = stripFileExt((clips.find((c) => c.src === selectedClip)?.title || "workstation-audio").trim());
+      triggerDownloadBlob(watermarked, `${base}-vcm-watermarked.wav`);
+      setNotice("Exported watermarked audio. Subscribe to remove watermark exports.");
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-4">
       <button onClick={onBack} className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"><ArrowLeft className="h-4 w-4" /> Back</button>
       <div className="rounded-xl border border-gray-200 bg-white p-3 flex items-center justify-between">
         <div className="text-sm font-medium text-gray-900">Audio Workstation</div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={exportAudio}
+            data-track-output="true"
+            disabled={!selectedClip || exporting}
+            className="inline-flex items-center gap-2 text-xs rounded-lg border px-3 py-1.5 disabled:opacity-50"
+          >
+            <Download className="h-3.5 w-3.5" /> {exporting ? "Exporting..." : "Export"}
+          </button>
           <button onClick={() => inputRef.current?.click()} className="inline-flex items-center gap-2 text-xs rounded-lg border px-3 py-1.5"><Upload className="h-3.5 w-3.5" /> Import Audio</button>
           <button onClick={togglePlay} className="inline-flex items-center gap-2 text-xs rounded-lg border px-3 py-1.5">{isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}{isPlaying ? "Pause" : "Play"}</button>
           <button className="inline-flex items-center gap-2 text-xs rounded-lg border px-3 py-1.5"><Scissors className="h-3.5 w-3.5" /> Split</button>
@@ -1679,9 +2339,26 @@ function AudioStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
 }
 
 export default function WorkstationsClient({ isLoggedIn }: WorkstationsClientProps) {
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<WorkstationMode | null>(null);
   const [tools, setTools] = useState<ToolOption[]>([]);
   const [loadingTools, setLoadingTools] = useState(true);
+  const preloadImage = useMemo(
+    () => ({
+      src: searchParams?.get("src"),
+      title: searchParams?.get("title"),
+      itemId: searchParams?.get("itemId"),
+    }),
+    [searchParams]
+  );
+
+  useEffect(() => {
+    if (mode) return;
+    const rawMode = searchParams?.get("mode");
+    if (rawMode === "image" || rawMode === "pdf" || rawMode === "audio") {
+      setMode(rawMode);
+    }
+  }, [searchParams, mode]);
 
   useEffect(() => {
     let mounted = true;
@@ -1722,6 +2399,6 @@ export default function WorkstationsClient({ isLoggedIn }: WorkstationsClientPro
   }
 
   if (mode === "pdf") return <PdfStudio onBack={() => setMode(null)} isLoggedIn={isLoggedIn} tools={tools} />;
-  if (mode === "image") return <ImageStudio onBack={() => setMode(null)} isLoggedIn={isLoggedIn} tools={tools} />;
+  if (mode === "image") return <ImageStudio onBack={() => setMode(null)} isLoggedIn={isLoggedIn} tools={tools} preloadImage={preloadImage} />;
   return <AudioStudio onBack={() => setMode(null)} isLoggedIn={isLoggedIn} tools={tools} />;
 }

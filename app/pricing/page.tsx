@@ -20,11 +20,14 @@ const GLOBAL_PLAN: Plan = {
   name: "VCM Pro Save",
   price: "$11 / mo",
   badge: "Single plan",
-  description: "One subscription for your whole account.",
+  description: "One subscription for your whole account across tools and workstations.",
   gradient: "from-emerald-500 to-teal-600",
   features: [
+    "Open any tool output in Image, PDF, or Audio Workstations",
+    "Build modular workstation layouts with drag-and-drop widgets",
     "Save presets for tools",
     "Save outputs to Workspace",
+    "Export clean files without VCM watermark",
     "Works across all clouds and tools",
     "Cancel anytime",
   ],
@@ -32,24 +35,28 @@ const GLOBAL_PLAN: Plan = {
 
 const VALUE_STACK = [
   {
-    title: "Never rebuild your setup again",
+    title: "Create, then continue editing instantly",
     detail:
-      "Save tool presets once and reuse your exact settings any time you come back.",
+      "Move from any tool result into the right workstation (Image, PDF, Audio) without restarting your workflow.",
   },
   {
-    title: "Keep every output in one place",
+    title: "Run modular workflows on one canvas",
     detail:
-      "Save generated work to Workspace so you can organize, revisit, and reuse it later.",
+      "Add the widgets you need and keep editing on the same file instead of bouncing between pages.",
   },
   {
-    title: "One upgrade for the whole site",
+    title: "Turn free exports into a growth loop",
     detail:
-      "You do not need separate subscriptions per cloud. One plan unlocks saving across tools.",
+      "Free users can export with VCM watermark; subscribers remove watermark for clean client-ready deliverables.",
   },
 ];
 
 const COMPARISON_ROWS = [
   { label: "Use all tools", free: "Yes", pro: "Yes" },
+  { label: "Use Image/PDF/Audio Workstations", free: "Yes", pro: "Yes" },
+  { label: "Modular widget editing", free: "Yes", pro: "Yes" },
+  { label: "Export with VCM watermark", free: "Yes", pro: "Yes" },
+  { label: "Export clean (no watermark)", free: "No", pro: "Yes" },
   { label: "Save tool presets", free: "No", pro: "Yes" },
   { label: "Save outputs to Workspace", free: "No", pro: "Yes" },
   { label: "Access from any device after login", free: "Limited", pro: "Yes" },
@@ -59,38 +66,38 @@ const COMPARISON_ROWS = [
 const FAQS = [
   {
     q: "Do I need this to use the tools?",
-    a: "No. Tools remain free to use. Subscription is only for saving presets and saved outputs.",
+    a: "No. Tools and workstations remain free to use. Subscription unlocks saved systems and clean exports.",
   },
   {
     q: "What happens if I cancel?",
     a: "You can cancel anytime. Your plan will not renew, and free usage remains available.",
   },
   {
-    q: "Why pay if tools are free?",
-    a: "Because saved work and reusable presets remove repeat setup and protect your best outputs.",
+    q: "What is the biggest subscriber unlock?",
+    a: "Removing watermarks on exports, plus saving presets and workspace outputs for repeatable production.",
   },
 ];
 
 const PROOF_STATS = [
   { label: "Tools available today", value: "100+" },
-  { label: "Pricing plans to choose from", value: "1" },
+  { label: "Workstation modes", value: "3" },
   { label: "Cost per day", value: "~$0.37" },
 ];
 
 const TESTIMONIALS = [
   {
     quote:
-      "I stopped redoing settings every session. Presets alone saved me a lot of repeat work.",
+      "I can start in a tool, open the result in a workstation, and keep editing in one flow.",
     role: "Creator workflow user",
   },
   {
     quote:
-      "Workspace saving made it easier to reuse outputs for clients instead of rebuilding from scratch.",
+      "Clean export without watermark is what made this subscription worth it for client work.",
     role: "Freelancer",
   },
   {
     quote:
-      "The tools are free, but the saved system is what made me stay and keep using the platform.",
+      "Free usage is great, but modular workstations plus saved presets made our process much faster.",
     role: "Weekly power user",
   },
 ];
@@ -238,7 +245,7 @@ function PricingPageContent() {
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-zinc-900">Simple pricing. Clear value.</h1>
           <p className="mt-4 text-xl text-zinc-600 max-w-2xl mx-auto">
-            Free users can use tools. Subscribers unlock saving.
+            Free users can use tools, workstations, and watermarked exports. Subscribers unlock clean exports and saving.
           </p>
         </div>
 
@@ -319,15 +326,15 @@ function PricingPageContent() {
           <div className="grid md:grid-cols-3 gap-4">
             <div className="rounded-xl bg-white border border-zinc-200 p-4">
               <p className="font-semibold text-zinc-900">Weekly creators</p>
-              <p className="text-sm text-zinc-600 mt-2">You want repeatable outputs without setup every time.</p>
+              <p className="text-sm text-zinc-600 mt-2">You want to move from output to polished final file without switching platforms.</p>
             </div>
             <div className="rounded-xl bg-white border border-zinc-200 p-4">
               <p className="font-semibold text-zinc-900">Freelancers & agencies</p>
-              <p className="text-sm text-zinc-600 mt-2">You need organized saved work for client production speed.</p>
+              <p className="text-sm text-zinc-600 mt-2">You need clean, non-watermarked exports and reusable setup for client delivery.</p>
             </div>
             <div className="rounded-xl bg-white border border-zinc-200 p-4">
               <p className="font-semibold text-zinc-900">System builders</p>
-              <p className="text-sm text-zinc-600 mt-2">You value structure, recall, and reliable tool workflows.</p>
+              <p className="text-sm text-zinc-600 mt-2">You want modular workstations, widgets, and persistent workflows across teams.</p>
             </div>
           </div>
         </section>
@@ -347,7 +354,7 @@ function PricingPageContent() {
         <section className="mt-10 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
           <h3 className="text-2xl font-bold text-zinc-900">If you use tools weekly, this pays for itself</h3>
           <p className="mt-2 text-zinc-700">
-            The subscription is for people who want consistency, speed, and a reliable place to keep what they create.
+            Free users get creation and watermarked sharing. Subscribers get clean exports, saved presets, and saved workspace outputs.
           </p>
           <button
             onClick={handleSubscribe}
