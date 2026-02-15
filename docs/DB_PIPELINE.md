@@ -39,6 +39,8 @@ Migrations are read from `scripts/migrations/*.sql` and tracked in `schema_migra
 
 ## Recommended Promotion Flow
 
+0. Pull latest code first:
+   - `git pull origin main`
 1. Run on dev:
    - `npm run db:migrate:dev`
    - `npm run db:seed:audio:dev`
