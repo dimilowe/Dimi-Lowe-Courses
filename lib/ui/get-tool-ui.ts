@@ -104,6 +104,16 @@ const TOOL_ICON_MAP: Record<string, { iconKey: IconKey; bg: string }> = {
   "price-matcher": { iconKey: "target", bg: "bg-emerald-500" },
   "aliexpress-dupe-finder": { iconKey: "search", bg: "bg-rose-500" },
   "youtube-transcript-generator": { iconKey: "fileText", bg: "bg-red-500" },
+  "audio-pitch-shift": { iconKey: "music", bg: "bg-violet-600" },
+  "audio-reverb": { iconKey: "heart", bg: "bg-indigo-500" },
+  "audio-delay": { iconKey: "rotateCcw", bg: "bg-amber-500" },
+  "audio-compressor": { iconKey: "barChart2", bg: "bg-emerald-500" },
+  "audio-limiter": { iconKey: "target", bg: "bg-red-500" },
+  "audio-high-pass-filter": { iconKey: "search", bg: "bg-cyan-500" },
+  "audio-low-pass-filter": { iconKey: "cloudSun", bg: "bg-blue-500" },
+  "audio-bitcrusher": { iconKey: "package", bg: "bg-fuchsia-600" },
+  "audio-effect-chain-builder": { iconKey: "gitBranch", bg: "bg-orange-500" },
+  "vocal-effects-chain": { iconKey: "fileText", bg: "bg-pink-500" },
 };
 
 type ToolLike = {

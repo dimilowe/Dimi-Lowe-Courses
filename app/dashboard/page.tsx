@@ -7,8 +7,13 @@ import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import { SessionManager } from "@/components/SessionManager";
 import { LoginForm } from "@/components/LoginForm";
+import type { Metadata } from "next";
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = {
+  title: "Dashboard | VCM Suite",
+  robots: { index: false, follow: false },
+};
 
 interface Entitlement {
   product_id: string;

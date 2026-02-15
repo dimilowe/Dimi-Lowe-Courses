@@ -4,14 +4,20 @@ import { getAllIndexedPillars } from "@/lib/cms/getPillarBySlug";
 import { PillarCollections } from "@/components/tools/PillarCollections";
 import { getToolsForDirectory, type DirectoryTool } from "@/lib/tools/getToolsForDirectory";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "VCM Tools Explorer — 50+ Free Creator Tools",
   description: "A curated library of powerful utilities for creators, businesses, and everyday workflows. Image resizers, AI tools, calculators, and more — all 100% free.",
   keywords: "free tools, creator tools, image resizer, youtube thumbnail maker, instagram resizer, calorie calculator, AI tools, pdf editor, gif compressor",
+  alternates: {
+    canonical: "/tools",
+  },
   openGraph: {
     title: "VCM Tools Explorer — 50+ Free Creator Tools",
     description: "A curated library of powerful utilities for creators, businesses, and everyday workflows.",
-    type: "website"
+    type: "website",
+    url: "/tools",
   }
 };
 

@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Workspace | VCM Suite',
   description: 'Your saved outputs across all tools and clouds',
+  robots: { index: false, follow: false },
 };
 
 export default async function WorkspacePage() {

@@ -7,8 +7,13 @@ import { PasswordChangeForm } from "@/components/PasswordChangeForm";
 import { EmailChangeForm } from "@/components/EmailChangeForm";
 import { SubscriptionLinkForm } from "@/components/SubscriptionLinkForm";
 import { query } from "@/lib/db";
+import type { Metadata } from "next";
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = {
+  title: "Account Settings | VCM Suite",
+  robots: { index: false, follow: false },
+};
 
 export default async function SettingsPage() {
   const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);

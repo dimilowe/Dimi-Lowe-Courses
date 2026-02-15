@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EmailCapture } from "@/components/email-capture";
@@ -5,7 +6,7 @@ import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { query } from "@/lib/db";
 import { HeroSearch } from "@/components/hero-search";
 import FreeToolsCarousel from "@/components/FreeToolsCarousel";
-import { 
+import {
   Sparkles, 
   QrCode, 
   Flame,
@@ -39,6 +40,23 @@ import {
   Gamepad2,
   Store
 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "VCM Suite | Free Creator Tools, Workflows, and Resources",
+  description:
+    "Discover VCM Suite: free creator tools, cloud-based workflows, and growth resources to help creators ship faster and monetize smarter.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "VCM Suite | Free Creator Tools, Workflows, and Resources",
+    description:
+      "Free creator tools, cloud workflows, and practical resources for growth and monetization.",
+    url: "/",
+    type: "website",
+    siteName: "VCM Suite",
+  },
+};
 
 interface BlogPost {
   slug: string;

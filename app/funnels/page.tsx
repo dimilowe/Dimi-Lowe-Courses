@@ -1,8 +1,22 @@
 import { query } from "@/lib/db";
 import { ProductCard } from "@/components/product-card";
 import { EmailCapture } from "@/components/email-capture";
+import type { Metadata } from "next";
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = {
+  title: "Templates | VCM Suite",
+  description: "Browse conversion-oriented templates and funnel assets from VCM Suite.",
+  alternates: {
+    canonical: "/funnels",
+  },
+  openGraph: {
+    title: "Templates | VCM Suite",
+    description: "Conversion-oriented templates and funnel assets for creators.",
+    url: "/funnels",
+    type: "website",
+  },
+};
 
 interface Product {
   id: string;

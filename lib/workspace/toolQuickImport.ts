@@ -17,8 +17,18 @@ export function isToolQuickImportCompatible(toolSlug: string, kind: QuickImportK
       return kind === "image";
     case "gif-maker":
       return kind === "image" || kind === "video";
+    case "audio-pitch-shift":
+    case "audio-reverb":
+    case "audio-delay":
+    case "audio-compressor":
+    case "audio-limiter":
+    case "audio-high-pass-filter":
+    case "audio-low-pass-filter":
+    case "audio-bitcrusher":
+    case "audio-effect-chain-builder":
+    case "vocal-effects-chain":
+      return kind === "default";
     default:
       return false;
   }
 }
-

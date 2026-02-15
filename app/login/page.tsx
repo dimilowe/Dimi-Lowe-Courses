@@ -3,8 +3,13 @@ import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/LoginForm";
+import type { Metadata } from "next";
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = {
+  title: "Sign In | VCM Suite",
+  robots: { index: false, follow: false },
+};
 
 export default async function LoginPage() {
   const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);

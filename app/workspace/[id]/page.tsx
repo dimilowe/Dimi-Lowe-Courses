@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Workspace Item | VCM Suite',
+  robots: { index: false, follow: false },
 };
 
 interface Props {

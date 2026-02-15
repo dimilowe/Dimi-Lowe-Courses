@@ -1,8 +1,22 @@
 import { query } from "@/lib/db";
 import { ProductCard } from "@/components/product-card";
 import { EmailCapture } from "@/components/email-capture";
+import type { Metadata } from "next";
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = {
+  title: "Store | VCM Suite",
+  description: "Shop VCM Suite apps, downloads, templates, and creator resources.",
+  alternates: {
+    canonical: "/store",
+  },
+  openGraph: {
+    title: "Store | VCM Suite",
+    description: "Apps, downloads, templates, and creator resources from VCM Suite.",
+    url: "/store",
+    type: "website",
+  },
+};
 
 interface Product {
   id: string;

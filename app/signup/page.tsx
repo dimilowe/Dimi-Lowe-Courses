@@ -3,8 +3,13 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import { SignupForm } from "@/components/SignupForm";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: "Create Account | VCM Suite",
+  robots: { index: false, follow: false },
+};
 
 export default async function SignupPage() {
   const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);

@@ -9,6 +9,7 @@ import { AppProvider } from "@/components/providers/AppProvider";
 import { getCurrentUserWithTier } from "@/lib/pricing/getCurrentUserWithTier";
 import type { UserTier } from "@/lib/pricing/types";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
+import { getSiteUrl } from "@/lib/site-url";
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,17 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "VCM Suite - Free Tools & Resources for Creators",
   description: "Free tools and resources to help creators grow, engage, and monetize their creative business.",
+  metadataBase: new URL(getSiteUrl()),
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "VCM Suite - Free Tools & Resources for Creators",
+    description: "Free tools and resources to help creators grow, engage, and monetize their creative business.",
+    url: "/",
+    siteName: "VCM Suite",
+    type: "website",
+  },
   verification: {
     google: '5cb76b900fd3341c',
   },

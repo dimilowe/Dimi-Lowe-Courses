@@ -9,7 +9,10 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: "All Tools A-Z — VCM Suite Tools Directory",
   description: "Browse the complete list of 100+ free online tools. Alphabetically sorted for easy discovery. Find any tool by name.",
-  robots: "index, follow"
+  robots: "index, follow",
+  alternates: {
+    canonical: "/tools/all",
+  },
 };
 
 interface ToolForDirectory {
