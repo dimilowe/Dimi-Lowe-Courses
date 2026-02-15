@@ -1,4 +1,4 @@
-import { query } from "../lib/db";
+import { createDbPool, getDbTarget } from "./db/connection";
 
 type ToolSeed = {
   slug: string;
@@ -93,9 +93,16 @@ const TOOLS: ToolSeed[] = [
 ];
 
 async function run() {
-  for (const tool of TOOLS) {
-    await query(
-      `INSERT INTO tools (
+  const target = getDbTarget();
+  const pool = createDbPool(target);
+  const query = (text: string, params?: unknown[]) => pool.query(text, params);
+
+  console.log(`[seed:audio] target=${target}`);
+
+  try {
+    for (const tool of TOOLS) {
+      await query(
+        `INSERT INTO tools (
         slug, name, description, engine, status, is_indexed, in_directory,
         category, tags, icon, icon_bg, priority, input_type, output_type,
         primary_keyword, search_intent, source, required_clouds, required_tier,
@@ -124,11 +131,11 @@ async function run() {
         required_clouds = ARRAY[]::text[],
         required_tier = 'free',
         updated_at = NOW()`,
-      [tool.slug, tool.name, tool.description, tool.primaryKeyword, tool.icon, tool.iconBg]
-    );
+        [tool.slug, tool.name, tool.description, tool.primaryKeyword, tool.icon, tool.iconBg]
+      );
 
-    await query(
-      `INSERT INTO global_urls (url, type, title, is_indexed, indexed_at, updated_at)
+      await query(
+        `INSERT INTO global_urls (url, type, title, is_indexed, indexed_at, updated_at)
        VALUES ($1, 'tool', $2, true, NOW(), NOW())
        ON CONFLICT (url) DO UPDATE SET
          type = 'tool',
@@ -136,13 +143,16 @@ async function run() {
          is_indexed = true,
          indexed_at = NOW(),
          updated_at = NOW()`,
-      [`/tools/${tool.slug}`, tool.name]
-    );
+        [`/tools/${tool.slug}`, tool.name]
+      );
 
-    console.log(`seeded: ${tool.slug}`);
+      console.log(`seeded: ${tool.slug}`);
+    }
+
+    console.log("Done seeding audio tools.");
+  } finally {
+    await pool.end();
   }
-
-  console.log("Done seeding audio tools.");
 }
 
 run()
