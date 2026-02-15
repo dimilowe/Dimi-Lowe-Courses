@@ -112,7 +112,7 @@ export default function WorkspaceClient() {
       params.set('limit', String(ITEMS_PER_PAGE));
       params.set('offset', String((page - 1) * ITEMS_PER_PAGE));
 
-      const res = await fetch(`/api/workspace/items?${params}`);
+      const res = await fetch(`/api/workspace/items?${params}`, { cache: 'no-store' });
       
       if (res.status === 401) {
         router.push('/login?redirect=/workspace');
@@ -142,7 +142,7 @@ export default function WorkspaceClient() {
       params.set('sort', 'recent');
       params.set('limit', '6');
       params.set('offset', '0');
-      const res = await fetch(`/api/workspace/items?${params}`);
+      const res = await fetch(`/api/workspace/items?${params}`, { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
       setRecentProjects(data.items || []);
@@ -189,6 +189,15 @@ export default function WorkspaceClient() {
       }
     };
   }, [search, tagFilter, folderFilter]);
+
+  useEffect(() => {
+    const onWorkspaceUpdated = () => {
+      void fetchItems(currentPage);
+      void fetchRecentProjects();
+    };
+    window.addEventListener('workspace:items-updated', onWorkspaceUpdated);
+    return () => window.removeEventListener('workspace:items-updated', onWorkspaceUpdated);
+  }, [fetchItems, fetchRecentProjects, currentPage]);
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
@@ -289,6 +298,7 @@ export default function WorkspaceClient() {
     if (!files || files.length === 0) return;
     
     setUploading(true);
+    let uploadedAny = false;
     const newProgress = Array.from(files).map(f => ({ fileName: f.name, status: 'uploading' as const }));
     setUploadProgress(newProgress);
     
@@ -309,6 +319,7 @@ export default function WorkspaceClient() {
           throw new Error(errorData.error || 'Failed to upload');
         }
         
+        uploadedAny = true;
         setUploadProgress(prev => prev.map((p, idx) => 
           idx === i ? { ...p, status: 'success' } : p
         ));
@@ -322,6 +333,9 @@ export default function WorkspaceClient() {
     
     setUploading(false);
     fetchItems();
+    if (uploadedAny && typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('workspace:items-updated'));
+    }
     
     setTimeout(() => {
       setUploadProgress([]);

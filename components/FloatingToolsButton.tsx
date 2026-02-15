@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Save, X, ArrowRight, Download, Image, Video, FileText, File as FileIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -48,14 +48,27 @@ function guessExtension(contentType: string, fallbackKind: QuickImportKind) {
   return "bin";
 }
 
+function toWorkspaceType(contentType: string) {
+  if (contentType.startsWith("image/")) return "uploaded_image";
+  if (contentType.startsWith("video/")) return "uploaded_video";
+  if (contentType.startsWith("audio/")) return "uploaded_audio";
+  if (contentType === "application/pdf") return "uploaded_document";
+  return "uploaded_file";
+}
+
 export default function FloatingToolsButton() {
   const pathname = usePathname();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [items, setItems] = useState<WorkspaceItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [importingId, setImportingId] = useState<string | null>(null);
   const [isDraggingRecentFile, setIsDraggingRecentFile] = useState(false);
+  const [isDropActive, setIsDropActive] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [brokenThumbnailIds, setBrokenThumbnailIds] = useState<Record<string, true>>({});
 
   const toolSlug = useMemo(() => {
     if (!pathname?.startsWith("/tools/")) return null;
@@ -77,12 +90,27 @@ export default function FloatingToolsButton() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const loadRecentFiles = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/workspace/items?scope=all&sort=recent&limit=12", { cache: "no-store" });
+      if (!res.ok) {
+        setItems([]);
+        return;
+      }
+      const data = await res.json();
+      setItems(Array.isArray(data?.items) ? data.items : []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
-    const fetchRecentFiles = async () => {
+    const run = async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/workspace/items?scope=all&sort=recent&limit=12");
+        const res = await fetch("/api/workspace/items?scope=all&sort=recent&limit=12", { cache: "no-store" });
         if (!res.ok) {
           if (active) setItems([]);
           return;
@@ -95,11 +123,113 @@ export default function FloatingToolsButton() {
       }
     };
 
-    fetchRecentFiles();
+    run();
     return () => {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    void loadRecentFiles();
+  }, [isOpen, loadRecentFiles]);
+
+  useEffect(() => {
+    const onWorkspaceUpdated = () => {
+      void loadRecentFiles();
+    };
+    window.addEventListener("workspace:items-updated", onWorkspaceUpdated);
+    return () => window.removeEventListener("workspace:items-updated", onWorkspaceUpdated);
+  }, [loadRecentFiles]);
+
+  const handleUploadFiles = useCallback(
+    async (filesInput: FileList | File[] | null, fallbackUrl?: string | null) => {
+      const files = filesInput ? (Array.isArray(filesInput) ? filesInput : Array.from(filesInput)) : [];
+      if (files.length === 0 && !fallbackUrl) return;
+      setIsUploading(true);
+      setUploadMessage(null);
+      try {
+        let uploadedCount = 0;
+        let localAddedCount = 0;
+        let firstError: string | null = null;
+        const queue: File[] = [...files];
+
+        if (queue.length === 0 && fallbackUrl) {
+          try {
+            const fetched = await fetch(fallbackUrl);
+            if (fetched.ok) {
+              const blob = await fetched.blob();
+              const ext = blob.type.includes("png")
+                ? "png"
+                : blob.type.includes("jpeg")
+                  ? "jpg"
+                  : blob.type.includes("webp")
+                    ? "webp"
+                    : "bin";
+              queue.push(new File([blob], `dropped-file.${ext}`, { type: blob.type || "application/octet-stream" }));
+            }
+          } catch {}
+        }
+
+        for (const file of queue) {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("cloud_id", "file-data");
+          const res = await fetch("/api/workspace/upload", { method: "POST", body: formData, credentials: "same-origin" });
+          if (res.ok) {
+            uploadedCount += 1;
+          } else if (!firstError) {
+            let message = `Upload failed (${res.status})`;
+            try {
+              const data = await res.json();
+              if (typeof data?.error === "string") {
+                message = data.error;
+                if (typeof data?.detail === "string" && data.detail.trim()) {
+                  message = `${data.error}: ${data.detail}`;
+                }
+              } else {
+                message = `Upload failed (${res.status})`;
+              }
+            } catch {
+              message = `Upload failed (${res.status})`;
+            }
+            // Final client fallback: keep workflow moving by adding a local-only recent file entry.
+            const localUrl = URL.createObjectURL(file);
+            const contentType = file.type || "application/octet-stream";
+            setItems((prev) => [
+              {
+                id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                title: file.name,
+                type: toWorkspaceType(contentType),
+                thumbnail_url: contentType.startsWith("image/") ? localUrl : null,
+                file_url: localUrl,
+              },
+              ...prev,
+            ]);
+            localAddedCount += 1;
+            if (!firstError) firstError = message;
+          }
+        }
+        await loadRecentFiles();
+        if (uploadedCount > 0 && typeof window !== "undefined") {
+          window.dispatchEvent(new Event("workspace:items-updated"));
+        }
+        setUploadMessage(
+          uploadedCount > 0
+            ? `Uploaded ${uploadedCount} file${uploadedCount === 1 ? "" : "s"} to workspace.`
+            : localAddedCount > 0
+              ? `Added ${localAddedCount} file${localAddedCount === 1 ? "" : "s"} locally (not synced to workspace).`
+              : firstError || "No files were uploaded.",
+        );
+      } catch {
+        setUploadMessage("Upload failed. Please try again.");
+      } finally {
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    },
+    [loadRecentFiles],
+  );
 
   const handleUseInTool = async (item: WorkspaceItem, kind: QuickImportKind) => {
     if (!item.file_url || !toolSlug) return;
@@ -222,11 +352,16 @@ export default function FloatingToolsButton() {
                       }}
                     >
                       <div className="flex items-start gap-3">
-                        {item.thumbnail_url ? (
+                        {item.thumbnail_url && !brokenThumbnailIds[item.id] ? (
                           <img
                             src={item.thumbnail_url}
                             alt={item.title}
                             className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                            onError={() =>
+                              setBrokenThumbnailIds((prev) =>
+                                prev[item.id] ? prev : { ...prev, [item.id]: true }
+                              )
+                            }
                           />
                         ) : (
                           <div className="w-12 h-12 rounded-lg bg-gray-200 text-gray-700 flex items-center justify-center flex-shrink-0">
@@ -277,16 +412,40 @@ export default function FloatingToolsButton() {
 
           {/* Footer CTA */}
           <div className="p-4 border-t border-gray-200 bg-gray-50">
-            <Link
-              href="/workspace"
-              onClick={() => setIsOpen(false)}
-              className="block w-full text-center py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-medium transition-colors"
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => handleUploadFiles(e.target.files)}
+            />
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDropActive(true);
+              }}
+              onDragLeave={() => setIsDropActive(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDropActive(false);
+                const droppedUrl = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+                const itemFiles = Array.from(e.dataTransfer.items || [])
+                  .map((item) => item.getAsFile())
+                  .filter((file): file is File => Boolean(file));
+                void handleUploadFiles(itemFiles.length > 0 ? itemFiles : e.dataTransfer.files, droppedUrl || null);
+              }}
+              className={`w-full rounded-xl border-2 border-dashed px-4 py-4 text-center cursor-pointer transition-colors ${
+                isDropActive ? "border-orange-400 bg-orange-50" : "border-gray-300 bg-white hover:bg-gray-100"
+              }`}
             >
-              Open Workspace
-            </Link>
+              <p className="text-sm font-medium text-gray-800">{isUploading ? "Uploading..." : "Drop files here to add to Workspace"}</p>
+              <p className="text-xs text-gray-500 mt-1">or click to browse</p>
+            </div>
             <p className="text-center text-xs text-gray-500 mt-2">
-              Save outputs to keep your workflow moving
+              Files uploaded here appear in this Recent Files list.
             </p>
+            {uploadMessage && <p className="text-center text-xs text-orange-700 mt-1">{uploadMessage}</p>}
           </div>
         </div>
       </div>

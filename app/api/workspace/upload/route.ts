@@ -5,8 +5,11 @@ import { cookies } from 'next/headers';
 import { UserSessionData, userSessionOptions } from '@/lib/user-session';
 import { Client } from '@replit/object-storage';
 import { assertCanonicalCloudId } from '@/lib/cloud/normalizeCloudId';
+import { mkdir, writeFile } from 'fs/promises';
+import path from 'path';
 
 const client = new Client();
+const LOCAL_WORKSPACE_UPLOAD_DIR = path.join(process.cwd(), 'tmp', 'workspace-uploads');
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -30,6 +33,10 @@ export async function POST(request: NextRequest) {
     if (!session.isLoggedIn || !session.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userIdNum = parseInt(String(session.userId), 10);
+    if (!Number.isFinite(userIdNum)) {
+      return NextResponse.json({ error: 'Invalid user session' }, { status: 401 });
+    }
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -52,19 +59,37 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 8);
     const extension = file.name.split('.').pop() || '';
-    const fileName = `workspace-${session.userId}-${timestamp}-${randomString}${extension ? `.${extension}` : ''}`;
+    const fileName = `workspace-${userIdNum}-${timestamp}-${randomString}${extension ? `.${extension}` : ''}`;
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const uploadResult = await client.uploadFromBytes(fileName, buffer);
+    let storedInObjectStorage = false;
+    let storageError: unknown = null;
+    try {
+      const uploadResult = await client.uploadFromBytes(fileName, buffer);
+      if (uploadResult.ok) {
+        storedInObjectStorage = true;
+      } else {
+        storageError = uploadResult.error;
+      }
+    } catch (err) {
+      storageError = err;
+    }
 
-    if (!uploadResult.ok) {
-      console.error('Storage upload error:', uploadResult.error);
-      return NextResponse.json(
-        { error: 'Failed to store file' },
-        { status: 500 }
-      );
+    if (!storedInObjectStorage) {
+      // Local dev fallback: persist file on disk when object storage is unavailable.
+      try {
+        await mkdir(LOCAL_WORKSPACE_UPLOAD_DIR, { recursive: true });
+        await writeFile(path.join(LOCAL_WORKSPACE_UPLOAD_DIR, fileName), buffer);
+      } catch (localErr) {
+        console.error('Storage upload error:', storageError);
+        console.error('Local fallback write error:', localErr);
+        return NextResponse.json(
+          { error: 'Failed to store file' },
+          { status: 500 }
+        );
+      }
     }
 
     const publicUrl = `/api/files/${fileName}`;
@@ -80,20 +105,31 @@ export async function POST(request: NextRequest) {
        RETURNING id, title, type, cloud_id, is_starred, preview_text, 
                  thumbnail_url, file_url, created_at, updated_at`,
       [
-        session.userId,
+        userIdNum,
         file.name,
         type,
         validCloudId,
         previewText,
         publicUrl,
         thumbnailUrl,
-        JSON.stringify({ originalName: file.name, fileSize: file.size, contentType })
+        JSON.stringify({
+          originalName: file.name,
+          fileSize: file.size,
+          contentType,
+          storageBackend: storedInObjectStorage ? 'object-storage' : 'local-fallback',
+        })
       ]
     );
 
     return NextResponse.json(result.rows[0], { status: 201 });
   } catch (error) {
     console.error('Error uploading to workspace:', error);
-    return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
+    const detail = error instanceof Error ? error.message : String(error);
+    return NextResponse.json(
+      process.env.NODE_ENV === 'development'
+        ? { error: 'Failed to upload file', detail }
+        : { error: 'Failed to upload file' },
+      { status: 500 }
+    );
   }
 }

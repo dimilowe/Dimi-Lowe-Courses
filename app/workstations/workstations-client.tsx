@@ -348,10 +348,16 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     rotation: number;
     opacity: number;
     color: string;
+    shapeKind?: "rectangle" | "square" | "circle" | "triangle" | "line" | "pill" | "diamond" | "star";
     text?: string;
     fontSize?: number;
+    fontFamily?: string;
     src?: string;
     zIndex: number;
+  };
+  type CanvasPage = {
+    id: string;
+    items: CanvasItem[];
   };
   type WidgetNode = {
     id: string;
@@ -361,6 +367,26 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     x: number;
     y: number;
   };
+  const FONT_OPTIONS = [
+    "Inter",
+    "Poppins",
+    "Montserrat",
+    "Open Sans",
+    "Roboto",
+    "Nunito",
+    "Lora",
+    "Merriweather",
+    "Playfair Display",
+    "Oswald",
+    "Arial",
+    "Helvetica",
+    "Georgia",
+    "Times New Roman",
+    "Verdana",
+    "Trebuchet MS",
+    "Courier New",
+    "Impact",
+  ];
 
   const inputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -381,6 +407,17 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     originX: number;
     originY: number;
   } | null>(null);
+  const resizeRef = useRef<{
+    id: string;
+    dir: "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    originW: number;
+    originH: number;
+    snapshot: CanvasItem[];
+  } | null>(null);
   const widgetWindowInteractionRef = useRef<{
     kind: "move" | "resize";
     corner?: "nw" | "ne" | "sw" | "se";
@@ -391,6 +428,8 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
 
   const [assets, setAssets] = useState<UploadedAsset[]>([]);
   const [uploadsOpen, setUploadsOpen] = useState(false);
+  const [elementsOpen, setElementsOpen] = useState(false);
+  const [elementsQuery, setElementsQuery] = useState("");
   const [widgets, setWidgets] = useState<WidgetInstance[]>([]);
   const [widgetNodes, setWidgetNodes] = useState<WidgetNode[]>([]);
   const [widgetCanvasDragOver, setWidgetCanvasDragOver] = useState(false);
@@ -404,24 +443,93 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
   const [notice, setNotice] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 500 });
-  const [canvasItems, setCanvasItems] = useState<CanvasItem[]>([]);
+  const [pages, setPages] = useState<CanvasPage[]>([{ id: makeId(), items: [] }]);
+  const [activePageIndex, setActivePageIndex] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<CanvasItem[][]>([]);
   const [redoStack, setRedoStack] = useState<CanvasItem[][]>([]);
 
+  const canvasItems = pages[activePageIndex]?.items || [];
   const selected = useMemo(() => canvasItems.find((i) => i.id === selectedId) || null, [canvasItems, selectedId]);
   const imageTools = useMemo(() => {
-    const modeTools = tools.filter((t) => matchesMode(t, "image"));
-    const base = modeTools.length > 0 ? modeTools : tools.slice(0, 30);
+    const base = tools;
     const q = widgetQuery.trim().toLowerCase();
     if (!q) return base;
     return base.filter((t) => t.slug.toLowerCase().includes(q) || t.name.toLowerCase().includes(q));
   }, [tools, widgetQuery]);
+  const elementPresets = useMemo(
+    () =>
+      [
+        { key: "rectangle", label: "Rectangle", w: 180, h: 120 },
+        { key: "square", label: "Square", w: 140, h: 140 },
+        { key: "circle", label: "Circle", w: 140, h: 140 },
+        { key: "triangle", label: "Triangle", w: 180, h: 140 },
+        { key: "line", label: "Line", w: 220, h: 10 },
+        { key: "pill", label: "Pill", w: 200, h: 70 },
+        { key: "diamond", label: "Diamond", w: 150, h: 150 },
+        { key: "star", label: "Star", w: 160, h: 160 },
+      ].filter((p) => p.label.toLowerCase().includes(elementsQuery.trim().toLowerCase())),
+    [elementsQuery],
+  );
+
+  function renderElementPresetPreview(kind: NonNullable<CanvasItem["shapeKind"]>) {
+    const color = "#7c3aed";
+    if (kind === "line") {
+      return <div className="w-20 h-2 rounded bg-violet-600" />;
+    }
+    if (kind === "triangle") {
+      return <div className="w-14 h-12 bg-violet-600" style={{ clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)" }} />;
+    }
+    if (kind === "diamond") {
+      return <div className="w-12 h-12 bg-violet-600 rotate-45 rounded-sm" />;
+    }
+    if (kind === "star") {
+      return (
+        <div
+          className="w-14 h-14 bg-violet-600"
+          style={{ clipPath: "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)" }}
+        />
+      );
+    }
+    return (
+      <div
+        className="bg-violet-600"
+        style={{
+          width: kind === "rectangle" ? 70 : 56,
+          height: kind === "pill" ? 28 : kind === "rectangle" ? 44 : 56,
+          borderRadius: kind === "circle" || kind === "pill" ? 9999 : 8,
+          backgroundColor: color,
+        }}
+      />
+    );
+  }
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const id = "vcm-workstation-google-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@400;600;700&family=Merriweather:wght@400;700&family=Lora:wght@400;700&family=Nunito:wght@400;600;700&family=Open+Sans:wght@400;600;700&family=Oswald:wght@400;600;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap";
+    document.head.appendChild(link);
+  }, []);
+
+  function setActivePageItems(next: CanvasItem[] | ((prev: CanvasItem[]) => CanvasItem[])) {
+    setPages((prev) =>
+      prev.map((page, idx) => {
+        if (idx !== activePageIndex) return page;
+        const nextItems = typeof next === "function" ? (next as (prev: CanvasItem[]) => CanvasItem[])(page.items) : next;
+        return { ...page, items: nextItems };
+      }),
+    );
+  }
 
   function commit(next: CanvasItem[]) {
     setUndoStack((prev) => [...prev, canvasItems]);
     setRedoStack([]);
-    setCanvasItems(next);
+    setActivePageItems(next);
   }
 
   function updateSelected(patch: Partial<CanvasItem>) {
@@ -429,11 +537,11 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     commit(canvasItems.map((i) => (i.id === selected.id ? { ...i, ...patch } : i)));
   }
 
-  function addShape() {
+  function addShape(shapeKind: CanvasItem["shapeKind"] = "rectangle", w = 180, h = 120) {
     const z = canvasItems.length + 1;
     commit([
       ...canvasItems,
-      { id: makeId(), type: "shape", x: 120, y: 110, w: 180, h: 120, rotation: 0, opacity: 1, color: "#7c3aed", zIndex: z },
+      { id: makeId(), type: "shape", shapeKind, x: 120, y: 110, w, h, rotation: 0, opacity: 1, color: "#7c3aed", zIndex: z },
     ]);
   }
 
@@ -441,7 +549,7 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     const z = canvasItems.length + 1;
     commit([
       ...canvasItems,
-      { id: makeId(), type: "text", x: 130, y: 130, w: 260, h: 70, rotation: 0, opacity: 1, color: "#111827", text: "Edit this text", fontSize: 40, zIndex: z },
+      { id: makeId(), type: "text", x: 130, y: 130, w: 260, h: 70, rotation: 0, opacity: 1, color: "#111827", text: "Edit this text", fontSize: 40, fontFamily: "Inter", zIndex: z },
     ]);
   }
 
@@ -609,7 +717,7 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     const prev = undoStack[undoStack.length - 1];
     setUndoStack((s) => s.slice(0, -1));
     setRedoStack((r) => [...r, canvasItems]);
-    setCanvasItems(prev);
+    setActivePageItems(prev);
   }
 
   function redo() {
@@ -617,7 +725,18 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     const next = redoStack[redoStack.length - 1];
     setRedoStack((s) => s.slice(0, -1));
     setUndoStack((u) => [...u, canvasItems]);
-    setCanvasItems(next);
+    setActivePageItems(next);
+  }
+
+  function addPage() {
+    setPages((prev) => {
+      const next = [...prev, { id: makeId(), items: [] }];
+      setActivePageIndex(next.length - 1);
+      return next;
+    });
+    setSelectedId(null);
+    setUndoStack([]);
+    setRedoStack([]);
   }
 
   useEffect(() => {
@@ -627,7 +746,7 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
         const scale = zoom / 100;
         const dx = (e.clientX - d.startX) / scale;
         const dy = (e.clientY - d.startY) / scale;
-        setCanvasItems((prev) => prev.map((i) => (i.id === d.id ? { ...i, x: d.originX + dx, y: d.originY + dy } : i)));
+        setActivePageItems((prev) => prev.map((i) => (i.id === d.id ? { ...i, x: d.originX + dx, y: d.originY + dy } : i)));
       }
       const wd = widgetDragRef.current;
       if (wd) {
@@ -644,6 +763,43 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
                 }
               : n,
           ),
+        );
+      }
+      const r = resizeRef.current;
+      if (r) {
+        const scale = zoom / 100;
+        const dx = (e.clientX - r.startX) / scale;
+        const dy = (e.clientY - r.startY) / scale;
+        const minSize = 20;
+        setActivePageItems((prev) =>
+          prev.map((i) => {
+            if (i.id !== r.id) return i;
+            let x = r.originX;
+            let y = r.originY;
+            let w = r.originW;
+            let h = r.originH;
+
+            if (r.dir.includes("e")) w = r.originW + dx;
+            if (r.dir.includes("s")) h = r.originH + dy;
+            if (r.dir.includes("w")) {
+              w = r.originW - dx;
+              x = r.originX + dx;
+            }
+            if (r.dir.includes("n")) {
+              h = r.originH - dy;
+              y = r.originY + dy;
+            }
+
+            if (w < minSize) {
+              if (r.dir.includes("w")) x -= minSize - w;
+              w = minSize;
+            }
+            if (h < minSize) {
+              if (r.dir.includes("n")) y -= minSize - h;
+              h = minSize;
+            }
+            return { ...i, x, y, w, h };
+          }),
         );
       }
       const win = widgetWindowInteractionRef.current;
@@ -705,6 +861,12 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
         setUndoStack((u) => [...u, d.snapshot]);
         setRedoStack([]);
       }
+      const r = resizeRef.current;
+      if (r) {
+        resizeRef.current = null;
+        setUndoStack((u) => [...u, r.snapshot]);
+        setRedoStack([]);
+      }
       widgetDragRef.current = null;
       widgetWindowInteractionRef.current = null;
     }
@@ -715,6 +877,66 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
       window.removeEventListener("mouseup", onUp);
     };
   }, [zoom, canvasSize.w, canvasSize.h]);
+
+  useEffect(() => {
+    setSelectedId(null);
+    setUndoStack([]);
+    setRedoStack([]);
+  }, [activePageIndex]);
+
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      if (!selected || selected.type !== "text") return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isTypingTarget =
+        !!target &&
+        (target.isContentEditable || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT");
+      if (isTypingTarget) return;
+      const text = e.clipboardData?.getData("text");
+      if (!text) return;
+      e.preventDefault();
+      updateSelected({ text });
+      setNotice("Pasted text into selected text layer.");
+    }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [selected, updateSelected]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!selected || selected.type !== "text") return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isTypingTarget =
+        !!target &&
+        (target.isContentEditable || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT");
+      if (isTypingTarget) return;
+
+      if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) return;
+      if (e.key === "Backspace") {
+        e.preventDefault();
+        updateSelected({ text: (selected.text || "").slice(0, -1) });
+        return;
+      }
+      if (e.key === "Delete") {
+        e.preventDefault();
+        updateSelected({ text: "" });
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        updateSelected({ text: `${selected.text || ""}\n` });
+        return;
+      }
+      if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        updateSelected({ text: `${selected.text || ""}${e.key}` });
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selected, updateSelected]);
 
   useEffect(() => {
     function onWidgetOutputMessage(event: MessageEvent) {
@@ -832,6 +1054,20 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
             {selected.type === "text" && (
               <>
                 <input className="w-44 border rounded px-2 py-1 text-xs" value={selected.text || ""} onChange={(e) => updateSelected({ text: e.target.value })} />
+                <div className="inline-flex items-center gap-1 text-xs min-w-[210px]">
+                  <span className="text-gray-600">Font Family</span>
+                  <select
+                    className="border rounded px-2 py-1 text-xs min-w-[130px]"
+                    value={selected.fontFamily || "Inter"}
+                    onChange={(e) => updateSelected({ fontFamily: e.target.value })}
+                  >
+                    {FONT_OPTIONS.map((font) => (
+                      <option key={font} value={font}>
+                        {font}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="inline-flex items-center gap-1 text-xs min-w-[170px]">
                   <span className="text-gray-600">Font</span>
                   <input type="range" min={12} max={96} value={selected.fontSize || 32} onChange={(e) => updateSelected({ fontSize: Number(e.target.value) })} className="w-28" />
@@ -867,6 +1103,32 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {elementsOpen && (
+        <div className="fixed left-24 top-[260px] z-30 w-80 rounded-2xl border border-gray-200 bg-white shadow-xl p-3">
+          <p className="text-sm font-semibold text-gray-900 mb-2">Elements</p>
+          <input
+            value={elementsQuery}
+            onChange={(e) => setElementsQuery(e.target.value)}
+            placeholder="Search elements..."
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3"
+          />
+          <div className="grid grid-cols-2 gap-2 max-h-80 overflow-auto pr-1">
+            {elementPresets.map((preset) => (
+              <button
+                key={preset.key}
+                onClick={() => addShape(preset.key as CanvasItem["shapeKind"], preset.w, preset.h)}
+                className="text-left border border-gray-200 rounded-lg p-2 hover:bg-gray-50"
+              >
+                <div className="h-20 rounded-md bg-gray-50 border border-gray-100 flex items-center justify-center mb-2">
+                  {renderElementPresetPreview(preset.key as NonNullable<CanvasItem["shapeKind"]>)}
+                </div>
+                <p className="text-sm font-medium text-gray-900">{preset.label}</p>
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -929,7 +1191,13 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
 
       <div className="grid grid-cols-1 lg:grid-cols-[72px_1fr] gap-4 p-4">
         <aside className="rounded-xl border border-gray-200 bg-white py-3 flex flex-col items-center gap-3">
-          <button onClick={addShape} className="w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 text-[10px] text-gray-600 hover:bg-gray-50">
+          <button
+            onClick={() => {
+              setElementsOpen((v) => !v);
+              setUploadsOpen(false);
+            }}
+            className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center gap-0.5 text-[10px] hover:bg-gray-50 ${elementsOpen ? "bg-orange-50 text-orange-700" : "text-gray-600"}`}
+          >
             <Square className="h-4 w-4" />
             <span>Elements</span>
           </button>
@@ -999,11 +1267,60 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
                       }}
                     >
                       {item.type === "image" && item.src && <img src={item.src} alt="" className="w-full h-full object-contain pointer-events-none" />}
-                      {item.type === "shape" && <div className="w-full h-full" style={{ backgroundColor: item.color }} />}
+                      {item.type === "shape" && (
+                        <div
+                          className="w-full h-full"
+                          style={{
+                            backgroundColor: item.color,
+                            borderRadius: item.shapeKind === "circle" || item.shapeKind === "pill" ? "9999px" : undefined,
+                            clipPath:
+                              item.shapeKind === "triangle"
+                                ? "polygon(50% 0%, 0% 100%, 100% 100%)"
+                                : item.shapeKind === "diamond"
+                                  ? "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)"
+                                  : item.shapeKind === "star"
+                                    ? "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)"
+                                    : undefined,
+                          }}
+                        />
+                      )}
                       {item.type === "text" && (
-                        <div className="w-full h-full leading-tight pointer-events-none" style={{ color: item.color, fontSize: item.fontSize || 30 }}>
+                        <div className="w-full h-full leading-tight pointer-events-none" style={{ color: item.color, fontSize: item.fontSize || 30, fontFamily: item.fontFamily || "Inter" }}>
                           {item.text}
                         </div>
+                      )}
+                      {selectedId === item.id && (
+                        <>
+                          {[
+                            { dir: "n", cls: "top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize" },
+                            { dir: "s", cls: "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 cursor-ns-resize" },
+                            { dir: "e", cls: "right-0 top-1/2 translate-x-1/2 -translate-y-1/2 cursor-ew-resize" },
+                            { dir: "w", cls: "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize" },
+                            { dir: "ne", cls: "top-0 right-0 translate-x-1/2 -translate-y-1/2 cursor-nesw-resize" },
+                            { dir: "nw", cls: "top-0 left-0 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize" },
+                            { dir: "se", cls: "bottom-0 right-0 translate-x-1/2 translate-y-1/2 cursor-nwse-resize" },
+                            { dir: "sw", cls: "bottom-0 left-0 -translate-x-1/2 translate-y-1/2 cursor-nesw-resize" },
+                          ].map((h) => (
+                            <button
+                              key={h.dir}
+                              className={`absolute w-3 h-3 rounded-full bg-white border border-orange-400 ${h.cls}`}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                                resizeRef.current = {
+                                  id: item.id,
+                                  dir: h.dir as "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw",
+                                  startX: e.clientX,
+                                  startY: e.clientY,
+                                  originX: item.x,
+                                  originY: item.y,
+                                  originW: item.w,
+                                  originH: item.h,
+                                  snapshot: canvasItems,
+                                };
+                              }}
+                            />
+                          ))}
+                        </>
                       )}
                     </div>
                   ))}
@@ -1051,6 +1368,27 @@ function ImageStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
             <span className="text-sm text-gray-600">Zoom</span>
             <input type="range" min={40} max={200} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
             <span className="text-sm text-gray-700 w-12">{zoom}%</span>
+          </div>
+          <div className="mt-3 flex flex-col items-center gap-2">
+            <button
+              onClick={addPage}
+              className="min-w-[240px] border border-gray-300 bg-white hover:bg-gray-50 rounded-xl px-4 py-2 text-sm font-semibold text-gray-800"
+            >
+              + Add page
+            </button>
+            <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-1">
+              {pages.map((page, idx) => (
+                <button
+                  key={page.id}
+                  onClick={() => setActivePageIndex(idx)}
+                  className={`text-xs rounded-lg border px-3 py-1.5 whitespace-nowrap ${
+                    idx === activePageIndex ? "border-orange-300 bg-orange-50 text-orange-700" : "border-gray-200 bg-white text-gray-700"
+                  }`}
+                >
+                  Page {idx + 1}
+                </button>
+              ))}
+            </div>
           </div>
         </main>
       </div>
