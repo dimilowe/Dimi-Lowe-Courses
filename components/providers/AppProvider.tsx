@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useUIStore } from '@/lib/state/uiStore';
 import { AuthModal } from '@/components/auth-modal';
 import UpgradeModal from '@/components/modals/UpgradeModal';
@@ -29,8 +29,10 @@ export function AppProvider({ children, currentTier = 'free' }: AppProviderProps
     setUserTier,
     setCloudEntitlements,
   } = useUIStore();
+  const [resolvedTier, setResolvedTier] = useState<UserTier>(currentTier);
 
   useEffect(() => {
+    setResolvedTier(currentTier);
     setUserTier(currentTier);
   }, [currentTier, setUserTier]);
 
@@ -41,6 +43,7 @@ export function AppProvider({ children, currentTier = 'free' }: AppProviderProps
         if (res.ok) {
           const data = await res.json();
           const entitlements: CloudEntitlementResponse[] = data.entitlements || [];
+          const nextTier = (data.userTier || currentTier) as UserTier;
           
           const entitlementsMap: CloudEntitlementsMap = {};
           for (const e of entitlements) {
@@ -48,6 +51,8 @@ export function AppProvider({ children, currentTier = 'free' }: AppProviderProps
               entitlementsMap[e.cloud_id] = e.tier;
             }
           }
+          setResolvedTier(nextTier);
+          setUserTier(nextTier);
           setCloudEntitlements(entitlementsMap);
         }
       } catch (error) {
@@ -56,7 +61,7 @@ export function AppProvider({ children, currentTier = 'free' }: AppProviderProps
     }
     
     fetchCloudEntitlements();
-  }, [setCloudEntitlements]);
+  }, [currentTier, setCloudEntitlements, setUserTier]);
 
   const handleAuthSuccess = (userId: string) => {
     closeAuthModal();
@@ -76,7 +81,7 @@ export function AppProvider({ children, currentTier = 'free' }: AppProviderProps
       <UpgradeModal
         isOpen={isUpgradeModalOpen}
         onClose={closeUpgradeModal}
-        currentTier={currentTier}
+        currentTier={resolvedTier}
         requiredFeature={mappedFeature as 'ai' | 'heavyTools' | 'workflows' | 'exports' | 'memory' | undefined}
         targetTier={upgradeRequiredTier || 'starter'}
       />

@@ -6,12 +6,8 @@ import { Navbar } from "@/components/navbar";
 import { CartProvider } from "@/contexts/CartContext";
 import FloatingToolsButton from "@/components/FloatingToolsButton";
 import { AppProvider } from "@/components/providers/AppProvider";
-import { getCurrentUserWithTier } from "@/lib/pricing/getCurrentUserWithTier";
-import type { UserTier } from "@/lib/pricing/types";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { getSiteUrl } from "@/lib/site-url";
-
-export const dynamic = 'force-dynamic';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -34,14 +30,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getCurrentUserWithTier();
-  const currentTier: UserTier = user?.subscription_tier || 'free';
-
   return (
     <html lang="en">
       <head>
@@ -67,10 +60,33 @@ export default async function RootLayout({
             gtag('config', 'G-0SGBDR0QMG');
           `}
         </Script>
+        <Script id="ops-page-view" strategy="afterInteractive">
+          {`
+            (function () {
+              try {
+                var referrer = document.referrer || "";
+                var isOrganic = /(google\\.|bing\\.|yahoo\\.|duckduckgo\\.|ecosia\\.|baidu\\.|yandex\\.)/i.test(referrer);
+                fetch("/api/analytics/track", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    event: "page_view",
+                    properties: {
+                      path: window.location.pathname,
+                      referrer: referrer,
+                      isOrganic: isOrganic
+                    }
+                  }),
+                  keepalive: true
+                }).catch(function () {});
+              } catch (e) {}
+            })();
+          `}
+        </Script>
       </head>
       <body className={inter.className}>
         <CartProvider>
-          <AppProvider currentTier={currentTier}>
+          <AppProvider>
             <Navbar />
             <main className="min-h-screen">
               {children}

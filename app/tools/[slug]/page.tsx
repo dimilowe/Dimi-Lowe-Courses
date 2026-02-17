@@ -1,19 +1,26 @@
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
-import { getCmsToolBySlug } from '@/lib/cms/getCmsToolBySlug';
+import { getAllCmsTools, getCmsToolBySlug } from '@/lib/cms/getCmsToolBySlug';
 import { getPillarBySlug } from '@/lib/cms/getPillarBySlug';
 import { isEngineSupported } from '@/lib/engineRegistry';
 import ToolPageClient from './ToolPageClient';
 import { FreeToolsBlock } from '@/components/FreeToolsBlock';
 import { ToolBreadcrumb } from '@/components/tools/ToolBreadcrumb';
 import { ToolInterlinks } from '@/components/tools/ToolInterlinks';
-import UpgradeWall from '@/components/entitlements/UpgradeWall';
-import { getServerGate } from '@/lib/entitlements/getServerGate';
 import { getToolBySlug } from '@/lib/toolsRepo';
 import { getSiteUrl } from '@/lib/site-url';
+import { getToolIndexDecision } from '@/lib/seo/toolIndexGate';
+import { getCanonicalToolPath, normalizeToolSlug } from '@/lib/seo/urlNormalization';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+}
+
+export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  const tools = await getAllCmsTools({ includeDrafts: false });
+  return tools.map((tool) => ({ slug: tool.slug }));
 }
 
 function inferToolType(slug: string): string {
@@ -46,9 +53,10 @@ function buildFallbackKeywords(slug: string, toolName: string): string {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = normalizeToolSlug(rawSlug);
   const tool = await getCmsToolBySlug(slug, { includeDrafts: true });
-  const canonical = `/tools/${slug}`;
+  const canonical = getCanonicalToolPath(slug);
 
   if (!tool) {
     return {
@@ -62,25 +70,28 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const seoDescription = tool.seo?.metaDescription || tool.description || buildFallbackSeoDescription(tool.name, slug);
   const seoKeywords = tool.seo?.keywords?.join(', ') || buildFallbackKeywords(slug, tool.name);
   const baseUrl = getSiteUrl();
-  const shouldIndex = tool.isIndexed;
+  const indexDecision = await getToolIndexDecision(tool);
+  const shouldIndex = indexDecision.shouldIndex;
+  const resolvedCanonical = indexDecision.canonicalPath;
 
   return {
     title: seoTitle,
     description: seoDescription,
     keywords: seoKeywords,
     robots: shouldIndex ? { index: true, follow: true } : { index: false, follow: false },
-    alternates: { canonical },
+    alternates: { canonical: resolvedCanonical },
     openGraph: {
       title: seoTitle,
       description: seoDescription,
-      url: `${baseUrl}${canonical}`,
+      url: `${baseUrl}${resolvedCanonical}`,
       type: 'website',
     },
   };
 }
 
 export default async function ToolPage({ params }: PageProps) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = normalizeToolSlug(rawSlug);
   const [cmsTool, dbTool] = await Promise.all([
     getCmsToolBySlug(slug, { includeDrafts: true }),
     getToolBySlug(slug)
@@ -88,18 +99,6 @@ export default async function ToolPage({ params }: PageProps) {
 
   if (!cmsTool) {
     return notFound();
-  }
-
-  const { gate } = await getServerGate({ slug });
-  
-  if (!gate.allowed) {
-    return (
-      <UpgradeWall
-        gate={gate}
-        toolName={cmsTool.name}
-        toolDescription={cmsTool.description}
-      />
-    );
   }
 
   const tool = {

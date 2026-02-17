@@ -18,15 +18,12 @@ export interface ServerGateResult {
 }
 
 export async function getServerGate(params: ServerGateParams): Promise<ServerGateResult> {
-  console.log(`[ServerGate] ENTERED with params:`, JSON.stringify(params));
   const { slug } = params;
   
   const dbTool = await getToolBySlug(slug);
   
   const required_clouds: CloudId[] = (dbTool?.requiredClouds ?? []) as CloudId[];
   const required_tier: EntitlementTier = (dbTool?.requiredTier ?? 'free') as EntitlementTier;
-  
-  console.log(`[ServerGate] slug=${slug}, found=${!!dbTool}, required_tier=${required_tier}`);
   
   let isLoggedIn = false;
   let entitlements: CloudEntitlement[] = [];
@@ -49,8 +46,6 @@ export async function getServerGate(params: ServerGateParams): Promise<ServerGat
     entitlements,
     isLoggedIn
   });
-  
-  console.log(`[ServerGate] isLoggedIn=${isLoggedIn}, entitlements=${entitlements.length}, gate.allowed=${gate.allowed}, reason=${gate.reason}`);
   
   return {
     gate,

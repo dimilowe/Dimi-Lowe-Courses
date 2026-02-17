@@ -1,8 +1,9 @@
 import { MetadataRoute } from 'next';
 import { query } from '@/lib/db';
 import { getSiteUrl } from '@/lib/site-url';
+import { normalizePathname } from '@/lib/seo/urlNormalization';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = getSiteUrl();
@@ -15,9 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   );
 
   return registryResult.rows.map((entry: any) => ({
-    url: entry.canonical 
-      ? `${baseUrl}${entry.canonical}` 
-      : `${baseUrl}${entry.url}`,
+    url: `${baseUrl}${normalizePathname(entry.canonical || entry.url || "/")}`,
     lastModified: entry.updated_at ? new Date(entry.updated_at) : new Date(),
     changeFrequency: getChangeFrequency(entry.url),
     priority: getPriority(entry.url),

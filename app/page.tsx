@@ -539,6 +539,12 @@ export default async function HomePage() {
               >
                 Tools Directory
               </Link>
+              <Link
+                href="/tools#tool-banks"
+                className="text-gray-600 hover:text-orange-500 text-sm font-medium transition-colors"
+              >
+                Tool Banks
+              </Link>
               <div className="flex items-center gap-4">
                 <p className="text-gray-500 text-sm hidden md:block">Feedback?</p>
                 <FeedbackDialog />

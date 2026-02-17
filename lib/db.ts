@@ -1,5 +1,6 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import ws from "ws";
+import { recordDbQuery } from "@/lib/ops/metrics";
 
 // Configure Neon for serverless environments (like APE)
 neonConfig.webSocketConstructor = ws;
@@ -21,6 +22,7 @@ export async function query(text: string, params?: any[]) {
   const start = Date.now();
   const res = await pool.query(text, params);
   const duration = Date.now() - start;
+  recordDbQuery(duration);
   console.log('executed query', { text, duration, rows: res.rowCount });
   return res;
 }
@@ -35,6 +37,7 @@ export async function withTransaction<T>(
       const start = Date.now();
       const res = await client.query(text, params);
       const duration = Date.now() - start;
+      recordDbQuery(duration);
       console.log('executed query (tx)', { text, duration, rows: res.rowCount });
       return res;
     };

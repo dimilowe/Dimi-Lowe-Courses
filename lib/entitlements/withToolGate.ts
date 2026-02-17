@@ -5,6 +5,7 @@ import { getToolBySlug, ToolRecord } from '@/lib/toolsRepo';
 import { gateTool, type GateResult, type ToolAccess } from '@/lib/entitlements/gate';
 import { getCloudEntitlementsForUser } from '@/lib/cloudEntitlements';
 import type { CloudEntitlement, CloudId, EntitlementTier } from '@/lib/types/cloudEntitlements';
+import { recordApiInvocation } from '@/lib/ops/metrics';
 
 interface SessionData {
   userId?: number;
@@ -34,6 +35,7 @@ type GatedHandler = (
 export function withToolGate(handler: GatedHandler) {
   return async (req: NextRequest, { params }: { params: Promise<{ slug: string }> }) => {
     const { slug } = await params;
+    recordApiInvocation(`/api/tools/${slug}`);
 
     const tool = await getToolBySlug(slug);
     if (!tool) {
@@ -82,6 +84,7 @@ export function withToolGate(handler: GatedHandler) {
 export async function gateToolForRequest(
   slug: string
 ): Promise<{ allowed: true; tool: ToolRecord; entitlements: CloudEntitlement[]; gate: GateResult } | { allowed: false; gate: GateResult; response: NextResponse }> {
+  recordApiInvocation(`/api/tools/${slug}`);
   const tool = await getToolBySlug(slug);
   if (!tool) {
     const gate: GateResult = {

@@ -1,10 +1,12 @@
 import { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { FileArchive, CheckCircle, ArrowRight, Shield, Zap, Download, Wrench, FolderOpen } from "lucide-react";
 import { query } from "@/lib/db";
 import { getRelatedPillars } from "@/lib/cms/getPillarBySlug";
+import { recordCacheMiss, recordCacheRequest } from "@/lib/ops/metrics";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Free ZIP File Tools - Compress, Create & Protect Files Online",
@@ -60,24 +62,34 @@ const faqs = [
 
 async function getLinkedTools() {
   try {
-    // Query from both tools table and cms_objects
+    recordCacheRequest("zip-pillar-linked-tools");
+    return await getLinkedToolsCached(PILLAR_SLUG);
+  } catch (error) {
+    console.error("Error fetching pillar tools:", error);
+    return fallbackTools;
+  }
+}
+
+const getLinkedToolsCached = unstable_cache(
+  async (pillarSlug: string) => {
+    recordCacheMiss("zip-pillar-linked-tools");
     const [toolsResult, cmsResult] = await Promise.all([
       query(
         `SELECT slug, name, description 
          FROM tools 
          WHERE pillar_slug = $1
          ORDER BY priority ASC, name ASC`,
-        [PILLAR_SLUG]
+        [pillarSlug]
       ),
       query(
         `SELECT slug, data->>'title' as name, data->>'description' as description
          FROM cms_objects 
          WHERE type = 'tool' AND pillar_slug = $1
          ORDER BY slug ASC`,
-        [PILLAR_SLUG]
-      )
+        [pillarSlug]
+      ),
     ]);
-    
+
     const allTools = [
       ...toolsResult.rows.map((row: { slug: string; name: string; description: string | null }) => ({
         slug: row.slug,
@@ -88,18 +100,14 @@ async function getLinkedTools() {
         slug: row.slug,
         name: row.name || row.slug,
         description: row.description || "",
-      }))
+      })),
     ];
-    
-    if (allTools.length > 0) {
-      return allTools;
-    }
-    return fallbackTools;
-  } catch (error) {
-    console.error("Error fetching pillar tools:", error);
-    return fallbackTools;
-  }
-}
+
+    return allTools.length > 0 ? allTools : fallbackTools;
+  },
+  ["zip-pillar-linked-tools-v1"],
+  { revalidate }
+);
 
 export default async function ZipFileToolsPage() {
   const [tools, relatedPillars] = await Promise.all([

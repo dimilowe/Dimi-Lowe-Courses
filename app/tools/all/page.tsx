@@ -4,7 +4,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { CATEGORY_INFO } from "@/data/toolsRegistry";
 import { getToolsForDirectory as getToolsFromDB } from "@/lib/tools/getToolsForDirectory";
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "All Tools A-Z — VCM Suite Tools Directory",

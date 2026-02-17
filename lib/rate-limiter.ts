@@ -1,3 +1,5 @@
+import { recordApiInvocation } from "@/lib/ops/metrics";
+
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 const WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -20,6 +22,7 @@ export function checkRateLimit(
   ip: string, 
   tool: string = 'default'
 ): { allowed: boolean; remaining: number; resetIn: number } {
+  recordApiInvocation(`/api/action/${tool}`);
   const config = TOOL_LIMITS[tool] || TOOL_LIMITS.default;
   const maxRequests = config.maxRequests;
   const windowMs = config.windowMs || WINDOW_MS;

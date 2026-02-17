@@ -198,9 +198,14 @@ const CLUSTER_REFERENCE_DATA: Record<string, ClusterReferenceData> = {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { clusterSlug } = await params;
   const cluster = getClusterById(clusterSlug);
+  const canonical = `/tools/clusters/${clusterSlug}`;
   
   if (!cluster) {
-    return { title: "Cluster Not Found" };
+    return {
+      title: "Cluster Not Found",
+      robots: "noindex, nofollow",
+      alternates: { canonical },
+    };
   }
 
   return {
@@ -211,8 +216,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: cluster.pillarTitle,
       description: cluster.pillarDescription,
       type: "website",
+      url: canonical,
     },
     robots: "index, follow",
+    alternates: { canonical },
   };
 }
 

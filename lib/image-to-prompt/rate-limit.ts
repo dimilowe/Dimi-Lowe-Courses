@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { recordApiInvocation } from '@/lib/ops/metrics';
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
@@ -24,6 +25,7 @@ export async function getClientIP(): Promise<string> {
 }
 
 export function checkRateLimit(ip: string): { allowed: boolean; remaining: number; resetIn: number } {
+  recordApiInvocation('/api/image-to-prompt');
   const now = Date.now();
   const record = rateLimitMap.get(ip);
 

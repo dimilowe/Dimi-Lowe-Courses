@@ -13,9 +13,14 @@ const VALID_CATEGORIES = Object.keys(CATEGORY_INFO) as ToolCategory[];
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { categorySlug } = await params;
+  const canonical = `/tools/categories/${categorySlug}`;
   
   if (!VALID_CATEGORIES.includes(categorySlug as ToolCategory)) {
-    return { title: "Category Not Found" };
+    return {
+      title: "Category Not Found",
+      robots: "noindex, nofollow",
+      alternates: { canonical },
+    };
   }
 
   const categoryInfo = CATEGORY_INFO[categorySlug as ToolCategory];
@@ -27,8 +32,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: `${categoryInfo.label} | VCM Suite`,
       description: categoryInfo.description,
       type: "website",
+      url: canonical,
     },
     robots: "index, follow",
+    alternates: { canonical },
   };
 }
 

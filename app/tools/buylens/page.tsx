@@ -3,7 +3,7 @@ import BuyLensClient from "./BuyLensClient";
 import ExploreMoreTools from "@/components/ExploreMoreTools";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "BuyLens — Compare Prices & Find the Best Deal | VCM Suite",

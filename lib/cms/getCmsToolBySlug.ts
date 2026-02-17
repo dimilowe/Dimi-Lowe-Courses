@@ -1,5 +1,7 @@
 import { query } from "../db";
+import { unstable_cache } from "next/cache";
 import type { CloudSlug } from "../clouds";
+import { recordCacheMiss, recordCacheRequest } from "../ops/metrics";
 
 export interface ToolEngineConfig {
   engine: string;
@@ -84,39 +86,73 @@ export const ENGINE_TO_CATEGORY: Record<string, { label: string; key: string }> 
   'price-engine': { label: 'Shopping Tools', key: 'shopping' },
 };
 
-export async function getCmsToolBySlug(
-  slug: string,
-  options?: { includeDrafts?: boolean }
-): Promise<ToolForRenderer | null> {
-  const result = await query(
-    `SELECT id, slug, type, pillar_slug, cluster_slug, COALESCE(cloud_tags, '{}') AS cloud_tags, data, word_count, health, created_at, updated_at
-     FROM cms_objects
-     WHERE type = 'tool' AND slug = $1
-     LIMIT 1`,
-    [slug]
-  );
+const CMS_TOOLS_REVALIDATE_SECONDS = 60 * 60;
 
-  if (result.rows.length === 0) {
-    return null;
-  }
+type CmsToolRow = {
+  slug: string;
+  pillar_slug: string | null;
+  cluster_slug: string | null;
+  cloud_tags: CloudSlug[] | null;
+  data: CmsToolData;
+};
 
-  const row = result.rows[0];
+const fetchCmsToolRowBySlugCached = unstable_cache(
+  async (slug: string): Promise<CmsToolRow | null> => {
+    recordCacheMiss("cms-tool-row-by-slug");
+    const result = await query(
+      `SELECT id, slug, type, pillar_slug, cluster_slug, COALESCE(cloud_tags, '{}') AS cloud_tags, data, word_count, health, created_at, updated_at
+       FROM cms_objects
+       WHERE type = 'tool' AND slug = $1
+       LIMIT 1`,
+      [slug]
+    );
+    return (result.rows[0] as CmsToolRow | undefined) || null;
+  },
+  ["cms-tool-row-by-slug-v1"],
+  { revalidate: CMS_TOOLS_REVALIDATE_SECONDS }
+);
+
+const fetchAllCmsToolRowsCached = unstable_cache(
+  async (): Promise<CmsToolRow[]> => {
+    recordCacheMiss("cms-tools-all-rows");
+    const result = await query(
+      `SELECT id, slug, type, pillar_slug, cluster_slug, COALESCE(cloud_tags, '{}') AS cloud_tags, data, word_count, health, created_at, updated_at
+       FROM cms_objects
+       WHERE type = 'tool'
+       ORDER BY slug ASC`
+    );
+    return result.rows as CmsToolRow[];
+  },
+  ["cms-tools-all-rows-v1"],
+  { revalidate: CMS_TOOLS_REVALIDATE_SECONDS }
+);
+
+const fetchIndexedCmsToolRowsCached = unstable_cache(
+  async (): Promise<CmsToolRow[]> => {
+    recordCacheMiss("cms-tools-indexed-rows");
+    const result = await query(
+      `SELECT id, slug, type, pillar_slug, cluster_slug, COALESCE(cloud_tags, '{}') AS cloud_tags, data, word_count, health, created_at, updated_at
+       FROM cms_objects
+       WHERE type = 'tool'
+         AND (data->>'isIndexed')::boolean = true
+       ORDER BY slug ASC`
+    );
+    return result.rows as CmsToolRow[];
+  },
+  ["cms-tools-indexed-rows-v1"],
+  { revalidate: CMS_TOOLS_REVALIDATE_SECONDS }
+);
+
+function mapCmsToolRowToRenderer(row: CmsToolRow): ToolForRenderer {
   const data = row.data as CmsToolData;
-
-  const isIndexed = data.isIndexed ?? false;
-  
-  if (!options?.includeDrafts && !isIndexed) {
-    return null;
-  }
-
   return {
     slug: row.slug,
     name: data.title,
     description: data.description,
-    engine: data.engine_config?.engine || '',
+    engine: data.engine_config?.engine || "",
     preset: data.engine_config?.preset,
     mode: data.engine_config?.mode,
-    isIndexed,
+    isIndexed: data.isIndexed ?? false,
     pillarSlug: row.pillar_slug,
     clusterSlug: row.cluster_slug,
     cloudTags: (row.cloud_tags ?? []) as CloudSlug[],
@@ -128,41 +164,29 @@ export async function getCmsToolBySlug(
   };
 }
 
+export async function getCmsToolBySlug(
+  slug: string,
+  options?: { includeDrafts?: boolean }
+): Promise<ToolForRenderer | null> {
+  recordCacheRequest("cms-tool-row-by-slug");
+  const row = await fetchCmsToolRowBySlugCached(slug);
+  if (!row) {
+    return null;
+  }
+  const data = row.data as CmsToolData;
+  const isIndexed = data.isIndexed ?? false;
+  if (!options?.includeDrafts && !isIndexed) {
+    return null;
+  }
+  return mapCmsToolRowToRenderer(row);
+}
+
 export async function getAllCmsTools(
   options?: { includeDrafts?: boolean }
 ): Promise<ToolForRenderer[]> {
-  let sql = `
-    SELECT id, slug, type, pillar_slug, cluster_slug, COALESCE(cloud_tags, '{}') AS cloud_tags, data, word_count, health, created_at, updated_at
-    FROM cms_objects
-    WHERE type = 'tool'
-  `;
-  
-  if (!options?.includeDrafts) {
-    sql += ` AND (data->>'isIndexed')::boolean = true`;
-  }
-  
-  sql += ` ORDER BY slug ASC`;
-
-  const result = await query(sql);
-
-  return result.rows.map((row) => {
-    const data = row.data as CmsToolData;
-    return {
-      slug: row.slug,
-      name: data.title,
-      description: data.description,
-      engine: data.engine_config?.engine || '',
-      preset: data.engine_config?.preset,
-      mode: data.engine_config?.mode,
-      isIndexed: data.isIndexed ?? false,
-      pillarSlug: row.pillar_slug,
-      clusterSlug: row.cluster_slug,
-      cloudTags: (row.cloud_tags ?? []) as CloudSlug[],
-      seo: data.seo,
-      monetization: data.monetization,
-      interlinkParent: data.interlink_parent,
-      interlinkSiblings: data.interlink_siblings,
-      interlinkTools: data.interlink_tools,
-    };
-  });
+  recordCacheRequest(options?.includeDrafts ? "cms-tools-all-rows" : "cms-tools-indexed-rows");
+  const rows = options?.includeDrafts
+    ? await fetchAllCmsToolRowsCached()
+    : await fetchIndexedCmsToolRowsCached();
+  return rows.map(mapCmsToolRowToRenderer);
 }
