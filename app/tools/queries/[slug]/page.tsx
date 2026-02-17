@@ -50,10 +50,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 function formatTemplateLabel(templateSlug: string): string {
   const cleaned = templateSlug
     .replace(/^file-convert-/, "")
-    .replace(/^image-size-/, "");
+    .replace(/^image-size-/, "")
+    .replace(/^unit-convert-/, "")
+    .replace(/^pdf-task-/, "")
+    .replace(/^image-format-convert-/, "")
+    .replace(/^calculator-intent-/, "");
   if (cleaned === "main") return "Primary";
   if (cleaned === "converter") return "Converter";
   if (cleaned === "how-to") return "How To";
+  if (cleaned === "task") return "Task";
+  if (cleaned === "tool") return "Tool";
+  if (cleaned === "free") return "Free";
   return cleaned
     .split("-")
     .map((part) => part[0]?.toUpperCase() + part.slice(1))
@@ -63,12 +70,20 @@ function formatTemplateLabel(templateSlug: string): string {
 function bankDisplayName(bankSlug: string): string {
   if (bankSlug === "image-size") return "Image Size Bank";
   if (bankSlug === "file-convert") return "File Convert Bank";
+  if (bankSlug === "unit-convert") return "Unit Convert Bank";
+  if (bankSlug === "pdf-task") return "PDF Task Bank";
+  if (bankSlug === "image-format-convert") return "Image Format Convert Bank";
+  if (bankSlug === "calculator-intent") return "Calculator Bank";
   return "Query Bank";
 }
 
 function bankCtaLabel(bankSlug: string): string {
   if (bankSlug === "image-size") return "Resize This Format Now";
   if (bankSlug === "file-convert") return "Open Converter Workflow";
+  if (bankSlug === "unit-convert") return "Browse Conversion Tools";
+  if (bankSlug === "pdf-task") return "Open PDF Workflow";
+  if (bankSlug === "image-format-convert") return "Open Image Converter";
+  if (bankSlug === "calculator-intent") return "Open Calculator Tool";
   return "Open Tool";
 }
 
@@ -89,10 +104,25 @@ export default async function QueryLeafPage({ params }: PageProps) {
 
   const faq = Array.isArray(page.body.faq) ? page.body.faq : [];
   const isImageSize = page.bankSlug === "image-size";
+  const isUnitConvert = page.bankSlug === "unit-convert";
+  const isPdfTask = page.bankSlug === "pdf-task";
+  const isCalculatorIntent = page.bankSlug === "calculator-intent";
+  const isFormatConvert =
+    page.bankSlug === "file-convert" || page.bankSlug === "image-format-convert";
   const pixels = String(page.body.pixels || `${page.body.width || "?"}x${page.body.height || "?"}`);
   const sourceFormat = String(page.body.sourceFormat || "?");
   const targetFormat = String(page.body.targetFormat || "?");
   const category = String(page.body.category || "conversion");
+  const sourceUnit = String(page.body.sourceUnit || "?");
+  const targetUnit = String(page.body.targetUnit || "?");
+  const formula = String(page.body.formula || "Formula details are listed in this guide.");
+  const task = String(page.body.task || page.body.entityName || "PDF task");
+  const outputType = String(page.body.outputType || "PDF output");
+  const intent = String(page.body.intent || page.body.entityName || "calculator intent");
+  const audience = String(page.body.audience || "general use");
+  const primaryInput = String(page.body.primaryInput || "input values");
+  const primaryOutput = String(page.body.primaryOutput || "estimated result");
+  const formulaHint = String(page.body.formulaHint || "Use the calculator workflow to apply the relevant formula.");
 
   const faqSchema =
     faq.length > 0
@@ -154,7 +184,78 @@ export default async function QueryLeafPage({ params }: PageProps) {
                   <p className="mt-2 text-xs text-gray-500">{String(page.body.notes || "")}</p>
                 </div>
               </>
-            ) : (
+            ) : isUnitConvert ? (
+              <>
+                <div className="grid gap-3 rounded-xl bg-gray-50 p-4 md:grid-cols-3">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-gray-500">Source Unit</div>
+                    <div className="mt-1 text-lg font-semibold text-gray-900">{sourceUnit}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-gray-500">Target Unit</div>
+                    <div className="mt-1 text-lg font-semibold text-gray-900">{targetUnit}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-gray-500">Category</div>
+                    <div className="mt-1 text-lg font-semibold text-gray-900">{category}</div>
+                  </div>
+                </div>
+                <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                  <h2 className="text-sm font-semibold text-gray-900">Conversion Formula</h2>
+                  <p className="mt-1 text-sm text-gray-700">{formula}</p>
+                  <p className="mt-2 text-xs text-gray-500">{String(page.body.notes || "")}</p>
+                </div>
+              </>
+            ) : isPdfTask ? (
+              <>
+                <div className="grid gap-3 rounded-xl bg-gray-50 p-4 md:grid-cols-3">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-gray-500">Task</div>
+                    <div className="mt-1 text-lg font-semibold text-gray-900">{task}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-gray-500">Output</div>
+                    <div className="mt-1 text-lg font-semibold text-gray-900">{outputType}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-gray-500">Category</div>
+                    <div className="mt-1 text-lg font-semibold text-gray-900">{category}</div>
+                  </div>
+                </div>
+                <div className="mt-5 rounded-xl border border-rose-200 bg-rose-50 p-4">
+                  <h2 className="text-sm font-semibold text-gray-900">Workflow Notes</h2>
+                  <p className="mt-1 text-sm text-gray-700">
+                    {String(page.body.bestFor || "Use this workflow to complete the PDF task quickly and validate output before sharing.")}
+                  </p>
+                  <p className="mt-2 text-xs text-gray-500">{String(page.body.notes || "")}</p>
+                </div>
+              </>
+            ) : isCalculatorIntent ? (
+              <>
+                <div className="grid gap-3 rounded-xl bg-gray-50 p-4 md:grid-cols-3">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-gray-500">Intent</div>
+                    <div className="mt-1 text-lg font-semibold text-gray-900">{intent}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-gray-500">Audience</div>
+                    <div className="mt-1 text-lg font-semibold text-gray-900">{audience}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-gray-500">Category</div>
+                    <div className="mt-1 text-lg font-semibold text-gray-900">{category}</div>
+                  </div>
+                </div>
+                <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <h2 className="text-sm font-semibold text-gray-900">Calculator Inputs and Formula Hint</h2>
+                  <p className="mt-1 text-sm text-gray-700">
+                    Inputs: {primaryInput}. Output: {primaryOutput}.
+                  </p>
+                  <p className="mt-2 text-sm text-gray-700">{formulaHint}</p>
+                  <p className="mt-2 text-xs text-gray-500">{String(page.body.notes || "")}</p>
+                </div>
+              </>
+            ) : isFormatConvert ? (
               <>
                 <div className="grid gap-3 rounded-xl bg-gray-50 p-4 md:grid-cols-3">
                   <div>
@@ -176,6 +277,10 @@ export default async function QueryLeafPage({ params }: PageProps) {
                   <p className="mt-2 text-xs text-gray-500">{String(page.body.notes || "")}</p>
                 </div>
               </>
+            ) : (
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                This query page is available and linked, but its bank-specific visual summary has not been customized yet.
+              </div>
             )}
 
             <div className="mt-6">

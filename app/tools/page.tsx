@@ -99,32 +99,85 @@ export default async function ToolsPage() {
           </div>
 
           <section id="tool-banks" className="mb-8 scroll-mt-24">
-            <div className="mb-8 rounded-2xl border border-orange-200 bg-orange-50 p-5">
-              <h2 className="text-lg font-semibold text-gray-900">New: Image Size Phrase Bank</h2>
-              <p className="mt-1 text-sm text-gray-700">
-                Browse predictable search queries like "Instagram Story size", "YouTube Thumbnail dimensions", and
-                "LinkedIn Banner aspect ratio" from one indexed hub.
-              </p>
-              <Link
-                href="/tools/image-size-bank"
-                className="mt-3 inline-flex items-center rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
-              >
-                Open Image Size Bank
-              </Link>
-            </div>
+            <h2 className="mb-4 text-2xl font-bold text-gray-900">Tool Banks</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5">
+                <h3 className="text-lg font-semibold text-gray-900">Image Size Phrase Bank</h3>
+                <p className="mt-1 text-sm text-gray-700">
+                  Predictable queries like "Instagram Story size" and "YouTube Thumbnail dimensions" from one indexed hub.
+                </p>
+                <Link
+                  href="/tools/image-size-bank"
+                  className="mt-3 inline-flex items-center rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+                >
+                  Open Image Size Bank
+                </Link>
+              </div>
 
-            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
-              <h2 className="text-lg font-semibold text-gray-900">New: File Convert Phrase Bank</h2>
-              <p className="mt-1 text-sm text-gray-700">
-                Browse high-intent format conversion pages like "convert WEBP to JPG", "HEIC to JPG converter", and
-                "how to convert WAV to MIDI".
-              </p>
-              <Link
-                href="/tools/file-convert-bank"
-                className="mt-3 inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-              >
-                Open File Convert Bank
-              </Link>
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+                <h3 className="text-lg font-semibold text-gray-900">File Convert Phrase Bank</h3>
+                <p className="mt-1 text-sm text-gray-700">
+                  High-intent conversion pages like "convert WEBP to JPG", "HEIC to JPG converter", and similar queries.
+                </p>
+                <Link
+                  href="/tools/file-convert-bank"
+                  className="mt-3 inline-flex items-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  Open File Convert Bank
+                </Link>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+                <h3 className="text-lg font-semibold text-gray-900">Unit Convert Phrase Bank</h3>
+                <p className="mt-1 text-sm text-gray-700">
+                  Predictable unit conversion intents like "cm to inches", "kg to lbs", and "Celsius to Fahrenheit".
+                </p>
+                <Link
+                  href="/tools/unit-convert-bank"
+                  className="mt-3 inline-flex items-center rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  Open Unit Convert Bank
+                </Link>
+              </div>
+
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5">
+                <h3 className="text-lg font-semibold text-gray-900">PDF Task Phrase Bank</h3>
+                <p className="mt-1 text-sm text-gray-700">
+                  Workflow intents like "merge PDF files", "split PDF pages", and "how to edit PDF online".
+                </p>
+                <Link
+                  href="/tools/pdf-task-bank"
+                  className="mt-3 inline-flex items-center rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                >
+                  Open PDF Task Bank
+                </Link>
+              </div>
+
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                <h3 className="text-lg font-semibold text-gray-900">Calculator Phrase Bank</h3>
+                <p className="mt-1 text-sm text-gray-700">
+                  Calculator-intent pages across health, finance, logistics, and business planning.
+                </p>
+                <Link
+                  href="/tools/calculator-bank"
+                  className="mt-3 inline-flex items-center rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+                >
+                  Open Calculator Bank
+                </Link>
+              </div>
+
+              <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5">
+                <h3 className="text-lg font-semibold text-gray-900">Image Format Convert Phrase Bank</h3>
+                <p className="mt-1 text-sm text-gray-700">
+                  Format-specific image queries like "PNG to WEBP", "JPG to PNG", and "how to convert HEIC to JPG".
+                </p>
+                <Link
+                  href="/tools/image-format-convert-bank"
+                  className="mt-3 inline-flex items-center rounded-full bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-700"
+                >
+                  Open Image Format Convert Bank
+                </Link>
+              </div>
             </div>
           </section>
 
