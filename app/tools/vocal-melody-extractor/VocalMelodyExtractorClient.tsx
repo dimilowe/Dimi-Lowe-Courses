@@ -5,6 +5,8 @@ import { Upload, Music, FileText, AudioLines, Download, Loader2, AlertCircle, Ch
 
 type ProcessingState = 'idle' | 'uploading' | 'transcribing' | 'cleaning' | 'done' | 'error';
 const REQUEST_TIMEOUT_MS = 130000;
+const MAX_UPLOAD_MB = 30;
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 
 interface ExtractResult {
   midiUrl: string;
@@ -49,11 +51,24 @@ function postWithXhr(file: File): Promise<{ ok: boolean; status: number; data: A
     xhr.timeout = REQUEST_TIMEOUT_MS;
 
     xhr.onload = () => {
+      const contentType = (xhr.getResponseHeader('content-type') || '').toLowerCase();
       let data: ApiResponseData = {};
-      try {
-        data = JSON.parse(xhr.responseText || '{}') as ApiResponseData;
-      } catch {
-        data = { error: 'Failed to parse server response.' };
+      const raw = xhr.responseText || '';
+      const isLikelyJson = contentType.includes('application/json') || raw.trim().startsWith('{');
+      if (isLikelyJson) {
+        try {
+          data = JSON.parse(raw) as ApiResponseData;
+        } catch {
+          data = { error: `Server returned invalid JSON (HTTP ${xhr.status}).` };
+        }
+      } else {
+        if (xhr.status === 413) {
+          data = { error: `Upload too large for production gateway. Please use a file under ${MAX_UPLOAD_MB}MB.` };
+        } else {
+          data = {
+            error: `Server returned an unexpected response format (HTTP ${xhr.status}).`
+          };
+        }
       }
       resolve({
         ok: xhr.status >= 200 && xhr.status < 300,
@@ -66,6 +81,42 @@ function postWithXhr(file: File): Promise<{ ok: boolean; status: number; data: A
     xhr.ontimeout = () => reject(new DOMException('Upload timed out', 'AbortError'));
     xhr.send(createUploadFormData(file));
   });
+}
+
+async function parseApiResponse(response: Response): Promise<{ ok: boolean; status: number; data: ApiResponseData }> {
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  const raw = await response.text();
+  const isLikelyJson = contentType.includes('application/json') || raw.trim().startsWith('{');
+
+  if (isLikelyJson) {
+    try {
+      return {
+        ok: response.ok,
+        status: response.status,
+        data: JSON.parse(raw) as ApiResponseData
+      };
+    } catch {
+      return {
+        ok: response.ok,
+        status: response.status,
+        data: { error: `Server returned invalid JSON (HTTP ${response.status}).` }
+      };
+    }
+  }
+
+  if (response.status === 413) {
+    return {
+      ok: response.ok,
+      status: response.status,
+      data: { error: `Upload too large for production gateway. Please use a file under ${MAX_UPLOAD_MB}MB.` }
+    };
+  }
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    data: { error: `Server returned an unexpected response format (HTTP ${response.status}).` }
+  };
 }
 
 function shouldForceXhrUpload(): boolean {
@@ -112,8 +163,8 @@ export default function VocalMelodyExtractorClient() {
       return;
     }
     
-    if (f.size > 200 * 1024 * 1024) {
-      setError('File is too large. Maximum size is 200MB.');
+    if (f.size > MAX_UPLOAD_BYTES) {
+      setError(`File is too large. Maximum size is ${MAX_UPLOAD_MB}MB.`);
       return;
     }
     
@@ -160,8 +211,9 @@ export default function VocalMelodyExtractorClient() {
           } finally {
             clearTimeout(timeoutId);
           }
-          ok = response.ok;
-          data = await response.json();
+          const parsed = await parseApiResponse(response);
+          ok = parsed.ok;
+          data = parsed.data;
         } catch (fetchErr) {
           const message = fetchErr instanceof Error ? fetchErr.message : '';
           if (/did not match the expected pattern/i.test(message)) {
@@ -242,7 +294,7 @@ export default function VocalMelodyExtractorClient() {
               <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
               <p className="text-lg font-medium text-gray-700 mb-2">Drop a clean vocal or acapella</p>
               <p className="text-gray-500 mb-4">or click to browse</p>
-              <p className="text-sm text-gray-400">MP3, WAV, M4A, FLAC, OGG (max 200MB, 10 min)</p>
+              <p className="text-sm text-gray-400">MP3, WAV, M4A, FLAC, OGG (max 30MB, 10 min)</p>
             </label>
           ) : (
             <div>

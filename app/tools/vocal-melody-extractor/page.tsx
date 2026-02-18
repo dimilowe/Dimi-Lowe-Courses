@@ -75,7 +75,7 @@ const faqs = [
   },
   {
     question: 'What file types are supported?',
-    answer: 'We support MP3, WAV, M4A, FLAC, and OGG audio files. Maximum file size is 25MB and maximum duration is 10 minutes. Files are converted to WAV internally before processing.'
+    answer: 'We support MP3, WAV, M4A, FLAC, and OGG audio files. Maximum file size is 30MB and maximum duration is 10 minutes. Files are converted to WAV internally before processing.'
   }
 ];
 

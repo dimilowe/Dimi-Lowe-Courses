@@ -6,7 +6,7 @@ import os from 'os';
 import { getAudioInfo, normalizeAudioToWav } from '@/server/lib/audio/ffmpeg';
 import { acquireLock, releaseLock } from '@/server/lib/audio/ipRateLimit';
 
-const MAX_FILE_SIZE = 200 * 1024 * 1024;
+const MAX_FILE_SIZE = 30 * 1024 * 1024;
 const MAX_DURATION_SECONDS = 600;
 const PROCESSING_TIMEOUT_MS = 120000;
 
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
     
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 200MB.' },
+        { error: 'File too large. Maximum size is 30MB.' },
         { status: 400 }
       );
     }

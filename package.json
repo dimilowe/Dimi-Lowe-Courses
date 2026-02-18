@@ -27,6 +27,7 @@
     "db:verify:prod": "DB_TARGET=prod npm run db:verify",
     "smoke:producer-tag": "npx tsx scripts/smokeProducerTag.ts",
     "smoke:vocal-melody": "npx tsx scripts/smokeVocalMelodyExtractor.ts",
+    "check:vocal-melody:deploy": "npx tsx scripts/checkVocalMelodyDeploy.ts",
     "pseo:image-size:generate": "npx tsx scripts/pseo/generateImageSizeBank.ts",
     "pseo:file-convert:generate": "npx tsx scripts/pseo/generateFileConvertBank.ts",
     "pseo:unit-convert:generate": "npx tsx scripts/pseo/generateUnitConvertBank.ts",
