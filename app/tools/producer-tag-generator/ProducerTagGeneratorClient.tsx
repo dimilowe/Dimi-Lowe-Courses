@@ -43,6 +43,9 @@ const MAIN_AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a'];
 const MAIN_AUDIO_MIME_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
 const TAG_AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a'];
 const TAG_AUDIO_MIME_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
+const PREVIEW_CLIP_SECONDS = 20;
+const PREVIEW_TARGET_SAMPLE_RATE = 16000;
+const PREVIEW_MAX_FALLBACK_MB = 4;
 
 export default function ProducerTagGeneratorClient() {
   const [file, setFile] = useState<File | null>(null);
@@ -292,6 +295,109 @@ export default function ProducerTagGeneratorClient() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const createWavBlob = (
+    samples: Float32Array,
+    sampleRate: number,
+    channelCount: number
+  ): Blob => {
+    const frameCount = Math.max(1, Math.floor(samples.length / channelCount));
+    const bytesPerSample = 2;
+    const blockAlign = channelCount * bytesPerSample;
+    const byteRate = sampleRate * blockAlign;
+    const dataSize = frameCount * blockAlign;
+    const wavBuffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(wavBuffer);
+
+    const writeString = (offset: number, value: string) => {
+      for (let i = 0; i < value.length; i += 1) {
+        view.setUint8(offset + i, value.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, channelCount, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    let offset = 44;
+    for (let i = 0; i < frameCount; i += 1) {
+      for (let ch = 0; ch < channelCount; ch += 1) {
+        const sampleIndex = i * channelCount + ch;
+        const sample = Math.max(-1, Math.min(1, samples[sampleIndex] || 0));
+        const pcm = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+        view.setInt16(offset, Math.round(pcm), true);
+        offset += 2;
+      }
+    }
+
+    return new Blob([wavBuffer], { type: 'audio/wav' });
+  };
+
+  const buildPreviewSourceFile = async (sourceFile: File): Promise<File> => {
+    const AudioContextCtor =
+      typeof window !== 'undefined'
+        ? (window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)
+        : undefined;
+
+    if (!AudioContextCtor) {
+      if (sourceFile.size <= PREVIEW_MAX_FALLBACK_MB * 1024 * 1024) {
+        return sourceFile;
+      }
+      throw new Error('Preview could not start in this browser. Try a smaller MP3/M4A file for preview.');
+    }
+
+    const audioContext = new AudioContextCtor();
+    try {
+      const arrayBuffer = await sourceFile.arrayBuffer();
+      const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+      const sourceFrameCount = Math.max(
+        1,
+        Math.min(decodedBuffer.length, Math.floor(PREVIEW_CLIP_SECONDS * decodedBuffer.sampleRate))
+      );
+      const outputFrameCount = Math.max(
+        1,
+        Math.floor((sourceFrameCount * PREVIEW_TARGET_SAMPLE_RATE) / decodedBuffer.sampleRate)
+      );
+      const monoSamples = new Float32Array(outputFrameCount);
+      const channelCount = Math.max(1, decodedBuffer.numberOfChannels || 1);
+
+      for (let i = 0; i < outputFrameCount; i += 1) {
+        const sourceIndex = Math.min(
+          sourceFrameCount - 1,
+          Math.floor((i * decodedBuffer.sampleRate) / PREVIEW_TARGET_SAMPLE_RATE)
+        );
+        let summed = 0;
+        for (let ch = 0; ch < channelCount; ch += 1) {
+          const channelData = decodedBuffer.getChannelData(ch);
+          summed += channelData[sourceIndex] || 0;
+        }
+        monoSamples[i] = summed / channelCount;
+      }
+
+      const wavBlob = createWavBlob(monoSamples, PREVIEW_TARGET_SAMPLE_RATE, 1);
+      const baseName = sourceFile.name.replace(/\.[^.]+$/, '');
+      return new File([wavBlob], `${baseName}_preview.wav`, { type: 'audio/wav' });
+    } catch {
+      if (sourceFile.size <= PREVIEW_MAX_FALLBACK_MB * 1024 * 1024) {
+        return sourceFile;
+      }
+      throw new Error('Preview upload is too large for live limits. Try MP3/M4A under ~4MB for preview.');
+    } finally {
+      try {
+        await audioContext.close();
+      } catch {}
+    }
+  };
+
   const handlePreviewMix = async () => {
     if (!file) {
       setError('Please upload an audio file first.');
@@ -305,13 +411,18 @@ export default function ProducerTagGeneratorClient() {
       setError('Please upload a tag snippet (MP3, WAV, or M4A).');
       return;
     }
+    if (mode === 'upload' && tagFile && tagFile.size > PREVIEW_MAX_FALLBACK_MB * 1024 * 1024) {
+      setError('Tag snippet is too large for live preview. Use a shorter MP3/M4A snippet under ~4MB.');
+      return;
+    }
 
     setIsPreviewingMix(true);
     setError(null);
 
     try {
+      const previewSourceFile = await buildPreviewSourceFile(file);
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', previewSourceFile);
       formData.append('mode', mode);
       formData.append('intervalSeconds', intervalSeconds.toString());
       formData.append('tagVolumeDb', tagVolumeDb.toString());
@@ -329,6 +440,9 @@ export default function ProducerTagGeneratorClient() {
 
       if (!response.ok) {
         let message = `Failed to generate mix preview (HTTP ${response.status}).`;
+        if (response.status === 413) {
+          message = 'Preview upload is too large for live limits. Try MP3/M4A or a smaller track.';
+        }
         try {
           const data = await response.json();
           message = data?.error || message;
@@ -403,7 +517,10 @@ export default function ProducerTagGeneratorClient() {
 
       if (!response.ok) {
         const fromServer = data?.error || textBody;
-        const fallbackMessage = `Request failed (${response.status}). The processing worker may have timed out.`;
+        const fallbackMessage =
+          response.status === 413
+            ? 'Upload is too large for live processing limits. Try MP3/M4A under ~20MB, then retry.'
+            : `Request failed (${response.status}). The processing worker may have timed out.`;
         throw new Error((fromServer && String(fromServer).slice(0, 200)) || fallbackMessage);
       }
 
