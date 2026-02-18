@@ -13,9 +13,27 @@ if (!process.env.DATABASE_URL) {
 
 // Use Neon serverless driver for both dev and production
 // This ensures one shared database across all environments
-export const pool = new Pool({ 
+function readPositiveIntEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+const isProductionBuild = process.env.NEXT_PHASE === "phase-production-build";
+const defaultPoolMax = isProductionBuild ? 2 : 10;
+const defaultConnectTimeoutMs = isProductionBuild ? 10000 : 30000;
+const defaultIdleTimeoutMs = 30000;
+
+export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  connectionTimeoutMillis: 30000,
+  max: readPositiveIntEnv("DB_POOL_MAX", defaultPoolMax),
+  idleTimeoutMillis: readPositiveIntEnv("DB_POOL_IDLE_TIMEOUT_MS", defaultIdleTimeoutMs),
+  connectionTimeoutMillis: readPositiveIntEnv(
+    "DB_POOL_CONNECT_TIMEOUT_MS",
+    defaultConnectTimeoutMs
+  ),
+  allowExitOnIdle: true,
 });
 
 export async function query(text: string, params?: any[]) {

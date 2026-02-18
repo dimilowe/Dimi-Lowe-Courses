@@ -33,6 +33,11 @@ export type PseoPage = {
   reasonNoindex: string | null;
 };
 
+export type PseoIndexedSlug = {
+  slug: string;
+  qualityScore: number;
+};
+
 type PseoPageRow = {
   slug: string;
   bank_slug: string;
@@ -51,6 +56,11 @@ type PseoPageRow = {
   quality_score: number;
   is_indexed: boolean;
   reason_noindex: string | null;
+};
+
+type PseoIndexedSlugRow = {
+  slug: string;
+  quality_score: number | null;
 };
 
 function isMissingTableError(error: unknown): boolean {
@@ -158,6 +168,30 @@ const fetchAllIndexedPseoPagesCached = unstable_cache(
   { revalidate: REVALIDATE_SECONDS }
 );
 
+const fetchAllIndexedPseoSlugsCached = unstable_cache(
+  async (): Promise<PseoIndexedSlugRow[]> => {
+    recordCacheMiss("pseo-pages-indexed-slugs");
+    try {
+      const result = await query(
+        `
+        SELECT slug, quality_score
+        FROM pseo_pages
+        WHERE is_indexed = true
+        ORDER BY quality_score DESC NULLS LAST, slug ASC
+        `
+      );
+      return result.rows as PseoIndexedSlugRow[];
+    } catch (error) {
+      if (isMissingTableError(error)) {
+        return [];
+      }
+      throw error;
+    }
+  },
+  ["pseo-pages-indexed-slugs-v1"],
+  { revalidate: REVALIDATE_SECONDS }
+);
+
 export async function getPseoPagesByBank(
   bankSlug: string,
   options?: { indexedOnly?: boolean }
@@ -178,4 +212,13 @@ export async function getAllIndexedPseoPages(): Promise<PseoPage[]> {
   recordCacheRequest("pseo-pages-all-indexed");
   const rows = await fetchAllIndexedPseoPagesCached();
   return rows.map(mapPageRow);
+}
+
+export async function getAllIndexedPseoSlugs(): Promise<PseoIndexedSlug[]> {
+  recordCacheRequest("pseo-pages-indexed-slugs");
+  const rows = await fetchAllIndexedPseoSlugsCached();
+  return rows.map((row) => ({
+    slug: row.slug,
+    qualityScore: row.quality_score || 0,
+  }));
 }

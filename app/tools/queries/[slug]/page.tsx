@@ -1,24 +1,45 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { cache } from "react";
 import { ArrowRight, ArrowLeft } from "lucide-react";
-import { getAllIndexedPseoPages, getPseoPageBySlug } from "@/lib/pseo/pseoPagesRepo";
+import { getAllIndexedPseoSlugs, getPseoPageBySlug } from "@/lib/pseo/pseoPagesRepo";
 import { getSiteUrl } from "@/lib/site-url";
 
 export const revalidate = 3600;
+export const dynamicParams = true;
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+const DEFAULT_PREBUILD_LIMIT = 300;
+
+const getQueryPageBySlugCached = cache(async (slug: string) => getPseoPageBySlug(slug));
+
+function getPrebuildLimit(): number {
+  const raw = process.env.PSEO_QUERY_PREBUILD_LIMIT;
+  if (!raw) return DEFAULT_PREBUILD_LIMIT;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return DEFAULT_PREBUILD_LIMIT;
+  return parsed;
+}
+
+async function resolveQueryPage(slug: string) {
+  return getQueryPageBySlugCached(slug);
+}
+
 export async function generateStaticParams() {
-  const indexedPages = await getAllIndexedPseoPages();
-  return indexedPages.map((page) => ({ slug: page.slug }));
+  const indexedSlugs = await getAllIndexedPseoSlugs();
+  const limit = getPrebuildLimit();
+  const selectedPages =
+    limit === 0 ? indexedSlugs : indexedSlugs.slice(0, limit);
+  return selectedPages.map((page) => ({ slug: page.slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const page = await getPseoPageBySlug(slug);
+  const page = await resolveQueryPage(slug);
   const fallbackCanonical = `/tools/queries/${slug}`;
 
   if (!page) {
@@ -87,20 +108,25 @@ function bankCtaLabel(bankSlug: string): string {
   return "Open Tool";
 }
 
+function formatSiblingLabel(slug: string): string {
+  return slug
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export default async function QueryLeafPage({ params }: PageProps) {
   const { slug } = await params;
-  const page = await getPseoPageBySlug(slug);
+  const page = await resolveQueryPage(slug);
 
   if (!page) {
     notFound();
   }
 
-  const siblings = await Promise.all(
-    page.siblingSlugs.slice(0, 6).map(async (siblingSlug) => getPseoPageBySlug(siblingSlug))
-  );
-  const resolvedSiblings = siblings.filter(
-    (sibling): sibling is NonNullable<typeof sibling> => Boolean(sibling)
-  );
+  const resolvedSiblings = page.siblingSlugs.slice(0, 6).map((siblingSlug) => ({
+    slug: siblingSlug,
+    urlPath: `/tools/queries/${siblingSlug}`,
+    h1: formatSiblingLabel(siblingSlug),
+  }));
 
   const faq = Array.isArray(page.body.faq) ? page.body.faq : [];
   const isImageSize = page.bankSlug === "image-size";
