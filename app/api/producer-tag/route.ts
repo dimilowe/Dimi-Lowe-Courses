@@ -8,6 +8,8 @@ import { processAudioWithTag, getOrCreateTagVoice, getDefaultTagPath, getAudioDu
 const UPLOAD_DIR = '/tmp/producer-tag-uploads';
 const OUTPUT_DIR = '/tmp/producer-tag-output';
 const MAX_FILE_SIZE = 200 * 1024 * 1024;
+export const runtime = 'nodejs';
+export const maxDuration = 300;
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT = 5;

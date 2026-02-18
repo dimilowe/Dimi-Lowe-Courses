@@ -384,10 +384,12 @@ export default function ProducerTagGeneratorClient() {
       const contentType = response.headers.get('content-type') || '';
       const isJson = contentType.includes('application/json');
       const data = isJson ? await response.json() : null;
+      const textBody = isJson ? '' : await response.text();
 
       if (!response.ok) {
-        const fallbackMessage = 'Request failed. Check server configuration and try again.';
-        throw new Error(data?.error || fallbackMessage);
+        const fromServer = data?.error || textBody;
+        const fallbackMessage = `Request failed (${response.status}). The processing worker may have timed out.`;
+        throw new Error((fromServer && String(fromServer).slice(0, 200)) || fallbackMessage);
       }
 
       setDownloadUrl(data.downloadUrl);

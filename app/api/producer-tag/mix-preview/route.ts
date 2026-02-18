@@ -14,6 +14,8 @@ const UPLOAD_DIR = '/tmp/producer-tag-uploads';
 const OUTPUT_DIR = '/tmp/producer-tag-output';
 const MAX_FILE_SIZE = 200 * 1024 * 1024;
 const PREVIEW_SECONDS = 30;
+export const runtime = 'nodejs';
+export const maxDuration = 300;
 
 async function ensureDirectories() {
   for (const dir of [UPLOAD_DIR, OUTPUT_DIR]) {

@@ -4,6 +4,7 @@ import { existsSync } from 'fs';
 import path from 'path';
 
 const OUTPUT_DIR = '/tmp/producer-tag-output';
+export const runtime = 'nodejs';
 
 export async function GET(
   request: NextRequest,

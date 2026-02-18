@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { getOrCreateTagVoice } from '@/lib/audio-processor';
 
+export const runtime = 'nodejs';
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const { phrase, voiceId } = (await request.json()) as {
