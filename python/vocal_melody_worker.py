@@ -19,18 +19,24 @@ import numpy as np
 import librosa
 import soundfile as sf
 
-try:
-    from basic_pitch.inference import predict as basic_pitch_predict
-    BASIC_PITCH_AVAILABLE = True
-    BASIC_PITCH_IMPORT_ERROR = None
-except Exception as import_err:
-    basic_pitch_predict = None
-    BASIC_PITCH_AVAILABLE = False
-    BASIC_PITCH_IMPORT_ERROR = str(import_err)
+def is_env_enabled(value):
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
 
-if os.getenv("VCM_DISABLE_BASIC_PITCH") == "1":
-    BASIC_PITCH_AVAILABLE = False
-    BASIC_PITCH_IMPORT_ERROR = "basic_pitch disabled via VCM_DISABLE_BASIC_PITCH=1"
+
+def predict_note_events_with_basic_pitch(input_path):
+    """
+    Lazily import basic_pitch so fallback can still run if basic_pitch is disabled.
+    """
+    from basic_pitch.inference import predict as basic_pitch_predict
+
+    old_stdout = sys.stdout
+    sys.stdout = open(os.devnull, 'w')
+    try:
+        model_output, midi_data, note_events = basic_pitch_predict(input_path)
+    finally:
+        sys.stdout.close()
+        sys.stdout = old_stdout
+    return note_events
 
 
 def hz_to_midi(hz):
@@ -369,17 +375,13 @@ def main():
         pitch_curve = []
         method = "basic_pitch"
         basic_pitch_error = None
+        disable_basic_pitch = is_env_enabled(os.getenv("VCM_DISABLE_BASIC_PITCH", "0"))
 
-        if BASIC_PITCH_AVAILABLE:
+        if disable_basic_pitch:
+            basic_pitch_error = "basic_pitch disabled via VCM_DISABLE_BASIC_PITCH=1"
+        else:
             try:
-                old_stdout = sys.stdout
-                sys.stdout = open(os.devnull, 'w')
-                try:
-                    model_output, midi_data, note_events = basic_pitch_predict(args.input)
-                finally:
-                    sys.stdout.close()
-                    sys.stdout = old_stdout
-
+                note_events = predict_note_events_with_basic_pitch(args.input)
                 notes_list = []
                 for start, end, pitch, amplitude, pitch_bend in note_events:
                     notes_list.append((
@@ -392,8 +394,6 @@ def main():
                 melody_notes, pitch_curve = extract_monophonic_melody(notes_list)
             except Exception as e:
                 basic_pitch_error = str(e)
-        else:
-            basic_pitch_error = BASIC_PITCH_IMPORT_ERROR or "basic_pitch not available"
 
         # Fallback for production environments where basic_pitch is unstable or unavailable.
         if len(pitch_curve) == 0:
