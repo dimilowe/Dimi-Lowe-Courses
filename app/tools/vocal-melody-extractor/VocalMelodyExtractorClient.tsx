@@ -19,6 +19,16 @@ interface ExtractResult {
   };
 }
 
+function sanitizeUploadFilename(name: string): string {
+  const lastDot = name.lastIndexOf('.');
+  const hasExt = lastDot > 0 && lastDot < name.length - 1;
+  const base = hasExt ? name.slice(0, lastDot) : 'upload';
+  const ext = hasExt ? name.slice(lastDot).toLowerCase() : '.wav';
+  const safeBase = base.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_').slice(0, 64) || 'upload';
+  const safeExt = ext.replace(/[^a-z0-9.]/g, '') || '.wav';
+  return `${safeBase}${safeExt}`;
+}
+
 export default function VocalMelodyExtractorClient() {
   const [file, setFile] = useState<File | null>(null);
   const [state, setState] = useState<ProcessingState>('idle');
@@ -83,7 +93,7 @@ export default function VocalMelodyExtractorClient() {
     
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', file, sanitizeUploadFilename(file.name));
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
       
@@ -114,7 +124,12 @@ export default function VocalMelodyExtractorClient() {
       if (err instanceof DOMException && err.name === 'AbortError') {
         setError('Processing timed out. Please try a shorter clip or a cleaner vocal file.');
       } else {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        const message = err instanceof Error ? err.message : 'An error occurred';
+        if (/did not match the expected pattern/i.test(message)) {
+          setError('Your filename has unsupported characters. Rename the file (letters/numbers only) and try again.');
+        } else {
+          setError(message);
+        }
       }
       setState('error');
     }

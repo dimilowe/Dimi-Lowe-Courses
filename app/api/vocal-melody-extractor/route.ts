@@ -33,6 +33,15 @@ interface WorkerResult {
   error?: string;
 }
 
+function sanitizeBaseName(name: string): string {
+  const safe = name
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 50);
+  return safe || 'melody';
+}
+
 function isRetryableSpawnFailure(err: NodeJS.ErrnoException): boolean {
   const code = typeof err.code === 'string' ? err.code.toUpperCase() : '';
   const message = String(err.message || '').toLowerCase();
@@ -278,11 +287,12 @@ export async function POST(request: NextRequest) {
       
       const timestamp = Date.now();
       const baseName = path.basename(file.name, ext);
+      const safeBaseName = sanitizeBaseName(baseName);
       
-      const midiFilename = `${baseName}_melody_${timestamp}.mid`;
-      const notesFilename = `${baseName}_notes_${timestamp}.csv`;
-      const pitchFilename = `${baseName}_pitch_${timestamp}.csv`;
-      const wavFilename = `${baseName}_preview_${timestamp}.wav`;
+      const midiFilename = `${safeBaseName}_melody_${timestamp}.mid`;
+      const notesFilename = `${safeBaseName}_notes_${timestamp}.csv`;
+      const pitchFilename = `${safeBaseName}_pitch_${timestamp}.csv`;
+      const wavFilename = `${safeBaseName}_preview_${timestamp}.wav`;
       
       fs.copyFileSync(
         path.join(outputDir, result.midi),
@@ -316,10 +326,10 @@ export async function POST(request: NextRequest) {
       }, 2 * 60 * 60 * 1000);
       
       return NextResponse.json({
-        midiUrl: `/downloads/melody/${midiFilename}`,
-        notesUrl: `/downloads/melody/${notesFilename}`,
-        pitchUrl: `/downloads/melody/${pitchFilename}`,
-        wavUrl: `/downloads/melody/${wavFilename}`,
+        midiUrl: `/downloads/melody/${encodeURIComponent(midiFilename)}`,
+        notesUrl: `/downloads/melody/${encodeURIComponent(notesFilename)}`,
+        pitchUrl: `/downloads/melody/${encodeURIComponent(pitchFilename)}`,
+        wavUrl: `/downloads/melody/${encodeURIComponent(wavFilename)}`,
         meta: {
           durationSec: result.duration,
           processingMs: processingTime,
