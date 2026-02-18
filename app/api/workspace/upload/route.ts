@@ -7,6 +7,7 @@ import { Client } from '@replit/object-storage';
 import { assertCanonicalCloudId } from '@/lib/cloud/normalizeCloudId';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
+import { isObjectStorageSidecarReachable } from '@/lib/objectStorage/sidecar';
 
 const client = new Client();
 const LOCAL_WORKSPACE_UPLOAD_DIR = path.join(process.cwd(), 'tmp', 'workspace-uploads');
@@ -66,15 +67,18 @@ export async function POST(request: NextRequest) {
 
     let storedInObjectStorage = false;
     let storageError: unknown = null;
-    try {
-      const uploadResult = await client.uploadFromBytes(fileName, buffer);
-      if (uploadResult.ok) {
-        storedInObjectStorage = true;
-      } else {
-        storageError = uploadResult.error;
+    const sidecarReachable = await isObjectStorageSidecarReachable();
+    if (sidecarReachable) {
+      try {
+        const uploadResult = await client.uploadFromBytes(fileName, buffer);
+        if (uploadResult.ok) {
+          storedInObjectStorage = true;
+        } else {
+          storageError = uploadResult.error;
+        }
+      } catch (err) {
+        storageError = err;
       }
-    } catch (err) {
-      storageError = err;
     }
 
     if (!storedInObjectStorage) {
@@ -83,7 +87,9 @@ export async function POST(request: NextRequest) {
         await mkdir(LOCAL_WORKSPACE_UPLOAD_DIR, { recursive: true });
         await writeFile(path.join(LOCAL_WORKSPACE_UPLOAD_DIR, fileName), buffer);
       } catch (localErr) {
-        console.error('Storage upload error:', storageError);
+        if (sidecarReachable) {
+          console.error('Storage upload error:', storageError);
+        }
         console.error('Local fallback write error:', localErr);
         return NextResponse.json(
           { error: 'Failed to store file' },

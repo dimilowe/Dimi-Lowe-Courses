@@ -43,9 +43,9 @@ const MAIN_AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a'];
 const MAIN_AUDIO_MIME_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
 const TAG_AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a'];
 const TAG_AUDIO_MIME_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
-const PREVIEW_CLIP_SECONDS = 20;
-const PREVIEW_TARGET_SAMPLE_RATE = 16000;
-const PREVIEW_MAX_FALLBACK_MB = 4;
+const PREVIEW_CLIP_SECONDS = 8;
+const PREVIEW_TARGET_SAMPLE_RATE = 8000;
+const PREVIEW_MAX_FALLBACK_MB = 1;
 
 export default function ProducerTagGeneratorClient() {
   const [file, setFile] = useState<File | null>(null);
@@ -352,7 +352,7 @@ export default function ProducerTagGeneratorClient() {
       if (sourceFile.size <= PREVIEW_MAX_FALLBACK_MB * 1024 * 1024) {
         return sourceFile;
       }
-      throw new Error('Preview could not start in this browser. Try a smaller MP3/M4A file for preview.');
+      throw new Error('Preview could not start in this browser. Try a smaller MP3/M4A file under ~1MB for preview.');
     }
 
     const audioContext = new AudioContextCtor();
@@ -390,7 +390,7 @@ export default function ProducerTagGeneratorClient() {
       if (sourceFile.size <= PREVIEW_MAX_FALLBACK_MB * 1024 * 1024) {
         return sourceFile;
       }
-      throw new Error('Preview upload is too large for live limits. Try MP3/M4A under ~4MB for preview.');
+      throw new Error('Preview upload is too large for live limits. Try MP3/M4A under ~1MB for preview.');
     } finally {
       try {
         await audioContext.close();
@@ -412,7 +412,7 @@ export default function ProducerTagGeneratorClient() {
       return;
     }
     if (mode === 'upload' && tagFile && tagFile.size > PREVIEW_MAX_FALLBACK_MB * 1024 * 1024) {
-      setError('Tag snippet is too large for live preview. Use a shorter MP3/M4A snippet under ~4MB.');
+      setError('Tag snippet is too large for live preview. Use a shorter MP3/M4A snippet under ~1MB.');
       return;
     }
 

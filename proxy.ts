@@ -33,6 +33,18 @@ const HEAVY_ACTION_PREFIXES = [
   "/api/ai-humanizer/",
   "/api/buylens/run",
 ];
+const UPLOAD_API_BYPASS_PREFIXES = [
+  "/api/producer-tag",
+  "/api/vocal-melody-extractor",
+  "/api/audio-to-midi",
+  "/api/audio-key-detector",
+  "/api/chord-progression-finder",
+  "/api/workspace/upload",
+  "/api/upload",
+  "/api/admin/upload",
+  "/api/pdf/merge",
+  "/api/pdf/split",
+];
 
 type RateLimitEntry = {
   count: number;
@@ -126,6 +138,10 @@ export default function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const method = request.method.toUpperCase();
 
+  if (UPLOAD_API_BYPASS_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/api/")) {
     recordApiInvocation(pathname);
 
@@ -190,6 +206,6 @@ export default function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/producer-tag|api/vocal-melody-extractor|api/audio-to-midi|api/audio-key-detector|api/chord-progression-finder|api/workspace/upload|api/upload|api/admin/upload|api/pdf/merge|api/pdf/split).*)",
   ],
 };

@@ -3,6 +3,7 @@ import { Client } from "@replit/object-storage";
 import { readFile } from "fs/promises";
 import path from "path";
 import { Buffer } from "buffer";
+import { isObjectStorageSidecarReachable } from "@/lib/objectStorage/sidecar";
 
 const LOCAL_WORKSPACE_UPLOAD_DIR = path.join(process.cwd(), "tmp", "workspace-uploads");
 
@@ -14,13 +15,16 @@ export async function GET(
     const { filename: rawFilename } = await params;
     const filename = path.basename(rawFilename);
     
-    const storage = new Client();
     let result: Awaited<ReturnType<Client["downloadAsBytes"]>> | null = null;
     let downloadThrown: unknown = null;
-    try {
-      result = await storage.downloadAsBytes(filename);
-    } catch (err) {
-      downloadThrown = err;
+    const sidecarReachable = await isObjectStorageSidecarReachable();
+    if (sidecarReachable) {
+      const storage = new Client();
+      try {
+        result = await storage.downloadAsBytes(filename);
+      } catch (err) {
+        downloadThrown = err;
+      }
     }
     
     let responseBuffer: Buffer | null = null;
@@ -34,7 +38,9 @@ export async function GET(
         const localPath = path.join(LOCAL_WORKSPACE_UPLOAD_DIR, filename);
         responseBuffer = await readFile(localPath);
       } catch {
-        console.error("File download error:", result?.error ?? downloadThrown);
+        if (sidecarReachable) {
+          console.error("File download error:", result?.error ?? downloadThrown);
+        }
         return NextResponse.json(
           { error: "File not found" },
           { status: 404 }
