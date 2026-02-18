@@ -195,7 +195,7 @@ export function Navbar() {
   };
 
   return (
-    <nav className="bg-white border-b border-gray-100">
+    <nav data-global-navbar="true" className="bg-white border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center space-x-8" ref={navRef}>

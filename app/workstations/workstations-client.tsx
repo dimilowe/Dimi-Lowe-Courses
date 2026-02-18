@@ -2,7 +2,7 @@
 
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, FileText, Image as ImageIcon, Music2, Pause, Play, Scissors, Upload, X, Undo2, Redo2, Square, Type, Layers, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, FileText, Image as ImageIcon, Music2, Pause, Play, Upload, X, Undo2, Redo2, Square, Type, Layers, Trash2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { getToolUI } from "@/lib/ui/get-tool-ui";
 import { getWorkspaceDragPayload, WORKSPACE_DRAG_MIME } from "@/lib/workspace/workspaceDragImport";
@@ -20,6 +20,34 @@ type WidgetInstance = {
   toolSlug: string;
   toolName: string;
   toolIcon?: string;
+};
+
+type RackWidgetSettings = {
+  enabled: boolean;
+  low: number;
+  mid: number;
+  high: number;
+};
+
+type PedalboardKind =
+  | "pitch-shift"
+  | "reverb"
+  | "delay"
+  | "compressor"
+  | "limiter"
+  | "high-pass"
+  | "low-pass"
+  | "bitcrusher"
+  | "effect-chain"
+  | "vocal-chain";
+
+type AnalysisKind = "key-detector" | "chord-finder" | "melody-extractor" | "audio-to-midi";
+
+type RackRunOutput = {
+  id: string;
+  moduleName: string;
+  summary: string;
+  links: Array<{ label: string; href: string }>;
 };
 
 type UploadedAsset = {
@@ -797,7 +825,7 @@ function ImageStudio({
     const z = canvasItems.length + 1;
     commit([
       ...canvasItems,
-      { id: makeId(), type: "text", x: 130, y: 130, w: 260, h: 70, rotation: 0, opacity: 1, color: "#111827", text: "Edit this text", fontSize: 40, fontFamily: "Inter", zIndex: z },
+      { id: makeId(), type: "text", x: 130, y: 130, w: 260, h: 70, rotation: 0, opacity: 1, color: "#1b1c1f", text: "Edit this text", fontSize: 40, fontFamily: "Inter", zIndex: z },
     ]);
   }
 
@@ -991,7 +1019,7 @@ function ImageStudio({
     if (includeWatermark) {
       ctx.save();
       ctx.globalAlpha = 0.16;
-      ctx.fillStyle = "#111827";
+      ctx.fillStyle = "#1b1c1f";
       ctx.font = "700 22px Inter, Arial, sans-serif";
       ctx.rotate((-22 * Math.PI) / 180);
       for (let y = -out.height; y < out.height * 1.8; y += 170) {
@@ -2127,29 +2155,349 @@ function AudioStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedClip, setSelectedClip] = useState<string | null>(null);
   const [widgets, setWidgets] = useState<WidgetInstance[]>([]);
-  const [dragOver, setDragOver] = useState(false);
+  const [widgetSettings, setWidgetSettings] = useState<Record<string, RackWidgetSettings>>({});
+  const [rackDragOver, setRackDragOver] = useState(false);
+  const [canvasDragOver, setCanvasDragOver] = useState(false);
   const [gainLevel, setGainLevel] = useState(1);
   const [lowPassOn, setLowPassOn] = useState(false);
+  const [lowPassCutoff, setLowPassCutoff] = useState(1200);
   const [exporting, setExporting] = useState(false);
+  const [runningWidgetId, setRunningWidgetId] = useState<string | null>(null);
+  const [runningChain, setRunningChain] = useState(false);
   const [canExportClean, setCanExportClean] = useState(false);
-  const tracks = useMemo(() => ["Track 1", "Track 2", "Track 3", "Track 4"], []);
+  const [libraryQuery, setLibraryQuery] = useState("");
+  const [runOutputs, setRunOutputs] = useState<RackRunOutput[]>([]);
+  const libraryModules = useMemo(() => {
+    const classify = (slug: string) => {
+      const s = slug.toLowerCase();
+      if (s.includes("eq") || s.includes("filter")) return "Dynamics & EQ";
+      if (s.includes("compress") || s.includes("comp") || s.includes("limit")) return "Dynamics & EQ";
+      if (s.includes("delay") || s.includes("reverb") || s.includes("echo") || s.includes("chorus")) return "Creative & FX";
+      if (s.includes("satur") || s.includes("distort") || s.includes("drive")) return "Creative & FX";
+      if (s.includes("pitch") || s.includes("midi") || s.includes("key") || s.includes("chord")) return "Pitch & Harmony";
+      return "Utility";
+    };
+    const builtIns: Array<ToolOption & { category: string; summary: string }> = [
+      { slug: "studio-audio-gain-up", name: "Gain Up", icon: "Volume2", category: "Dynamics & EQ", summary: "Boost output gain by +0.10x." },
+      { slug: "studio-audio-gain-down", name: "Gain Down", icon: "Volume1", category: "Dynamics & EQ", summary: "Reduce output gain by -0.10x." },
+      { slug: "studio-audio-toggle-lowpass", name: "Toggle Low-Pass", icon: "SlidersHorizontal", category: "Dynamics & EQ", summary: "Toggle low-pass filter at 1.2kHz." },
+    ];
+    const dynamic = tools
+      .filter((tool) => matchesMode(tool, "audio"))
+      .map((tool) => ({
+        ...tool,
+        category: classify(tool.slug),
+        summary: `Tool module: /${tool.slug}`,
+      }));
+    const merged = [...builtIns, ...dynamic.filter((tool) => !builtIns.some((b) => b.slug === tool.slug))];
+    const term = libraryQuery.trim().toLowerCase();
+    if (!term) return merged;
+    return merged.filter((tool) => tool.name.toLowerCase().includes(term) || tool.slug.toLowerCase().includes(term) || tool.category.toLowerCase().includes(term));
+  }, [libraryQuery, tools]);
+
+  const defaultRackSettings = useMemo<RackWidgetSettings>(() => ({ enabled: true, low: 50, mid: 50, high: 50 }), []);
+  function getSettings(id: string): RackWidgetSettings {
+    return widgetSettings[id] || defaultRackSettings;
+  }
+  function updateWidgetSettings(id: string, patch: Partial<RackWidgetSettings>) {
+    setWidgetSettings((prev) => ({
+      ...prev,
+      [id]: { ...(prev[id] || defaultRackSettings), ...patch },
+    }));
+  }
 
   function removeWidget(id: string) {
     setWidgets((prev) => prev.filter((w) => w.id !== id));
+    setWidgetSettings((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }
-  function onDragOver(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    setDragOver(true);
+  function moveWidget(id: string, direction: "up" | "down") {
+    setWidgets((prev) => {
+      const index = prev.findIndex((widget) => widget.id === id);
+      if (index === -1) return prev;
+      const target = direction === "up" ? index - 1 : index + 1;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      const [item] = next.splice(index, 1);
+      next.splice(target, 0, item);
+      return next;
+    });
   }
-  function onDrop(e: DragEvent<HTMLDivElement>) {
+  function onRackDragOver(e: DragEvent<HTMLDivElement>) {
     e.preventDefault();
-    setDragOver(false);
+    setRackDragOver(true);
+  }
+  function onRackDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setRackDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setNotice("Drop audio files on the canvas panel to the right.");
+      return;
+    }
     const raw = e.dataTransfer.getData("application/x-tool-widget");
     if (!raw) return;
     try {
       const parsed = JSON.parse(raw) as { slug: string; name: string };
-      setWidgets((prev) => [...prev, { id: makeId(), toolSlug: parsed.slug, toolName: parsed.name }]);
+      const nextId = makeId();
+      setWidgets((prev) => [...prev, { id: nextId, toolSlug: parsed.slug, toolName: parsed.name }]);
+      setWidgetSettings((prev) => ({ ...prev, [nextId]: defaultRackSettings }));
+      setNotice(`${parsed.name} added to the rack.`);
     } catch {}
+  }
+  function onCanvasDragOver(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setCanvasDragOver(true);
+  }
+  function isAudioLike(type: string, title: string) {
+    if (type.toLowerCase().startsWith("audio/")) return true;
+    return /\.(mp3|wav|m4a|aac|flac|ogg|aif|aiff|wma|opus|webm)$/i.test(title);
+  }
+  function extFromMime(mime: string) {
+    if (mime.includes("mpeg")) return "mp3";
+    if (mime.includes("wav")) return "wav";
+    if (mime.includes("mp4")) return "m4a";
+    if (mime.includes("flac")) return "flac";
+    if (mime.includes("ogg")) return "ogg";
+    if (mime.includes("webm")) return "webm";
+    return "wav";
+  }
+  function pushRunOutput(moduleName: string, summary: string, links: Array<{ label: string; href: string }> = []) {
+    setRunOutputs((prev) => [
+      { id: makeId(), moduleName, summary, links },
+      ...prev.slice(0, 9),
+    ]);
+  }
+  function sliderToFrequency(value: number, min = 40, max = 16000) {
+    const ratio = Math.max(0, Math.min(1, value / 100));
+    return Math.round(min * Math.pow(max / min, ratio));
+  }
+  function mapToolToPedalboardKind(slug: string): PedalboardKind | null {
+    const normalized = slug.toLowerCase();
+    if (normalized.startsWith("studio-audio-")) return null;
+    if (normalized.includes("audio-pitch-shift")) return "pitch-shift";
+    if (normalized.includes("audio-reverb")) return "reverb";
+    if (normalized.includes("audio-delay") || normalized.includes("vocal-delay")) return "delay";
+    if (normalized.includes("audio-compressor")) return "compressor";
+    if (normalized.includes("audio-limiter")) return "limiter";
+    if (normalized.includes("audio-high-pass-filter") || normalized.includes("hi-pass")) return "high-pass";
+    if (normalized.includes("audio-low-pass-filter")) return "low-pass";
+    if (normalized.includes("audio-bitcrusher")) return "bitcrusher";
+    if (normalized.includes("audio-effect-chain-builder")) return "effect-chain";
+    if (normalized.includes("vocal-effects-chain")) return "vocal-chain";
+    return null;
+  }
+  function mapToolToAnalysisKind(slug: string): AnalysisKind | null {
+    const normalized = slug.toLowerCase();
+    if (normalized.includes("audio-key-detector") || normalized.includes("audio-key-scale-detector")) return "key-detector";
+    if (normalized.includes("chord-progression-finder")) return "chord-finder";
+    if (normalized.includes("vocal-melody-extractor")) return "melody-extractor";
+    if (normalized.includes("audio-to-midi")) return "audio-to-midi";
+    return null;
+  }
+  function analysisRoute(kind: AnalysisKind) {
+    if (kind === "key-detector") return "/api/audio-key-detector";
+    if (kind === "chord-finder") return "/api/chord-progression-finder";
+    if (kind === "melody-extractor") return "/api/vocal-melody-extractor";
+    return "/api/audio-to-midi";
+  }
+  function pedalboardSettingsFromRack(kind: PedalboardKind, settings: RackWidgetSettings) {
+    const low = Math.max(0, Math.min(100, settings.low));
+    const mid = Math.max(0, Math.min(100, settings.mid));
+    const high = Math.max(0, Math.min(100, settings.high));
+    const common = {
+      bypass: false,
+      mix: high / 100,
+      outputGain: 0.7 + low / 100,
+    };
+
+    if (kind === "reverb") {
+      return {
+        ...common,
+        roomSize: low / 100,
+        damp: mid / 100,
+        preDelay: Math.round((high / 100) * 250),
+      };
+    }
+    if (kind === "delay") {
+      return {
+        ...common,
+        delayMs: Math.round(20 + (low / 100) * 1180),
+        feedback: (mid / 100) * 0.95,
+      };
+    }
+    if (kind === "compressor") {
+      return {
+        ...common,
+        threshold: -60 + (low / 100) * 60,
+        ratio: 1 + (mid / 100) * 11,
+        attack: 0.001 + (high / 100) * 0.199,
+        release: 0.05 + (high / 100) * 1.2,
+        knee: 12,
+      };
+    }
+    if (kind === "limiter") {
+      return {
+        ...common,
+        threshold: -20 + (low / 100) * 20,
+        release: 0.02 + (mid / 100) * 1.2,
+      };
+    }
+    if (kind === "high-pass" || kind === "low-pass") {
+      return {
+        ...common,
+        frequency: sliderToFrequency(high, 20, 20000),
+        q: 0.5 + (mid / 100) * 9.5,
+      };
+    }
+    if (kind === "bitcrusher") {
+      return {
+        ...common,
+        bits: Math.max(2, Math.min(16, Math.round(2 + (low / 100) * 14))),
+        downsample: Math.max(1, Math.min(16, Math.round(1 + (mid / 100) * 15))),
+      };
+    }
+    if (kind === "pitch-shift") {
+      return {
+        ...common,
+        semitones: Math.round(-12 + (low / 100) * 24),
+      };
+    }
+    return {
+      ...common,
+      threshold: -50 + (low / 100) * 40,
+      ratio: 1 + (mid / 100) * 7,
+      frequency: sliderToFrequency(high, 80, 400),
+      roomSize: low / 100,
+      damp: 0.4,
+      delayMs: Math.round(80 + (high / 100) * 520),
+      feedback: (mid / 100) * 0.7,
+      chainCompressorOn: true,
+      chainEqOn: true,
+      chainReverbOn: true,
+      chainDelayOn: kind === "vocal-chain" ? true : high > 55,
+    };
+  }
+  async function loadSelectedClipFile(srcOverride?: string): Promise<{ file: File; title: string }> {
+    const src = srcOverride || selectedClip;
+    if (!src) throw new Error("Select an audio clip first.");
+    const clipMeta = clips.find((clip) => clip.src === src) || null;
+    const res = await fetch(src);
+    if (!res.ok) throw new Error("Unable to load selected clip.");
+    const blob = await res.blob();
+    const ext = extFromMime(blob.type || "");
+    const baseTitle = stripFileExt((clipMeta?.title || "workstation-audio").trim());
+    const safeName = `${baseTitle}.${ext}`;
+    return {
+      file: new File([blob], safeName, { type: blob.type || "audio/wav" }),
+      title: baseTitle,
+    };
+  }
+  async function runPedalboardEffect(file: File, kind: PedalboardKind, settings: Record<string, unknown>) {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("kind", kind);
+    body.append("settings", JSON.stringify(settings));
+    const res = await fetch("/api/audio/pedalboard", {
+      method: "POST",
+      body,
+    });
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      const detail = typeof payload?.detail === "string" && payload.detail.trim() ? ` (${payload.detail})` : "";
+      const message = typeof payload?.error === "string" && payload.error.trim() ? payload.error : "Audio module processing failed.";
+      throw new Error(`${message}${detail}`);
+    }
+    return res.blob();
+  }
+  function absolutizeLocalHref(href: string) {
+    if (href.startsWith("http://") || href.startsWith("https://")) return href;
+    if (!href.startsWith("/")) return `/${href}`;
+    return href;
+  }
+  async function maybeImportAnalysisWav(url: string, baseTitle: string, suffix: string) {
+    const srcUrl = absolutizeLocalHref(url);
+    const res = await fetch(srcUrl);
+    if (!res.ok) return;
+    const blob = await res.blob();
+    if (!blob.type.startsWith("audio/") && !srcUrl.toLowerCase().endsWith(".wav")) return;
+    addProcessedClip(blob, baseTitle, suffix);
+  }
+  async function runAnalysisModule(moduleName: string, kind: AnalysisKind, file: File, baseTitle: string, shouldImportAudio: boolean) {
+    const body = new FormData();
+    body.append("file", file);
+    const res = await fetch(analysisRoute(kind), {
+      method: "POST",
+      body,
+    });
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      const message = typeof payload?.error === "string" && payload.error.trim() ? payload.error : "Module execution failed.";
+      throw new Error(message);
+    }
+    const data = await res.json();
+    if (kind === "key-detector") {
+      const confidence = typeof data?.confidence === "number" ? `${Math.round(data.confidence * 100)}%` : "n/a";
+      const summary = `Detected key: ${String(data?.keyLabel || "Unknown")} (${confidence})`;
+      const links = typeof data?.analysisUrl === "string" ? [{ label: "Download JSON", href: absolutizeLocalHref(data.analysisUrl) }] : [];
+      pushRunOutput(moduleName, summary, links);
+      return { summary };
+    }
+    if (kind === "chord-finder") {
+      const topChords = Array.isArray(data?.chords) ? data.chords.slice(0, 4).map((c: { chordLabel?: string }) => c?.chordLabel).filter(Boolean) : [];
+      const summary = topChords.length > 0 ? `Detected chords: ${topChords.join(" -> ")}` : "Chord analysis completed.";
+      const links: Array<{ label: string; href: string }> = [];
+      if (typeof data?.files?.jsonUrl === "string") links.push({ label: "JSON", href: absolutizeLocalHref(data.files.jsonUrl) });
+      if (typeof data?.files?.csvUrl === "string") links.push({ label: "CSV", href: absolutizeLocalHref(data.files.csvUrl) });
+      if (typeof data?.files?.midiUrl === "string") links.push({ label: "MIDI", href: absolutizeLocalHref(data.files.midiUrl) });
+      pushRunOutput(moduleName, summary, links);
+      return { summary };
+    }
+    if (kind === "melody-extractor") {
+      const noteCount = typeof data?.meta?.noteCount === "number" ? data.meta.noteCount : null;
+      const summary = `Melody extracted${noteCount !== null ? ` (${noteCount} notes)` : ""}.`;
+      const links: Array<{ label: string; href: string }> = [];
+      if (typeof data?.midiUrl === "string") links.push({ label: "MIDI", href: absolutizeLocalHref(data.midiUrl) });
+      if (typeof data?.notesUrl === "string") links.push({ label: "Notes CSV", href: absolutizeLocalHref(data.notesUrl) });
+      if (typeof data?.pitchUrl === "string") links.push({ label: "Pitch CSV", href: absolutizeLocalHref(data.pitchUrl) });
+      if (typeof data?.wavUrl === "string") links.push({ label: "Preview WAV", href: absolutizeLocalHref(data.wavUrl) });
+      if (shouldImportAudio && typeof data?.wavUrl === "string") {
+        await maybeImportAnalysisWav(data.wavUrl, baseTitle, "melody-preview");
+      }
+      pushRunOutput(moduleName, summary, links);
+      return { summary };
+    }
+    const notesCount = typeof data?.meta?.notesCount === "number" ? data.meta.notesCount : null;
+    const summary = `Audio-to-MIDI completed${notesCount !== null ? ` (${notesCount} notes)` : ""}.`;
+    const links: Array<{ label: string; href: string }> = [];
+    if (typeof data?.midiUrl === "string") links.push({ label: "MIDI", href: absolutizeLocalHref(data.midiUrl) });
+    if (typeof data?.csvUrl === "string") links.push({ label: "Notes CSV", href: absolutizeLocalHref(data.csvUrl) });
+    if (typeof data?.wavUrl === "string") links.push({ label: "Sonified WAV", href: absolutizeLocalHref(data.wavUrl) });
+    if (shouldImportAudio && typeof data?.wavUrl === "string") {
+      await maybeImportAnalysisWav(data.wavUrl, baseTitle, "midi-sonified");
+    }
+    pushRunOutput(moduleName, summary, links);
+    return { summary };
+  }
+  function addProcessedClip(blob: Blob, baseTitle: string, suffix: string) {
+    const src = URL.createObjectURL(blob);
+    const title = `${baseTitle}-${suffix}.wav`;
+    const next: UploadedAsset = {
+      localId: makeId(),
+      title,
+      src,
+      status: "local",
+      type: "audio",
+    };
+    setClips((prev) => [next, ...prev]);
+    setSelectedClip(src);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    }
   }
 
   function ensureAudioGraph() {
@@ -2168,39 +2516,158 @@ function AudioStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
       gainRef.current.connect(audioCtxRef.current.destination);
     }
     if (gainRef.current) gainRef.current.gain.value = gainLevel;
-    if (lowPassRef.current) lowPassRef.current.frequency.value = lowPassOn ? 1200 : 22000;
+    if (lowPassRef.current) lowPassRef.current.frequency.value = lowPassOn ? lowPassCutoff : 22000;
   }
 
   useEffect(() => {
     if (gainRef.current) gainRef.current.gain.value = gainLevel;
-    if (lowPassRef.current) lowPassRef.current.frequency.value = lowPassOn ? 1200 : 22000;
-  }, [gainLevel, lowPassOn]);
+    if (lowPassRef.current) lowPassRef.current.frequency.value = lowPassOn ? lowPassCutoff : 22000;
+  }, [gainLevel, lowPassOn, lowPassCutoff]);
 
-  function runWidget(widget: WidgetInstance) {
-    const slug = widget.toolSlug.toLowerCase();
-    if (slug.includes("studio-audio-gain-up")) {
-      setGainLevel((v) => Math.min(3, Number((v + 0.1).toFixed(2))));
-      return;
+  useEffect(() => {
+    return () => {
+      audioCtxRef.current?.close().catch(() => {});
+    };
+  }, []);
+
+  function applyWidgetBySlug(slug: string, settings: RackWidgetSettings) {
+    const normalizedSlug = slug.toLowerCase();
+    if (!settings.enabled) return true;
+    if (normalizedSlug.includes("studio-audio-gain-up")) {
+      const target = Number((1 + (settings.low / 100) * 2).toFixed(2));
+      setGainLevel(Math.min(3, Math.max(0.2, target)));
+      return true;
     }
-    if (slug.includes("studio-audio-gain-down")) {
-      setGainLevel((v) => Math.max(0.2, Number((v - 0.1).toFixed(2))));
-      return;
+    if (normalizedSlug.includes("studio-audio-gain-down")) {
+      const reduction = 1 - (settings.low / 100) * 0.8;
+      setGainLevel(Math.max(0.2, Number(reduction.toFixed(2))));
+      return true;
     }
-    if (slug.includes("studio-audio-toggle-lowpass")) {
-      setLowPassOn((v) => !v);
-      return;
+    if (normalizedSlug.includes("studio-audio-toggle-lowpass")) {
+      const minCutoff = 400;
+      const maxCutoff = 22000;
+      const cutoff = Math.round(minCutoff + (settings.high / 100) * (maxCutoff - minCutoff));
+      setLowPassOn(true);
+      setLowPassCutoff(cutoff);
+      return true;
     }
-    setNotice(`${widget.toolName} is added, but in-canvas execution is not wired yet.`);
+    return false;
   }
 
-  async function onUpload(files: FileList | null) {
-    if (!files || files.length === 0) return;
+  async function runWidget(widget: WidgetInstance) {
+    const settings = getSettings(widget.id);
+    if (!settings.enabled) {
+      setNotice(`${widget.toolName} is bypassed.`);
+      return;
+    }
+    if (applyWidgetBySlug(widget.toolSlug, settings)) {
+      setNotice(`Applied ${widget.toolName}.`);
+      pushRunOutput(widget.toolName, "Applied in-canvas DSP module.");
+      return;
+    }
+    if (!selectedClip) {
+      setNotice("Import/select audio first, then run a module.");
+      return;
+    }
+    setRunningWidgetId(widget.id);
+    setNotice(`Running ${widget.toolName}...`);
+    try {
+      const { file, title } = await loadSelectedClipFile();
+      const effectKind = mapToolToPedalboardKind(widget.toolSlug);
+      if (effectKind) {
+        const processed = await runPedalboardEffect(file, effectKind, pedalboardSettingsFromRack(effectKind, settings));
+        const suffix = widget.toolSlug.replace(/^audio-/, "").replace(/^vocal-/, "vocal-").replace(/[^a-z0-9-]/gi, "-").toLowerCase();
+        addProcessedClip(processed, title, suffix || "processed");
+        const summary = `${widget.toolName} processed and added as a new clip.`;
+        pushRunOutput(widget.toolName, summary);
+        setNotice(summary);
+        return;
+      }
+      const analysisKind = mapToolToAnalysisKind(widget.toolSlug);
+      if (analysisKind) {
+        const result = await runAnalysisModule(widget.toolName, analysisKind, file, title, true);
+        setNotice(result.summary);
+        return;
+      }
+      setNotice(`${widget.toolName} cannot run in-rack yet.`);
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : `Failed to run ${widget.toolName}.`);
+    } finally {
+      setRunningWidgetId(null);
+    }
+  }
+
+  async function runChain() {
+    if (widgets.length === 0) {
+      setNotice("Add at least one module to the rack.");
+      return;
+    }
+    if (!selectedClip) {
+      setNotice("Import/select audio first, then run the chain.");
+      return;
+    }
+    if (runningChain) return;
+    setRunningChain(true);
+    setGainLevel(1);
+    setLowPassOn(false);
+    setLowPassCutoff(1200);
+    let applied = 0;
+    let pending = 0;
+    let bypassed = 0;
+    let rendered: Blob | null = null;
+    try {
+      const loaded = await loadSelectedClipFile();
+      let currentFile = loaded.file;
+      const baseTitle = loaded.title;
+      for (const widget of widgets) {
+        const settings = getSettings(widget.id);
+        if (!settings.enabled) {
+          bypassed += 1;
+          continue;
+        }
+        if (applyWidgetBySlug(widget.toolSlug, settings)) {
+          applied += 1;
+          continue;
+        }
+        const effectKind = mapToolToPedalboardKind(widget.toolSlug);
+        if (effectKind) {
+          const processed = await runPedalboardEffect(currentFile, effectKind, pedalboardSettingsFromRack(effectKind, settings));
+          rendered = processed;
+          currentFile = new File([processed], `${baseTitle}-${effectKind}.wav`, { type: "audio/wav" });
+          applied += 1;
+          continue;
+        }
+        const analysisKind = mapToolToAnalysisKind(widget.toolSlug);
+        if (analysisKind) {
+          await runAnalysisModule(widget.toolName, analysisKind, currentFile, baseTitle, false);
+          applied += 1;
+          continue;
+        }
+        pending += 1;
+      }
+      if (rendered) {
+        addProcessedClip(rendered, baseTitle, "chain");
+      }
+      if (pending === 0) {
+        setNotice(`Applied ${applied} module(s) in chain order${bypassed > 0 ? ` (${bypassed} bypassed)` : ""}.`);
+      } else {
+        setNotice(`Applied ${applied} module(s), ${pending} module(s) still require dedicated rack execution wiring${bypassed > 0 ? `, ${bypassed} bypassed` : ""}.`);
+      }
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Failed to run chain.");
+    } finally {
+      setRunningChain(false);
+    }
+  }
+
+  async function importAudioFiles(files: File[]) {
+    if (files.length === 0) return;
     setNotice(null);
     try {
       const next: UploadedAsset[] = [];
       let fallbackCount = 0;
-      for (const file of Array.from(files)) {
-        if (!file.type.startsWith("audio/")) continue;
+      for (const file of files) {
+        if (!isAudioLike(file.type || "", file.name || "")) continue;
         if (!isLoggedIn) {
           next.push(makeLocalAsset(file, "audio"));
           continue;
@@ -2213,6 +2680,10 @@ function AudioStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
           fallbackCount += 1;
         }
       }
+      if (next.length === 0) {
+        setNotice("No audio files were detected in that drop/import.");
+        return;
+      }
       setClips((prev) => [...next, ...prev]);
       if (next[0]) setSelectedClip(next[0].src);
       if (!isLoggedIn) setNotice("Guest mode: audio files stay local in this browser session.");
@@ -2222,6 +2693,44 @@ function AudioStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     } finally {
       if (inputRef.current) inputRef.current.value = "";
     }
+  }
+  function onUpload(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    void importAudioFiles(Array.from(files));
+  }
+  async function importWorkspaceAudio(dataTransfer: DataTransfer) {
+    const workspacePayload = getWorkspaceDragPayload(dataTransfer);
+    if (!workspacePayload?.fileUrl) return false;
+    if (!isAudioLike(workspacePayload.type, workspacePayload.title)) {
+      setNotice("Only audio items can be dropped onto this canvas.");
+      return true;
+    }
+    try {
+      const res = await fetch(workspacePayload.fileUrl);
+      if (!res.ok) throw new Error("Could not load that workspace item.");
+      const blob = await res.blob();
+      const file = new File([blob], workspacePayload.title || "workspace-audio", {
+        type: blob.type || "audio/wav",
+      });
+      await importAudioFiles([file]);
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Unable to import that workspace item.");
+    }
+    return true;
+  }
+  function onCanvasDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setCanvasDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      void importAudioFiles(Array.from(e.dataTransfer.files));
+      return;
+    }
+    const raw = e.dataTransfer.getData("application/x-tool-widget");
+    if (raw) {
+      setNotice("Drop effects into the rack panel, not onto the audio canvas.");
+      return;
+    }
+    void importWorkspaceAudio(e.dataTransfer);
   }
 
   async function togglePlay() {
@@ -2324,74 +2833,322 @@ function AudioStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     }
   }
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-4">
-      <button onClick={onBack} className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"><ArrowLeft className="h-4 w-4" /> Back</button>
-      <div className="rounded-xl border border-gray-200 bg-white p-3 flex items-center justify-between">
-        <div className="text-sm font-medium text-gray-900">Audio Workstation</div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={exportAudio}
-            data-track-output="true"
-            disabled={!selectedClip || exporting}
-            className="inline-flex items-center gap-2 text-xs rounded-lg border px-3 py-1.5 disabled:opacity-50"
-          >
-            <Download className="h-3.5 w-3.5" /> {exporting ? "Exporting..." : "Export"}
-          </button>
-          <button onClick={() => inputRef.current?.click()} className="inline-flex items-center gap-2 text-xs rounded-lg border px-3 py-1.5"><Upload className="h-3.5 w-3.5" /> Import Audio</button>
-          <button onClick={togglePlay} className="inline-flex items-center gap-2 text-xs rounded-lg border px-3 py-1.5">{isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}{isPlaying ? "Pause" : "Play"}</button>
-          <button className="inline-flex items-center gap-2 text-xs rounded-lg border px-3 py-1.5"><Scissors className="h-3.5 w-3.5" /> Split</button>
-        </div>
-      </div>
-      <input ref={inputRef} type="file" accept="audio/*" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
-      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} className="hidden" />
-      {notice && <div className="rounded-lg border border-blue-200 bg-blue-50 text-blue-800 px-4 py-2 text-sm">{notice}</div>}
+  const rackKnobs: Array<{ key: keyof Omit<RackWidgetSettings, "enabled">; label: string }> = [
+    { key: "low", label: "Low" },
+    { key: "mid", label: "Mid" },
+    { key: "high", label: "High" },
+  ];
+  const libraryGroups = useMemo(() => {
+    const order = ["Dynamics & EQ", "Creative & FX", "Pitch & Harmony", "Utility"];
+    return order
+      .map((name) => ({
+        name,
+        items: libraryModules.filter((tool) => tool.category === name),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [libraryModules]);
+  function knobReadout(slug: string, key: keyof Omit<RackWidgetSettings, "enabled">, value: number) {
+    const normalizedSlug = slug.toLowerCase();
+    if ((normalizedSlug.includes("gain-up") || normalizedSlug.includes("gain-down")) && key === "low") {
+      const gain = normalizedSlug.includes("gain-up")
+        ? Number((1 + (value / 100) * 2).toFixed(2))
+        : Number((1 - (value / 100) * 0.8).toFixed(2));
+      return `${gain.toFixed(2)}x`;
+    }
+    if (normalizedSlug.includes("lowpass") && key === "high") {
+      const minCutoff = 400;
+      const maxCutoff = 22000;
+      const cutoff = Math.round(minCutoff + (value / 100) * (maxCutoff - minCutoff));
+      return `${cutoff}Hz`;
+    }
+    return `${Math.round(value)}%`;
+  }
 
-      <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-4">
-        <WidgetLibrary mode="audio" tools={tools} />
-        <div onDragOver={onDragOver} onDragLeave={() => setDragOver(false)} onDrop={onDrop} className={`rounded-xl border border-gray-200 p-4 ${dragOver ? "bg-orange-50 border-orange-300" : "bg-white"}`}>
-          <p className="text-sm text-gray-600 mb-2">Drop audio widgets into this workstation</p>
-          <div className="rounded-xl border border-gray-200 bg-white p-3">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-semibold text-gray-900">Active Widgets</h4>
-              <span className="text-xs text-gray-500">{widgets.length}</span>
+  const selectedClipMeta = clips.find((clip) => clip.src === selectedClip) || null;
+
+  return (
+    <div className="w-full min-h-screen bg-[#0a0a0b] text-[#c4c4c8] selection:bg-emerald-500/30">
+      <div className="min-h-screen border-y border-[#1f1f22] bg-[#101012]">
+        <header className="border-b border-[#2a2b2f] bg-[#0f0f11]">
+          <div className="flex h-16 items-center justify-between px-3 md:px-4">
+            <div className="flex items-center gap-3">
+              <button onClick={onBack} className="inline-flex h-9 items-center gap-2 rounded-md border border-[#3a3b40] bg-[#1b1c1f] px-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#d4d5da] hover:border-[#53555c]">
+                <ArrowLeft className="h-3.5 w-3.5" /> Back
+              </button>
+              <div className="h-2.5 w-2.5 rounded-full bg-[#00e676] shadow-[0_0_12px_rgba(0,230,118,0.95)]" />
+              <p className="text-[30px] leading-none font-semibold tracking-[0.28em] text-white">
+                VCM <span className="text-[#23f58f]">MIX</span>
+              </p>
             </div>
-            <div className="space-y-2">
-              {widgets.length === 0 && <p className="text-sm text-gray-500">No widgets yet. Drag tools into the canvas.</p>}
-              {widgets.map((w) => (
-                <div key={w.id} className="rounded-lg border border-gray-200 px-3 py-2 flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">{w.toolName}</p>
-                    <p className="text-xs text-gray-500 truncate">/{w.toolSlug}</p>
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.1em]">
+              <button className="inline-flex h-9 items-center gap-1 rounded-md border border-[#36373c] bg-[#16171b] px-3 text-[#d6d6da]">
+                <span className="h-2 w-2 rounded-full bg-red-500" /> Rec
+              </button>
+              <span className="rounded-md border border-[#36373c] bg-[#16171b] px-3 py-2 text-[#b4b6bc]">CPU: 12%</span>
+              <span className="rounded-md border border-[#36373c] bg-[#16171b] px-3 py-2 text-[#b4b6bc]">DSP: 34%</span>
+              <span className="rounded-md border border-[#36373c] bg-[#16171b] px-3 py-2 text-[#b4b6bc]">48kHz</span>
+              <button
+                onClick={() => void runChain()}
+                disabled={runningChain || !selectedClip}
+                className="inline-flex h-9 items-center rounded-md border border-[#42444b] bg-[#1b1c1f] px-3 text-[#d8d9de] hover:border-[#3f9f7e] hover:text-[#9ef3cb] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {runningChain ? "Running..." : "Run"}
+              </button>
+              <button onClick={() => inputRef.current?.click()} className="inline-flex h-9 items-center gap-1 rounded-md border border-[#42444b] bg-[#1b1c1f] px-3 text-[#d8d9de] hover:border-[#5a5d66]">
+                <Upload className="h-3.5 w-3.5" /> Import
+              </button>
+              <button
+                onClick={togglePlay}
+                disabled={!selectedClip}
+                className="inline-flex h-9 items-center gap-1 rounded-md border border-[#42444b] bg-[#1b1c1f] px-3 text-[#d8d9de] hover:border-[#5a5d66] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                {isPlaying ? "Pause" : "Play"}
+              </button>
+              <button
+                onClick={exportAudio}
+                data-track-output="true"
+                disabled={!selectedClip || exporting}
+                className="inline-flex h-9 items-center gap-1 rounded-md border border-[#42444b] bg-[#1b1c1f] px-3 text-[#d8d9de] hover:border-[#5a5d66] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <Download className="h-3.5 w-3.5" /> {exporting ? "Exporting..." : "Export"}
+              </button>
+            </div>
+          </div>
+        </header>
+        <input ref={inputRef} type="file" accept="audio/*" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
+        <audio ref={audioRef} onEnded={() => setIsPlaying(false)} className="hidden" />
+        {notice && (
+          <div className="mx-3 mt-2 rounded border border-[#194534] bg-[#0b251d] px-3 py-2 text-[11px] uppercase tracking-[0.08em] text-[#97efc4] md:mx-4">
+            {notice}
+          </div>
+        )}
+        <div className="grid grid-cols-1 xl:grid-cols-[300px_520px_minmax(0,1fr)] xl:h-[calc(100vh-64px)]">
+          <aside className="min-h-0 flex flex-col border-r border-[#2a2b2f] bg-[#141416]">
+            <div className="border-b border-[#2d2e33] px-4 py-4">
+              <p className="text-[22px] font-semibold uppercase tracking-[0.1em] text-[#e2e3e6]">Module Library</p>
+              <input
+                value={libraryQuery}
+                onChange={(e) => setLibraryQuery(e.target.value)}
+                placeholder="Search modules..."
+                className="mt-3 w-full rounded-md border border-[#3d3e45] bg-[#0f0f11] px-3 py-2 text-sm text-[#ececef] placeholder:text-[#7b7c82] focus:border-[#46d69b] focus:outline-none"
+              />
+            </div>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-3 py-4">
+              {libraryGroups.map((group) => (
+                <div key={group.name} className="space-y-2">
+                  <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b7c82]">{group.name}</p>
+                  <div className="space-y-2">
+                    {group.items.map((tool) => (
+                      <div
+                        key={tool.slug}
+                        draggable
+                        onDragStart={(e) => e.dataTransfer.setData("application/x-tool-widget", JSON.stringify({ slug: tool.slug, name: tool.name }))}
+                        className="cursor-grab active:cursor-grabbing rounded-lg border border-[#393a40] bg-[#1c1d22] px-3 py-3 transition-colors hover:border-[#51535b]"
+                      >
+                        <p className="truncate text-[15px] font-semibold uppercase tracking-[0.03em] text-[#f0f0f2]">{tool.name}</p>
+                        <p className="mt-0.5 truncate text-[12px] uppercase tracking-[0.12em] text-[#a0a1a8]">{tool.summary.replace("Tool module: ", "")}</p>
+                      </div>
+                    ))}
                   </div>
-                  <button onClick={() => runWidget(w)} className="text-xs border rounded px-2 py-1">Run</button>
-                  <button onClick={() => removeWidget(w.id)} className="text-gray-400 hover:text-red-600"><X className="h-3.5 w-3.5" /></button>
                 </div>
               ))}
+              {libraryGroups.length === 0 && <p className="rounded-lg border border-[#393a40] bg-[#1c1d22] px-3 py-4 text-xs uppercase tracking-[0.08em] text-[#a0a1a8]">No modules match this search.</p>}
             </div>
-          </div>
-          <div className="mt-2 text-xs text-gray-500">Audio chain: gain {gainLevel.toFixed(2)}x | low-pass {lowPassOn ? "on" : "off"}</div>
-          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4 min-h-[560px]">
-            <div className="h-10 rounded-lg bg-gray-50 border border-gray-200 mb-3 px-3 flex items-center text-xs text-gray-500">Timeline Ruler</div>
-            <div className="space-y-3">
-              {tracks.map((track, trackIndex) => {
-                const trackClips = clips.filter((_, clipIndex) => clipIndex % tracks.length === trackIndex);
-                return (
-                  <div key={track} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                    <div className="text-xs text-gray-500 mb-2">{track}</div>
-                    <div className="space-y-2">
-                      {trackClips.length === 0 && <div className="h-8 rounded bg-white border border-gray-200" />}
-                      {trackClips.map((clip, i) => (
-                        <button key={`${clip.title}-${i}`} onClick={() => setSelectedClip(clip.src)} className={`h-8 rounded px-3 text-xs text-left border w-full ${selectedClip === clip.src ? "border-orange-300 bg-orange-50" : "border-gray-200 bg-white"}`}>
-                          {clip.title}
-                        </button>
-                      ))}
+            <div className="border-t border-[#2d2e33] px-4 py-3 text-[11px] uppercase tracking-[0.08em] text-[#7f8086]">
+              Drag modules to the rack on the right to insert them into the chain.
+            </div>
+          </aside>
+          <section className="border-r border-[#2a2b2f] bg-[#151518] px-3 pb-3 pt-3">
+            <div className="rounded-md border border-[#313238] bg-[#18191d]">
+              <div className="flex items-center justify-between border-b border-[#313238] px-4 py-3">
+                <div>
+                  <p className="text-[36px] leading-none font-semibold uppercase tracking-[0.06em] text-[#f1f1f2]">Master Rack</p>
+                  <p className="mt-1 text-[12px] uppercase tracking-[0.18em] text-[#85878f]">
+                    <span className="text-[#1ee68a]">•</span> Chain A: Stereo Bus
+                  </p>
+                </div>
+                <div className="rounded border border-[#44464f] bg-[#16181d] px-2 py-1">
+                  <div className="flex items-end gap-1">
+                    {["#00e676", "#27dc6f", "#47d562", "#66cf55", "#8fcb3c", "#c8ca2a", "#f39b2d", "#ed5d3d"].map((color, idx) => (
+                      <span key={`${color}-${idx}`} className="w-2 rounded-sm" style={{ backgroundColor: color, height: `${10 + ((idx * 7) % 16)}px` }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div
+                onDragOver={onRackDragOver}
+                onDragLeave={() => setRackDragOver(false)}
+                onDrop={onRackDrop}
+                className={`min-h-[calc(100vh-210px)] p-3 transition-colors ${rackDragOver ? "bg-[#123126]" : "bg-[#111216]"}`}
+              >
+                {widgets.length === 0 && (
+                  <div className="grid h-full place-items-center rounded-md border border-dashed border-[#3a3b42] bg-[#17181d] px-6 text-center text-sm uppercase tracking-[0.08em] text-[#85878f]">
+                    Drop effects here to build your mix chain.
+                  </div>
+                )}
+                <div className="space-y-3">
+                  {widgets.map((widget, index) => {
+                    const settings = getSettings(widget.id);
+                    return (
+                      <div key={widget.id} className={`rounded border px-3 py-3 ${settings.enabled ? "border-[#43454d] bg-[#1d1e23]" : "border-[#35363d] bg-[#18191d] opacity-70"}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-[30px] leading-none font-semibold uppercase tracking-[0.04em] text-[#d0d2d8]">{widget.toolName}</p>
+                            <p className="mt-1 truncate text-[11px] uppercase tracking-[0.14em] text-[#84868e]">Slot {index + 1} • /{widget.toolSlug}</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => updateWidgetSettings(widget.id, { enabled: !settings.enabled })}
+                              className={`rounded border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] ${settings.enabled ? "border-[#1ac37c] bg-[#0d2a1f] text-[#86f0c2]" : "border-[#4a4c53] text-[#b0b2b8]"}`}
+                            >
+                              {settings.enabled ? "On" : "Bypass"}
+                            </button>
+                            <button onClick={() => moveWidget(widget.id, "up")} className="rounded border border-[#4a4d56] px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-[#d0d2d8] hover:border-[#6f7179] disabled:opacity-25" disabled={index === 0}>Up</button>
+                            <button onClick={() => moveWidget(widget.id, "down")} className="rounded border border-[#4a4d56] px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-[#d0d2d8] hover:border-[#6f7179] disabled:opacity-25" disabled={index === widgets.length - 1}>Down</button>
+                            <button
+                              onClick={() => void runWidget(widget)}
+                              disabled={runningChain || runningWidgetId === widget.id}
+                              className="rounded border border-[#2d8e68] bg-[#123f2d] px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-[#97f2ca] hover:border-[#48c291] disabled:cursor-not-allowed disabled:opacity-45"
+                            >
+                              {runningWidgetId === widget.id ? "Running" : "Run"}
+                            </button>
+                            <button onClick={() => removeWidget(widget.id)} className="rounded border border-[#4a4d56] px-2 py-1 text-[#d0d2d8] hover:border-[#e06b7d] hover:text-[#ff96a7]"><X className="h-3 w-3" /></button>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          {rackKnobs.map((knob) => {
+                            const value = settings[knob.key];
+                            const angle = -135 + (value / 100) * 270;
+                            return (
+                              <div key={`${widget.id}-${knob.key}`} className="rounded border border-[#3e4048] bg-[#18191e] px-2 py-2 text-center">
+                                <div className="mx-auto relative h-14 w-14">
+                                  <input
+                                    type="range"
+                                    min={0}
+                                    max={100}
+                                    step={1}
+                                    value={value}
+                                    onChange={(e) => updateWidgetSettings(widget.id, { [knob.key]: Number(e.target.value) } as Partial<RackWidgetSettings>)}
+                                    className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                                    aria-label={`${widget.toolName} ${knob.label}`}
+                                  />
+                                  <div className="absolute inset-0 rounded-full border border-[#5a5d66] bg-gradient-to-b from-[#4a4c55] to-[#2b2c31] shadow-[inset_0_1px_2px_rgba(255,255,255,0.12)]" />
+                                  <span className="absolute left-1/2 top-1/2 h-5 w-[2px] rounded bg-[#f0f0f2]" style={{ transform: `translate(-50%, -96%) rotate(${angle}deg)` }} />
+                                </div>
+                                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a0a1a8]">{knob.label}</p>
+                                <p className="text-[11px] font-semibold text-[#40e39f]">{knobReadout(widget.toolSlug, knob.key, value)}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <p className="border-t border-[#313238] px-4 py-2 text-[11px] uppercase tracking-[0.12em] text-[#8d8f96]">
+                Chain state: gain <span className="text-[#d8dadd]">{gainLevel.toFixed(2)}x</span> | low-pass <span className="text-[#d8dadd]">{lowPassOn ? `${Math.round(lowPassCutoff)}Hz` : "off"}</span>
+              </p>
+              <div className="border-t border-[#313238] px-4 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8a8c93]">Module Output</p>
+                <div className="mt-2 space-y-2 max-h-[170px] overflow-auto">
+                  {runOutputs.length === 0 && <p className="text-[11px] uppercase tracking-[0.08em] text-[#787a82]">Run a module to see analysis/output details.</p>}
+                  {runOutputs.map((output) => (
+                    <div key={output.id} className="rounded border border-[#3b3d44] bg-[#191a1f] px-2 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#b3b5bc]">{output.moduleName}</p>
+                      <p className="mt-1 text-[11px] text-[#d3d5dc]">{output.summary}</p>
+                      {output.links.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {output.links.map((link) => (
+                            <a
+                              key={`${output.id}-${link.href}-${link.label}`}
+                              href={link.href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded border border-[#4f5159] px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-[#c5c7cf] hover:border-[#777983]"
+                            >
+                              {link.label}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+          <section className="bg-[#111113] px-0 py-0">
+            <div
+              onDragOver={onCanvasDragOver}
+              onDragLeave={() => setCanvasDragOver(false)}
+              onDrop={onCanvasDrop}
+              className={`relative flex min-h-[calc(100vh-64px)] flex-col border-l border-[#2a2b2f] transition-colors ${canvasDragOver ? "bg-[#1f2024]" : "bg-[#0f1012]"}`}
+              style={{
+                backgroundImage:
+                  "linear-gradient(rgba(88,88,94,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(88,88,94,0.26) 1px, transparent 1px)",
+                backgroundSize: "54px 54px, 54px 54px",
+              }}
+            >
+              <div className="flex items-center justify-between border-b border-[#2f3036] px-4 py-3">
+                <div>
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[#8e9097]">Signal Canvas</p>
+                  <p className="text-[11px] uppercase tracking-[0.12em] text-[#72747c]">Drop audio files here</p>
+                </div>
+                <div className="rounded border border-[#44464e] bg-[#1a1b20] px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#b4b6bd]">48kHz</div>
+              </div>
+              <div className="relative min-h-0 flex-1 px-6 py-5">
+                {clips.length === 0 && (
+                  <div className="absolute inset-0 grid place-items-center text-center">
+                    <div>
+                      <p className="text-[14px] uppercase tracking-[0.2em] text-[#83858d]">No Signal Detected</p>
+                      <p className="mt-2 text-[74px] font-bold leading-none uppercase tracking-[0.03em] text-[#2f3035]">Waiting For Input</p>
+                      <button
+                        onClick={() => inputRef.current?.click()}
+                        className="mt-6 inline-flex items-center gap-2 rounded border border-[#4b4d55] bg-[#1d1e23] px-3 py-2 text-[11px] uppercase tracking-[0.12em] text-[#d7d9df] hover:border-[#64666f]"
+                      >
+                        <Upload className="h-3.5 w-3.5" /> Import Audio
+                      </button>
                     </div>
                   </div>
-                );
-              })}
+                )}
+                {clips.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="h-[220px] rounded border border-[#2f3036] bg-[#0e0f11]/70 p-4">
+                      <div className="flex h-full items-end justify-between gap-1">
+                        {Array.from({ length: 60 }).map((_, idx) => (
+                          <div key={idx} className={`w-[2px] rounded-full ${selectedClip ? "bg-[#a3a6ad]/70" : "bg-[#6a6c72]/60"}`} style={{ height: `${8 + ((idx * 31) % 88)}%` }} />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded border border-[#383a42] bg-[#17181c] px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.15em] text-[#84868e]">Selected Clip</p>
+                      <p className="mt-1 truncate text-sm font-semibold text-[#e7e8ec]">{selectedClipMeta?.title || "None selected"}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="border-t border-[#2f3036] bg-[#141416]/90 px-3 py-2">
+                <p className="px-1 text-[10px] uppercase tracking-[0.15em] text-[#80828a]">Imported Audio ({clips.length})</p>
+                <div className="mt-1 max-h-[165px] space-y-1 overflow-auto">
+                  {clips.map((clip) => (
+                    <button
+                      key={clip.localId}
+                      onClick={() => setSelectedClip(clip.src)}
+                      className={`w-full rounded border px-3 py-2 text-left ${selectedClip === clip.src ? "border-[#2b9470] bg-[#10291f] text-[#9aefc6]" : "border-[#3a3b42] bg-[#1c1d22]/90 text-[#d1d2d8] hover:border-[#55575f]"}`}
+                    >
+                      <span className="block truncate text-sm font-medium">{clip.title}</span>
+                      <span className="block text-[10px] uppercase tracking-[0.15em] text-[#8f9198]">{clip.status === "uploaded" ? "Cloud" : "Local"}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="border-t border-[#2f3036] bg-[#151619] px-4 py-2 text-[11px] uppercase tracking-[0.16em] text-[#80828a]">
+                Auto-save: on&nbsp;&nbsp; Undo: ctrl+z &nbsp;&nbsp; VCM Mix Engine v1.0.0-alpha
+              </div>
             </div>
-          </div>
+          </section>
         </div>
       </div>
     </div>
@@ -2439,6 +3196,21 @@ export default function WorkstationsClient({ isLoggedIn }: WorkstationsClientPro
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const immersive = mode === "audio";
+    const roots = [document.documentElement, document.body];
+    for (const root of roots) {
+      if (immersive) root.classList.add("audio-workstation-immersive");
+      else root.classList.remove("audio-workstation-immersive");
+    }
+    return () => {
+      for (const root of roots) {
+        root.classList.remove("audio-workstation-immersive");
+      }
+    };
+  }, [mode]);
 
   if (!mode) {
     return (

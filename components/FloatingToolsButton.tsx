@@ -267,6 +267,7 @@ export default function FloatingToolsButton() {
     <>
       {/* Floating Button */}
       <button
+        data-floating-tools-trigger="true"
         onClick={() => setIsOpen(true)}
         className={`fixed bottom-20 right-4 z-40 flex items-center bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 group rounded-full ${
           isCollapsed 
@@ -293,6 +294,7 @@ export default function FloatingToolsButton() {
       {/* Backdrop */}
       {isOpen && (
         <div 
+          data-floating-tools-backdrop="true"
           className={`fixed inset-0 bg-black/50 z-50 transition-opacity ${isDraggingRecentFile ? "pointer-events-none" : ""}`}
           onClick={() => setIsOpen(false)}
         />
@@ -300,6 +302,7 @@ export default function FloatingToolsButton() {
 
       {/* Slide-out Panel */}
       <div 
+        data-floating-tools-panel="true"
         className={`fixed top-0 right-0 h-full w-full max-w-sm bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}

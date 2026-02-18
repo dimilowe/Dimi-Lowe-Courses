@@ -12,6 +12,17 @@
   }
 }
 
+html.audio-workstation-immersive [data-global-navbar="true"],
+body.audio-workstation-immersive [data-global-navbar="true"],
+html.audio-workstation-immersive [data-floating-tools-trigger="true"],
+body.audio-workstation-immersive [data-floating-tools-trigger="true"],
+html.audio-workstation-immersive [data-floating-tools-backdrop="true"],
+body.audio-workstation-immersive [data-floating-tools-backdrop="true"],
+html.audio-workstation-immersive [data-floating-tools-panel="true"],
+body.audio-workstation-immersive [data-floating-tools-panel="true"] {
+  display: none !important;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
