@@ -16,9 +16,21 @@ import sys
 import traceback
 
 import numpy as np
+import librosa
 import soundfile as sf
-from basic_pitch.inference import predict
-from basic_pitch import ICASSP_2022_MODEL_PATH
+
+try:
+    from basic_pitch.inference import predict as basic_pitch_predict
+    BASIC_PITCH_AVAILABLE = True
+    BASIC_PITCH_IMPORT_ERROR = None
+except Exception as import_err:
+    basic_pitch_predict = None
+    BASIC_PITCH_AVAILABLE = False
+    BASIC_PITCH_IMPORT_ERROR = str(import_err)
+
+if os.getenv("VCM_DISABLE_BASIC_PITCH") == "1":
+    BASIC_PITCH_AVAILABLE = False
+    BASIC_PITCH_IMPORT_ERROR = "basic_pitch disabled via VCM_DISABLE_BASIC_PITCH=1"
 
 
 def hz_to_midi(hz):
@@ -31,6 +43,95 @@ def hz_to_midi(hz):
 def midi_to_hz(midi_note):
     """Convert MIDI note number to frequency in Hz."""
     return 440.0 * (2.0 ** ((midi_note - 69) / 12.0))
+
+
+def frames_to_melody_notes(frame_pitch, frame_confidence, frame_duration):
+    """Convert frame-level pitch track into merged note events."""
+    melody_notes = []
+    current_note = None
+    current_start = 0
+    current_conf_sum = 0
+    current_count = 0
+
+    num_frames = len(frame_pitch)
+    for frame_idx in range(num_frames):
+        time_s = frame_idx * frame_duration
+        pitch = frame_pitch[frame_idx]
+        conf = frame_confidence[frame_idx]
+
+        if pitch > 0:
+            pitch_int = int(round(pitch))
+            if current_note is None:
+                current_note = pitch_int
+                current_start = time_s
+                current_conf_sum = conf
+                current_count = 1
+            elif pitch_int == current_note:
+                current_conf_sum += conf
+                current_count += 1
+            else:
+                end_time = time_s
+                if end_time - current_start >= 0.08:
+                    avg_conf = current_conf_sum / current_count if current_count > 0 else 0
+                    melody_notes.append((
+                        current_start,
+                        end_time,
+                        current_note,
+                        midi_to_hz(current_note),
+                        avg_conf
+                    ))
+                current_note = pitch_int
+                current_start = time_s
+                current_conf_sum = conf
+                current_count = 1
+        else:
+            if current_note is not None:
+                end_time = time_s
+                if end_time - current_start >= 0.08:
+                    avg_conf = current_conf_sum / current_count if current_count > 0 else 0
+                    melody_notes.append((
+                        current_start,
+                        end_time,
+                        current_note,
+                        midi_to_hz(current_note),
+                        avg_conf
+                    ))
+                current_note = None
+                current_conf_sum = 0
+                current_count = 0
+
+    if current_note is not None:
+        end_time = num_frames * frame_duration
+        if end_time - current_start >= 0.08:
+            avg_conf = current_conf_sum / current_count if current_count > 0 else 0
+            melody_notes.append((
+                current_start,
+                end_time,
+                current_note,
+                midi_to_hz(current_note),
+                avg_conf
+            ))
+
+    merged_notes = []
+    for note in melody_notes:
+        if not merged_notes:
+            merged_notes.append(note)
+            continue
+
+        prev = merged_notes[-1]
+        gap = note[0] - prev[1]
+        if gap < 0.06 and note[2] == prev[2]:
+            merged_notes[-1] = (
+                prev[0],
+                note[1],
+                prev[2],
+                prev[3],
+                (prev[4] + note[4]) / 2
+            )
+        else:
+            merged_notes.append(note)
+
+    return [n for n in merged_notes if n[1] - n[0] >= 0.08]
 
 
 def extract_monophonic_melody(note_events, frame_duration=0.02, vocal_range=(80, 1100)):
@@ -137,92 +238,51 @@ def extract_monophonic_melody(note_events, frame_duration=0.02, vocal_range=(80,
             freq_hz = 0
         pitch_curve.append((time_s, freq_hz, midi_note, conf))
     
-    melody_notes = []
-    current_note = None
-    current_start = 0
-    current_conf_sum = 0
-    current_count = 0
-    
-    for frame_idx in range(num_frames):
-        time_s = frame_idx * frame_duration
-        pitch = frame_pitch[frame_idx]
-        conf = frame_confidence[frame_idx]
-        
-        if pitch > 0:
-            pitch_int = int(round(pitch))
-            if current_note is None:
-                current_note = pitch_int
-                current_start = time_s
-                current_conf_sum = conf
-                current_count = 1
-            elif pitch_int == current_note:
-                current_conf_sum += conf
-                current_count += 1
-            else:
-                end_time = time_s
-                if end_time - current_start >= 0.08:
-                    avg_conf = current_conf_sum / current_count if current_count > 0 else 0
-                    melody_notes.append((
-                        current_start,
-                        end_time,
-                        current_note,
-                        midi_to_hz(current_note),
-                        avg_conf
-                    ))
-                current_note = pitch_int
-                current_start = time_s
-                current_conf_sum = conf
-                current_count = 1
+    return frames_to_melody_notes(frame_pitch, frame_confidence, frame_duration), pitch_curve
+
+
+def extract_melody_with_librosa(input_path, frame_duration=0.02, vocal_range=(80, 1100)):
+    """
+    Fallback pitch extraction using librosa.pyin for monophonic vocal material.
+    """
+    audio, sr = librosa.load(input_path, sr=22050, mono=True)
+    if audio.size == 0:
+        return [], []
+
+    hop_length = max(128, int(sr * frame_duration))
+    frame_length = 2048
+    f0, voiced_flag, voiced_prob = librosa.pyin(
+        audio,
+        fmin=vocal_range[0],
+        fmax=vocal_range[1],
+        sr=sr,
+        frame_length=frame_length,
+        hop_length=hop_length
+    )
+
+    if f0 is None:
+        return [], []
+
+    frame_pitch = np.zeros(len(f0))
+    frame_confidence = np.zeros(len(f0))
+    pitch_curve = []
+
+    for idx in range(len(f0)):
+        time_s = idx * frame_duration
+        hz = f0[idx]
+        if np.isfinite(hz) and hz > 0:
+            midi_float = hz_to_midi(float(hz))
+            conf = 0.65
+            if voiced_prob is not None and idx < len(voiced_prob) and np.isfinite(voiced_prob[idx]):
+                conf = float(voiced_prob[idx])
+            frame_pitch[idx] = midi_float
+            frame_confidence[idx] = conf
+            pitch_curve.append((time_s, float(hz), midi_float, conf))
         else:
-            if current_note is not None:
-                end_time = time_s
-                if end_time - current_start >= 0.08:
-                    avg_conf = current_conf_sum / current_count if current_count > 0 else 0
-                    melody_notes.append((
-                        current_start,
-                        end_time,
-                        current_note,
-                        midi_to_hz(current_note),
-                        avg_conf
-                    ))
-                current_note = None
-                current_conf_sum = 0
-                current_count = 0
-    
-    if current_note is not None:
-        end_time = num_frames * frame_duration
-        if end_time - current_start >= 0.08:
-            avg_conf = current_conf_sum / current_count if current_count > 0 else 0
-            melody_notes.append((
-                current_start,
-                end_time,
-                current_note,
-                midi_to_hz(current_note),
-                avg_conf
-            ))
-    
-    merged_notes = []
-    for note in melody_notes:
-        if not merged_notes:
-            merged_notes.append(note)
-            continue
-        
-        prev = merged_notes[-1]
-        gap = note[0] - prev[1]
-        if gap < 0.06 and note[2] == prev[2]:
-            merged_notes[-1] = (
-                prev[0],
-                note[1],
-                prev[2],
-                prev[3],
-                (prev[4] + note[4]) / 2
-            )
-        else:
-            merged_notes.append(note)
-    
-    final_notes = [n for n in merged_notes if n[1] - n[0] >= 0.08]
-    
-    return final_notes, pitch_curve
+            pitch_curve.append((time_s, 0.0, 0.0, 0.0))
+
+    melody_notes = frames_to_melody_notes(frame_pitch, frame_confidence, frame_duration)
+    return melody_notes, pitch_curve
 
 
 def write_melody_midi(notes, output_path, tempo=120):
@@ -301,30 +361,52 @@ def main():
     
     try:
         os.makedirs(args.out, exist_ok=True)
-        
-        old_stdout = sys.stdout
-        sys.stdout = open(os.devnull, 'w')
-        try:
-            model_output, midi_data, note_events = predict(args.input)
-        finally:
-            sys.stdout.close()
-            sys.stdout = old_stdout
-        
-        notes_list = []
-        for start, end, pitch, amplitude, pitch_bend in note_events:
-            notes_list.append((
-                float(start),
-                float(end),
-                float(pitch),
-                float(amplitude) if amplitude is not None else 1.0,
-                pitch_bend
-            ))
-        
-        melody_notes, pitch_curve = extract_monophonic_melody(notes_list)
-        
+
         audio_data, sr = sf.read(args.input)
         audio_duration = len(audio_data) / sr
-        
+
+        melody_notes = []
+        pitch_curve = []
+        method = "basic_pitch"
+        basic_pitch_error = None
+
+        if BASIC_PITCH_AVAILABLE:
+            try:
+                old_stdout = sys.stdout
+                sys.stdout = open(os.devnull, 'w')
+                try:
+                    model_output, midi_data, note_events = basic_pitch_predict(args.input)
+                finally:
+                    sys.stdout.close()
+                    sys.stdout = old_stdout
+
+                notes_list = []
+                for start, end, pitch, amplitude, pitch_bend in note_events:
+                    notes_list.append((
+                        float(start),
+                        float(end),
+                        float(pitch),
+                        float(amplitude) if amplitude is not None else 1.0,
+                        pitch_bend
+                    ))
+                melody_notes, pitch_curve = extract_monophonic_melody(notes_list)
+            except Exception as e:
+                basic_pitch_error = str(e)
+        else:
+            basic_pitch_error = BASIC_PITCH_IMPORT_ERROR or "basic_pitch not available"
+
+        # Fallback for production environments where basic_pitch is unstable or unavailable.
+        if len(pitch_curve) == 0:
+            try:
+                melody_notes, pitch_curve = extract_melody_with_librosa(args.input)
+                method = "librosa_pyin"
+            except Exception as librosa_err:
+                if basic_pitch_error:
+                    raise RuntimeError(
+                        f"Basic Pitch failed: {basic_pitch_error}. Librosa fallback failed: {librosa_err}"
+                    )
+                raise
+
         midi_path = os.path.join(args.out, 'melody.mid')
         notes_path = os.path.join(args.out, 'melody_notes.csv')
         pitch_path = os.path.join(args.out, 'pitch_curve.csv')
@@ -341,7 +423,8 @@ def main():
             "pitch": "pitch_curve.csv",
             "wav": "melody_preview.wav",
             "note_count": len(melody_notes),
-            "duration": audio_duration
+            "duration": audio_duration,
+            "method": method
         }
         print(json.dumps(result))
         
