@@ -20,11 +20,10 @@ function getOpenAIClient(): OpenAI {
   });
 }
 
-const TAGS_DIR = path.join(process.cwd(), 'public', 'tags');
 const TAG_CACHE_DIR = '/tmp/producer-tag-cache';
 const OUTPUT_DIR = '/tmp/producer-tag-output';
 
-[TAGS_DIR, TAG_CACHE_DIR, OUTPUT_DIR].forEach(dir => {
+[TAG_CACHE_DIR, OUTPUT_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -42,7 +41,15 @@ const VOICE_MAP: Record<string, string> = {
 export async function getAudioDuration(filePath: string): Promise<number> {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(filePath, (err, metadata) => {
-      if (err) reject(err);
+      if (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (/ffprobe|cannot find|not found|enoent/i.test(message)) {
+          reject(new Error('Audio backend unavailable: ffprobe is missing on this deployment.'));
+          return;
+        }
+        reject(new Error(message || 'Failed to read audio duration.'));
+        return;
+      }
       else resolve(metadata.format.duration || 0);
     });
   });
@@ -182,7 +189,12 @@ async function processAudioMixInternal(
       })
       .on('error', (err) => {
         console.error('FFmpeg error:', err);
-        reject(err);
+        const message = err instanceof Error ? err.message : String(err);
+        if (/ffmpeg|cannot find|not found|enoent/i.test(message)) {
+          reject(new Error('Audio backend unavailable: ffmpeg is missing on this deployment.'));
+          return;
+        }
+        reject(new Error(message || 'Failed to process audio mix.'));
       })
       .on('end', () => {
         console.log('FFmpeg processing complete');

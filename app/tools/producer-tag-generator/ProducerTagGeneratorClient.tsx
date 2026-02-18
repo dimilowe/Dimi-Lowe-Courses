@@ -328,11 +328,18 @@ export default function ProducerTagGeneratorClient() {
       });
 
       if (!response.ok) {
-        let message = 'Failed to generate mix preview.';
+        let message = `Failed to generate mix preview (HTTP ${response.status}).`;
         try {
           const data = await response.json();
           message = data?.error || message;
-        } catch {}
+        } catch {
+          try {
+            const raw = await response.text();
+            if (raw && raw.trim()) {
+              message = `${message} ${raw.trim().slice(0, 180)}`;
+            }
+          } catch {}
+        }
         throw new Error(message);
       }
 
