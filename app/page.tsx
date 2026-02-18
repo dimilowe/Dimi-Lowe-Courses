@@ -58,6 +58,8 @@ export const metadata: Metadata = {
   },
 };
 
+export const revalidate = 300;
+
 interface BlogPost {
   slug: string;
   title: string;
@@ -79,16 +81,34 @@ interface Product {
   price: number | null;
 }
 
+const HOME_QUERY_TIMEOUT_MS = 1200;
+
+async function withTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs = HOME_QUERY_TIMEOUT_MS): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const guarded = promise.catch(() => fallback);
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => resolve(fallback), timeoutMs);
+  });
+  const result = await Promise.race([guarded, timeoutPromise]);
+  if (timeoutId) {
+    clearTimeout(timeoutId);
+  }
+  return result;
+}
+
 async function getLatestBlogPosts(): Promise<BlogPost[]> {
   try {
-    const result = await query(
-      `SELECT slug, title, excerpt, featured_image_url 
-       FROM blog_posts 
-       WHERE published_at IS NOT NULL AND published_at <= NOW()
-       ORDER BY published_at DESC 
-       LIMIT 3`
+    const rows = await withTimeout(
+      query(
+        `SELECT slug, title, excerpt, featured_image_url 
+         FROM blog_posts 
+         WHERE published_at IS NOT NULL AND published_at <= NOW()
+         ORDER BY published_at DESC 
+         LIMIT 3`
+      ).then((res) => res.rows as BlogPost[]),
+      [] as BlogPost[]
     );
-    return result.rows;
+    return rows;
   } catch {
     return [];
   }
@@ -96,13 +116,16 @@ async function getLatestBlogPosts(): Promise<BlogPost[]> {
 
 async function getLatestIdeas(): Promise<Idea[]> {
   try {
-    const result = await query(
-      `SELECT slug, title, one_liner, upvote_count 
-       FROM ideas 
-       ORDER BY created_at DESC 
-       LIMIT 3`
+    const rows = await withTimeout(
+      query(
+        `SELECT slug, title, one_liner, upvote_count 
+         FROM ideas 
+         ORDER BY created_at DESC 
+         LIMIT 3`
+      ).then((res) => res.rows as Idea[]),
+      [] as Idea[]
     );
-    return result.rows;
+    return rows;
   } catch {
     return [];
   }
@@ -110,13 +133,16 @@ async function getLatestIdeas(): Promise<Idea[]> {
 
 async function getLatestDrops(): Promise<Product[]> {
   try {
-    const result = await query(
-      `SELECT slug, name, type, price 
-       FROM products 
-       ORDER BY created_at DESC 
-       LIMIT 5`
+    const rows = await withTimeout(
+      query(
+        `SELECT slug, name, type, price 
+         FROM products 
+         ORDER BY created_at DESC 
+         LIMIT 5`
+      ).then((res) => res.rows as Product[]),
+      [] as Product[]
     );
-    return result.rows;
+    return rows;
   } catch {
     return [];
   }

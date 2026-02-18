@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 VCM Vocal Melody Extractor Worker
-Extracts a clean monophonic vocal melody from audio using Basic Pitch + post-processing.
+Extracts a clean monophonic vocal melody from audio using AI pitch analysis + post-processing.
 """
 
 import warnings
@@ -294,7 +294,7 @@ def sonify_melody_to_wav(notes, output_path, duration, sample_rate=22050):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Extract vocal melody from audio using Basic Pitch')
+    parser = argparse.ArgumentParser(description='Extract vocal melody from audio')
     parser.add_argument('--input', required=True, help='Path to input WAV file')
     parser.add_argument('--out', required=True, help='Output directory')
     args = parser.parse_args()

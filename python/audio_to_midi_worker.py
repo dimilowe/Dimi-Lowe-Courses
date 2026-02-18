@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Audio to MIDI Worker using Spotify's Basic Pitch.
+Audio to MIDI worker.
 Converts audio files to MIDI with pitch bend support.
 """
 
@@ -74,7 +74,7 @@ def notes_to_csv(notes, output_path: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Convert audio to MIDI using Basic Pitch')
+    parser = argparse.ArgumentParser(description='Convert audio to MIDI')
     parser.add_argument('--input', required=True, help='Path to input WAV file')
     parser.add_argument('--out', required=True, help='Output directory')
     args = parser.parse_args()

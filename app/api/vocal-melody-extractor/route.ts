@@ -8,7 +8,7 @@ import { acquireLock, releaseLock } from '@/server/lib/audio/ipRateLimit';
 
 const MAX_FILE_SIZE = 200 * 1024 * 1024;
 const MAX_DURATION_SECONDS = 600;
-const PROCESSING_TIMEOUT_MS = 300000;
+const PROCESSING_TIMEOUT_MS = 120000;
 
 function cleanupDirectory(dirPath: string) {
   try {
@@ -33,6 +33,22 @@ interface WorkerResult {
   error?: string;
 }
 
+function isRetryableSpawnFailure(err: NodeJS.ErrnoException): boolean {
+  const code = typeof err.code === 'string' ? err.code.toUpperCase() : '';
+  const message = String(err.message || '').toLowerCase();
+  const errno = typeof err.errno === 'number' ? err.errno : null;
+  return (
+    code === 'ENOENT' ||
+    code === 'ENOEXEC' ||
+    code === 'EACCES' ||
+    code === 'EPERM' ||
+    errno === -86 ||
+    message.includes('unknown system error -86') ||
+    message.includes('bad cpu type in executable') ||
+    message.includes('exec format error')
+  );
+}
+
 function runPythonWorker(
   inputPath: string,
   outputDir: string,
@@ -40,68 +56,121 @@ function runPythonWorker(
 ): Promise<WorkerResult> {
   return new Promise((resolve) => {
     const workerPath = path.join(process.cwd(), 'python', 'vocal_melody_worker.py');
-    
-    const proc = spawn('python3.11', [
-      workerPath,
-      '--input', inputPath,
-      '--out', outputDir
-    ], {
-      timeout: timeoutMs,
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
-    
-    let stdout = '';
-    let stderr = '';
-    
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-    
-    proc.on('close', (code) => {
-      if (code === 0) {
-        try {
-          const lines = stdout.trim().split('\n');
-          const lastLine = lines[lines.length - 1];
-          const result = JSON.parse(lastLine);
-          resolve({ success: true, result });
-        } catch (e) {
-          console.error('Worker stdout:', stdout);
-          resolve({ success: false, error: 'Failed to parse worker output' });
+    let lastSpawnError = '';
+
+    const pythonCandidates = Array.from(
+      new Set(
+        [
+          process.env.PYTHON_BIN,
+          process.env.PYTHON_PATH,
+          '/usr/bin/python3',
+          '/opt/homebrew/bin/python3',
+          '/usr/local/bin/python3',
+          'python3.11',
+          'python3',
+          'python'
+        ].filter(Boolean)
+      )
+    ) as string[];
+
+    const trySpawn = (candidateIndex: number) => {
+      if (candidateIndex >= pythonCandidates.length) {
+        resolve({
+          success: false,
+          error:
+            lastSpawnError ||
+            'No compatible Python runtime found. Set PYTHON_BIN=/usr/bin/python3 (or another working python3 path).'
+        });
+        return;
+      }
+
+      const pythonCmd = pythonCandidates[candidateIndex];
+      let proc;
+      try {
+        proc = spawn(
+          pythonCmd,
+          [workerPath, '--input', inputPath, '--out', outputDir],
+          { stdio: ['ignore', 'pipe', 'pipe'] }
+        );
+      } catch (rawErr) {
+        const err = rawErr as NodeJS.ErrnoException;
+        lastSpawnError = `Python spawn failed for "${pythonCmd}": ${err.message}`;
+        if (isRetryableSpawnFailure(err)) {
+          trySpawn(candidateIndex + 1);
+          return;
         }
-      } else {
+        resolve({ success: false, error: lastSpawnError });
+        return;
+      }
+
+      let settled = false;
+      let stdout = '';
+      let stderr = '';
+
+      const finish = (result: WorkerResult) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        resolve(result);
+      };
+
+      const timeoutId = setTimeout(() => {
+        proc.kill('SIGTERM');
+        finish({ success: false, error: 'Processing timed out. Try a shorter audio file.' });
+      }, timeoutMs);
+
+      proc.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      proc.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      proc.on('close', (code) => {
+        if (settled) return;
+        if (code === 0) {
+          try {
+            const lines = stdout.trim().split('\n');
+            const lastLine = lines[lines.length - 1];
+            const result = JSON.parse(lastLine);
+            finish({ success: true, result });
+          } catch (e) {
+            console.error('Worker stdout:', stdout);
+            finish({ success: false, error: 'Failed to parse worker output' });
+          }
+          return;
+        }
+
         let errorMsg = 'Melody extraction failed';
         const cleanStderr = stderr
           .split('\n')
-          .filter(line => !line.startsWith('WARNING:'))
+          .filter((line) => !line.startsWith('WARNING:'))
           .join('\n')
           .trim();
         try {
           const errObj = JSON.parse(cleanStderr || stderr.trim());
-          if (errObj.error) {
-            errorMsg = errObj.error;
-          }
+          if (errObj.error) errorMsg = errObj.error;
         } catch (e) {
-          if (cleanStderr) {
-            errorMsg = cleanStderr.substring(0, 200);
-          }
+          if (cleanStderr) errorMsg = cleanStderr.substring(0, 200);
         }
-        console.error('basic-pitch stderr:', stderr);
-        resolve({ success: false, error: errorMsg });
-      }
-    });
-    
-    proc.on('error', (err) => {
-      resolve({ success: false, error: `Worker error: ${err.message}` });
-    });
-    
-    setTimeout(() => {
-      proc.kill('SIGTERM');
-      resolve({ success: false, error: 'Processing timed out. Try a shorter audio file.' });
-    }, timeoutMs);
+        console.error('vocal-melody worker stderr:', stderr);
+        finish({ success: false, error: errorMsg });
+      });
+
+      proc.on('error', (err) => {
+        const typedErr = err as NodeJS.ErrnoException;
+        lastSpawnError = `Python spawn failed for "${pythonCmd}": ${typedErr.message}`;
+        if (isRetryableSpawnFailure(typedErr)) {
+          clearTimeout(timeoutId);
+          trySpawn(candidateIndex + 1);
+          return;
+        }
+        finish({ success: false, error: `Worker error: ${typedErr.message}` });
+      });
+    };
+
+    trySpawn(0);
   });
 }
 

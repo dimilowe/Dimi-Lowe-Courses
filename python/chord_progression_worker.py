@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 VCM Chord Progression Finder Worker
-Derives chord labels from Basic Pitch note events using template matching.
+Derives chord labels from detected note events using template matching.
 """
 
 import argparse

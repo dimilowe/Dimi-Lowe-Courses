@@ -20,6 +20,22 @@ function getClientIP(request: NextRequest): string {
   return 'unknown';
 }
 
+function isRetryableSpawnFailure(err: NodeJS.ErrnoException): boolean {
+  const code = typeof err.code === 'string' ? err.code.toUpperCase() : '';
+  const message = String(err.message || '').toLowerCase();
+  const errno = typeof err.errno === 'number' ? err.errno : null;
+  return (
+    code === 'ENOENT' ||
+    code === 'ENOEXEC' ||
+    code === 'EACCES' ||
+    code === 'EPERM' ||
+    errno === -86 ||
+    message.includes('unknown system error -86') ||
+    message.includes('bad cpu type in executable') ||
+    message.includes('exec format error')
+  );
+}
+
 async function runPythonWorker(
   inputPath: string,
   outputDir: string,
@@ -27,71 +43,120 @@ async function runPythonWorker(
 ): Promise<{ success: boolean; error?: string; result?: any }> {
   return new Promise((resolve) => {
     const workerPath = path.join(process.cwd(), 'python', 'audio_to_midi_worker.py');
-    
-    const python = spawn('python3.11', [
-      workerPath,
-      '--input', inputPath,
-      '--out', outputDir
-    ]);
+    let lastSpawnError = '';
 
-    let stdout = '';
-    let stderr = '';
-    let timedOut = false;
+    const pythonCandidates = Array.from(
+      new Set(
+        [
+          process.env.PYTHON_BIN,
+          process.env.PYTHON_PATH,
+          '/usr/bin/python3',
+          '/opt/homebrew/bin/python3',
+          '/usr/local/bin/python3',
+          'python3.11',
+          'python3',
+          'python'
+        ].filter(Boolean)
+      )
+    ) as string[];
 
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      python.kill('SIGKILL');
-      resolve({ success: false, error: 'Processing timed out. Try a shorter audio clip.' });
-    }, timeoutMs);
-
-    python.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    python.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    python.on('close', (code) => {
-      clearTimeout(timeout);
-      
-      if (timedOut) return;
-
-      if (code !== 0) {
-        console.error('Python worker stderr:', stderr);
-        try {
-          const result = JSON.parse(stdout.trim().split('\n').pop() || '{}');
-          if (result.error) {
-            resolve({ success: false, error: result.error });
-            return;
-          }
-        } catch (e) {
-        }
-        resolve({ success: false, error: 'Transcription failed. Please try a different file.' });
+    const trySpawn = (candidateIndex: number) => {
+      if (candidateIndex >= pythonCandidates.length) {
+        resolve({
+          success: false,
+          error:
+            lastSpawnError ||
+            'No compatible Python runtime found. Set PYTHON_BIN=/usr/bin/python3 (or another working python3 path).'
+        });
         return;
       }
 
+      const pythonCmd = pythonCandidates[candidateIndex];
+      let python;
       try {
-        const lines = stdout.trim().split('\n');
-        const lastLine = lines[lines.length - 1];
-        const result = JSON.parse(lastLine);
-        
-        if (result.error) {
-          resolve({ success: false, error: result.error });
-        } else {
-          resolve({ success: true, result });
+        python = spawn(pythonCmd, [workerPath, '--input', inputPath, '--out', outputDir]);
+      } catch (rawErr) {
+        const err = rawErr as NodeJS.ErrnoException;
+        lastSpawnError = `Python spawn failed for "${pythonCmd}": ${err.message}`;
+        if (isRetryableSpawnFailure(err)) {
+          trySpawn(candidateIndex + 1);
+          return;
         }
-      } catch (e) {
-        console.error('Failed to parse worker output:', stdout);
-        resolve({ success: false, error: 'Failed to process audio file.' });
+        resolve({ success: false, error: lastSpawnError });
+        return;
       }
-    });
 
-    python.on('error', (err) => {
-      clearTimeout(timeout);
-      console.error('Python worker spawn error:', err);
-      resolve({ success: false, error: 'Failed to start processing. Please try again.' });
-    });
+      let settled = false;
+      let stdout = '';
+      let stderr = '';
+
+      const finish = (result: { success: boolean; error?: string; result?: any }) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        resolve(result);
+      };
+
+      const timeout = setTimeout(() => {
+        python.kill('SIGKILL');
+        finish({ success: false, error: 'Processing timed out. Try a shorter audio clip.' });
+      }, timeoutMs);
+
+      python.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      python.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      python.on('close', (code) => {
+        if (settled) return;
+
+        if (code !== 0) {
+          console.error('Python worker stderr:', stderr);
+          try {
+            const result = JSON.parse(stdout.trim().split('\n').pop() || '{}');
+            if (result.error) {
+              finish({ success: false, error: result.error });
+              return;
+            }
+          } catch (e) {
+          }
+          finish({ success: false, error: 'Transcription failed. Please try a different file.' });
+          return;
+        }
+
+        try {
+          const lines = stdout.trim().split('\n');
+          const lastLine = lines[lines.length - 1];
+          const result = JSON.parse(lastLine);
+
+          if (result.error) {
+            finish({ success: false, error: result.error });
+          } else {
+            finish({ success: true, result });
+          }
+        } catch (e) {
+          console.error('Failed to parse worker output:', stdout);
+          finish({ success: false, error: 'Failed to process audio file.' });
+        }
+      });
+
+      python.on('error', (err) => {
+        const typedErr = err as NodeJS.ErrnoException;
+        lastSpawnError = `Python spawn failed for "${pythonCmd}": ${typedErr.message}`;
+        if (isRetryableSpawnFailure(typedErr)) {
+          clearTimeout(timeout);
+          trySpawn(candidateIndex + 1);
+          return;
+        }
+        console.error('Python worker spawn error:', typedErr);
+        finish({ success: false, error: 'Failed to start processing. Please try again.' });
+      });
+    };
+
+    trySpawn(0);
   });
 }
 

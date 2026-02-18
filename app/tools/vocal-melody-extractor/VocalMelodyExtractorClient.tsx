@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { Upload, Music, FileText, AudioLines, Download, Loader2, AlertCircle, CheckCircle2, X, Lightbulb } from 'lucide-react';
 
 type ProcessingState = 'idle' | 'uploading' | 'transcribing' | 'cleaning' | 'done' | 'error';
+const REQUEST_TIMEOUT_MS = 130000;
 
 interface ExtractResult {
   midiUrl: string;
@@ -83,16 +84,24 @@ export default function VocalMelodyExtractorClient() {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
       
       setState('transcribing');
       
-      const response = await fetch('/api/vocal-melody-extractor', {
-        method: 'POST',
-        body: formData,
-      });
-      
+      let response: Response;
+      try {
+        response = await fetch('/api/vocal-melody-extractor', {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
       setState('cleaning');
-      
+
       const data = await response.json();
       
       if (!response.ok) {
@@ -102,7 +111,11 @@ export default function VocalMelodyExtractorClient() {
       setResult(data);
       setState('done');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Processing timed out. Please try a shorter clip or a cleaner vocal file.');
+      } else {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      }
       setState('error');
     }
   };
@@ -150,7 +163,7 @@ export default function VocalMelodyExtractorClient() {
           {!file ? (
             <label htmlFor="file-upload" className="cursor-pointer block">
               <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-lg font-medium text-gray-700 mb-2">Drop your audio file here</p>
+              <p className="text-lg font-medium text-gray-700 mb-2">Drop a clean vocal or acapella</p>
               <p className="text-gray-500 mb-4">or click to browse</p>
               <p className="text-sm text-gray-400">MP3, WAV, M4A, FLAC, OGG (max 200MB, 10 min)</p>
             </label>
@@ -188,10 +201,10 @@ export default function VocalMelodyExtractorClient() {
           <Loader2 className="w-12 h-12 mx-auto text-orange-500 animate-spin mb-4" />
           <p className="text-lg font-medium text-gray-700 mb-2">
             {state === 'uploading' && 'Uploading...'}
-            {state === 'transcribing' && 'Analyzing audio with Basic Pitch...'}
+            {state === 'transcribing' && 'Analyzing vocal melody...'}
             {state === 'cleaning' && 'Extracting monophonic melody...'}
           </p>
-          <p className="text-sm text-gray-500">This may take up to 90 seconds for longer files</p>
+          <p className="text-sm text-gray-500">This usually finishes in under 2 minutes for supported files</p>
         </div>
       )}
 

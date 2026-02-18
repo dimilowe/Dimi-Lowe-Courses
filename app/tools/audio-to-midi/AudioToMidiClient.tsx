@@ -17,6 +17,7 @@ interface ConversionResult {
 }
 
 type ProcessingState = "idle" | "uploading" | "transcribing" | "done" | "error";
+const REQUEST_TIMEOUT_MS = 100000;
 
 const ACCEPTED_FORMATS = ".mp3,.wav,.m4a,.flac,.ogg";
 const MAX_FILE_SIZE_MB = 25;
@@ -92,13 +93,21 @@ export default function AudioToMidiClient() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
       setState("transcribing");
       
-      const response = await fetch("/api/audio-to-midi", {
-        method: "POST",
-        body: formData,
-      });
+      let response: Response;
+      try {
+        response = await fetch("/api/audio-to-midi", {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       const data = await response.json();
 
@@ -110,7 +119,11 @@ export default function AudioToMidiClient() {
       setState("done");
     } catch (err) {
       console.error("Conversion error:", err);
-      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("Processing timed out. Please try a shorter or cleaner audio file.");
+      } else {
+        setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      }
       setState("error");
     }
   };
@@ -309,7 +322,7 @@ export default function AudioToMidiClient() {
       </div>
 
       <p className="text-center text-xs text-gray-500 mt-4">
-        Powered by Spotify Basic Pitch (Apache-2.0). We don&apos;t store your uploads. Files are deleted after processing.
+        We don&apos;t store your uploads. Files are deleted after processing.
       </p>
     </div>
   );

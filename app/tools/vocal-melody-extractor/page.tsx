@@ -4,25 +4,26 @@ import ExploreMoreTools from '@/components/ExploreMoreTools';
 import { CheckCircle2, Music, FileText, AudioLines, Download, Zap, Shield, Clock, AlertTriangle } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Free Vocal Melody Extractor | Singing to MIDI | VCM Suite',
-  description: 'Extract clean monophonic vocal melodies from audio. Convert singing to MIDI for free. Get melody MIDI, pitch curve CSV, and audio preview. Powered by Spotify Basic Pitch.',
+  title: 'Free Acapella Vocal to MIDI Melody Extractor | VCM Suite',
+  description: 'Upload clean vocals or acapella and convert the lead melody to MIDI for free. Get melody MIDI, pitch curve CSV, and audio preview.',
   keywords: [
     'vocal melody extractor',
     'vocals to midi',
     'singing to midi',
+    'acapella vocals to midi',
+    'clean vocals to midi',
     'melody to midi',
     'acapella to midi',
     'pitch to midi',
     'free vocal midi converter',
-    'basic pitch',
     'extract melody from song',
     'vocal pitch detection',
     'melody extraction online',
     'voice to midi free'
   ],
   openGraph: {
-    title: 'Free Vocal Melody Extractor | VCM Suite',
-    description: 'Extract clean monophonic melodies from vocals. Free singing to MIDI converter with pitch curve analysis.',
+    title: 'Free Acapella Vocal to MIDI Melody Extractor | VCM Suite',
+    description: 'Convert clean vocals or acapella to monophonic melody MIDI with pitch curve analysis.',
     type: 'website',
   }
 };
@@ -30,7 +31,7 @@ export const metadata: Metadata = {
 const faqs = [
   {
     question: 'What is a vocal melody extractor?',
-    answer: 'A vocal melody extractor analyzes audio to identify the main sung or played melody line. It uses AI (specifically Spotify\'s Basic Pitch) to detect pitches, then applies post-processing to isolate a clean, single-voice melody that you can import into your DAW as MIDI.'
+    answer: 'A vocal melody extractor analyzes clean vocal audio to identify the main sung melody line. It detects pitch over time, then applies post-processing to isolate a clean, single-voice melody you can import into your DAW as MIDI.'
   },
   {
     question: 'Can I convert singing to MIDI for free?',
@@ -38,11 +39,11 @@ const faqs = [
   },
   {
     question: 'What audio works best for melody extraction?',
-    answer: 'Solo vocals or acapellas work best. Clean recordings with minimal background noise and reverb give the most accurate results. If you\'re extracting from a full mix, vocals should be prominent and clearly audible above instruments.'
+    answer: 'Solo vocals or acapellas work best. Clean recordings with minimal background noise and reverb give the most accurate results. Full songs with heavy instrumentation are not recommended for this workflow.'
   },
   {
     question: 'Can I use it on a full song with instruments?',
-    answer: 'You can try, but results vary. The algorithm prioritizes the most prominent melodic content, which may pick up instruments instead of vocals in busy mixes. For best results, use isolated vocals or vocal-forward mixes where the voice is clearly the loudest element.'
+    answer: 'This tool is not a vocal stem separator. It is designed for vocal-first files (acapella or clean solo vocals). On full songs, instruments can dominate pitch detection and reduce accuracy.'
   },
   {
     question: 'Why does the MIDI sound messy or wrong?',
@@ -54,7 +55,7 @@ const faqs = [
   },
   {
     question: 'How accurate is it?',
-    answer: 'On clean solo vocals, expect 85-95% note accuracy. On full mixes or noisy recordings, accuracy drops significantly. The algorithm is optimized for monophonic melody extraction, not polyphonic transcription.'
+    answer: 'On clean solo vocals, expect 85-95% note accuracy. On noisy recordings or full mixes, accuracy drops significantly. The algorithm is optimized for monophonic melody extraction, not polyphonic transcription.'
   },
   {
     question: 'How do I import the MIDI into Ableton/Logic/FL Studio?',
@@ -129,10 +130,10 @@ export default function VocalMelodyExtractorPage() {
               Free Vocal Melody Extractor
             </span>
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              VCM Vocal Melody Extractor
+              Acapella Vocal to MIDI Melody Extractor
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-              Extract the lead melody from vocals. Get a clean, monophonic MIDI you can drop straight into your DAW.
+              Upload clean vocals or acapella and convert the lead melody into monophonic MIDI for your DAW.
             </p>
             <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-600 mb-8">
               <span className="flex items-center gap-1.5">
@@ -148,6 +149,9 @@ export default function VocalMelodyExtractorPage() {
                 Files not stored
               </span>
             </div>
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-4 py-3 max-w-2xl mx-auto">
+              Best for clean vocal recordings and acapellas. This tool does not separate vocals from a full mixed song.
+            </p>
           </div>
         </section>
 
@@ -167,8 +171,8 @@ export default function VocalMelodyExtractorPage() {
               That kills the creative momentum. This tool pulls out the lead melody so you can drop it into your DAW in seconds.
             </p>
             <p className="text-gray-600">
-              Upload a vocal recording, acapella, or even a full mix. We'll extract the most prominent melodic line, 
-              clean it up to a single monophonic voice, and give you MIDI you can actually use—plus a pitch curve 
+              Upload a clean vocal recording or acapella. We&apos;ll extract the lead melodic line,
+              clean it up to a single monophonic voice, and give you MIDI you can actually use plus a pitch curve
               for detailed analysis and a preview WAV so you know exactly what you're getting.
             </p>
           </div>
@@ -183,14 +187,14 @@ export default function VocalMelodyExtractorPage() {
                   <span className="text-orange-600 font-bold">1</span>
                 </div>
                 <h3 className="font-semibold mb-2">Upload Audio</h3>
-                <p className="text-sm text-gray-600">Drop your vocal recording, acapella, or mix</p>
+                <p className="text-sm text-gray-600">Drop your clean vocal recording or acapella</p>
               </div>
               <div className="text-center">
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-orange-600 font-bold">2</span>
                 </div>
                 <h3 className="font-semibold mb-2">AI Analysis</h3>
-                <p className="text-sm text-gray-600">Basic Pitch detects all notes and pitches</p>
+                <p className="text-sm text-gray-600">AI detects pitch and note timing</p>
               </div>
               <div className="text-center">
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -285,6 +289,7 @@ export default function VocalMelodyExtractorPage() {
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Honest Limitations</h2>
                 <ul className="space-y-2 text-gray-700">
                   <li><strong>Solo vocals work best.</strong> Full mixes with instruments in the same frequency range can confuse the algorithm.</li>
+                  <li><strong>Not a stem separator.</strong> It does not isolate vocals from beat-heavy full songs.</li>
                   <li><strong>No pitch bends.</strong> Slides and vibrato are quantized to the nearest semitone in MIDI output.</li>
                   <li><strong>Polyphony not supported.</strong> If multiple notes play simultaneously, only one is selected per frame.</li>
                   <li><strong>Noisy recordings struggle.</strong> Background noise, heavy reverb, and room reflections reduce accuracy.</li>
@@ -377,18 +382,6 @@ export default function VocalMelodyExtractorPage() {
 
         <footer className="py-8 px-4 border-t">
           <div className="max-w-4xl mx-auto text-center text-sm text-gray-500">
-            <p className="mb-2">
-              Powered by{' '}
-              <a 
-                href="https://github.com/spotify/basic-pitch" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-orange-600 hover:underline"
-              >
-                Spotify Basic Pitch
-              </a>
-              {' '}(Apache-2.0 License)
-            </p>
             <p>
               Your audio is processed server-side and deleted immediately after extraction. 
               Output files are available for 2 hours, then automatically removed.

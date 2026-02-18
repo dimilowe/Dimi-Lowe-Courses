@@ -5,7 +5,7 @@ import ExploreMoreTools from "@/components/ExploreMoreTools";
 
 export const metadata: Metadata = {
   title: "Free Audio to MIDI Converter | MP3 to MIDI Online - VCM Suite",
-  description: "Convert audio files to MIDI for free. Upload MP3, WAV, or any audio and get MIDI transcription with pitch bend. Works for vocals, guitar, piano. Powered by Spotify Basic Pitch.",
+  description: "Convert audio files to MIDI for free. Upload MP3, WAV, or any audio and get MIDI transcription with pitch bend. Works for vocals, guitar, piano.",
   keywords: [
     "audio to midi",
     "mp3 to midi",
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     "free midi converter",
     "polyphonic transcription",
     "pitch to midi",
-    "basic pitch",
+    "ai midi transcription",
     "audio transcription",
     "midi file creator",
     "online midi converter"
