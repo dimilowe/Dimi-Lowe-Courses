@@ -22,6 +22,72 @@ export type ImageFormatConvertEntity = {
   priority: number;
 };
 
+type ImageFormatDefinition = {
+  label: string;
+  slug: string;
+};
+
+const imageFormats: ImageFormatDefinition[] = [
+  { label: "JPG", slug: "jpg" },
+  { label: "PNG", slug: "png" },
+  { label: "WEBP", slug: "webp" },
+  { label: "HEIC", slug: "heic" },
+  { label: "GIF", slug: "gif" },
+  { label: "BMP", slug: "bmp" },
+  { label: "TIFF", slug: "tiff" },
+  { label: "AVIF", slug: "avif" },
+  { label: "ICO", slug: "ico" },
+  { label: "JP2", slug: "jp2" },
+  { label: "PSD", slug: "psd" },
+  { label: "SVG", slug: "svg" },
+];
+
+function resolveCategory(sourceFormat: string, targetFormat: string): string {
+  if (sourceFormat === "HEIC" || targetFormat === "HEIC") return "iphone format compatibility";
+  if (sourceFormat === "SVG" || targetFormat === "SVG") return "vector and raster conversion";
+  if (sourceFormat === "GIF" || targetFormat === "GIF") return "animation and static workflow";
+  if (targetFormat === "WEBP" || targetFormat === "AVIF" || targetFormat === "JPG") {
+    return "web and delivery optimization";
+  }
+  if (targetFormat === "PNG" || targetFormat === "TIFF" || targetFormat === "BMP") {
+    return "quality-first export";
+  }
+  return "format compatibility";
+}
+
+function resolveToolSlug(sourceFormat: string, targetFormat: string): string {
+  if (sourceFormat === "HEIC" || targetFormat === "HEIC") return "heic-to-jpg";
+  return "webp-to-jpg";
+}
+
+function buildImageFormatEntities(): ImageFormatConvertEntity[] {
+  const entities: ImageFormatConvertEntity[] = [];
+  let priority = 1;
+
+  for (const source of imageFormats) {
+    for (const target of imageFormats) {
+      if (source.slug === target.slug) continue;
+
+      const category = resolveCategory(source.label, target.label);
+      entities.push({
+        key: `${source.slug}-to-${target.slug}-image`,
+        name: `${source.label} to ${target.label}`,
+        sourceFormat: source.label,
+        targetFormat: target.label,
+        category,
+        toolSlug: resolveToolSlug(source.label, target.label),
+        bestFor: `Converting ${source.label} assets to ${target.label} for ${category.toLowerCase()} workflows.`,
+        notes:
+          "Convert from the highest-quality source, then verify results in your target platform before publishing.",
+        priority,
+      });
+      priority += 1;
+    }
+  }
+
+  return entities;
+}
+
 export const imageFormatConvertTemplates: ImageFormatConvertTemplate[] = [
   {
     slug: "image-format-convert-main",
@@ -29,9 +95,9 @@ export const imageFormatConvertTemplates: ImageFormatConvertTemplate[] = [
     phraseSlug: "convert",
     titlePattern: "Convert {source} to {target} Image Online Free | Fast Format Workflow",
     descriptionPattern:
-      "Convert {source} to {target} images online with practical compatibility notes and the best VCM conversion path.",
+      "Convert {source} to {target} images online with practical compatibility notes and a direct VCM workflow.",
     introPattern:
-      "To convert {source} to {target}, use a browser-first workflow that balances quality, transparency handling, and file size for your destination platform.",
+      "To convert {source} to {target}, use a browser-first workflow that balances quality, compatibility, and file size for your destination platform.",
   },
   {
     slug: "image-format-convert-converter",
@@ -39,9 +105,9 @@ export const imageFormatConvertTemplates: ImageFormatConvertTemplate[] = [
     phraseSlug: "converter",
     titlePattern: "{source} to {target} Image Converter (Free, No Install)",
     descriptionPattern:
-      "Need a {source} to {target} image converter? Follow this conversion guide for reliable uploads and clean output.",
+      "Need a {source} to {target} image converter? Follow this conversion path for reliable uploads and cleaner outputs.",
     introPattern:
-      "A strong {source} to {target} image converter workflow starts with format goals, then applies the right settings to avoid avoidable quality loss.",
+      "A strong {source} to {target} image converter workflow starts with output goals, then applies settings that prevent avoidable quality loss.",
   },
   {
     slug: "image-format-convert-how-to",
@@ -49,143 +115,20 @@ export const imageFormatConvertTemplates: ImageFormatConvertTemplate[] = [
     phraseSlug: "how-to",
     titlePattern: "How to Convert {source} to {target} Image (Step-by-Step)",
     descriptionPattern:
-      "Learn how to convert {source} to {target} with step-by-step settings and direct links to the right tool flow.",
+      "Learn how to convert {source} to {target} with practical steps, setting guidance, and direct tool access.",
     introPattern:
-      "If you need to convert {source} to {target}, this page gives you the practical method plus output tips for publishing, sharing, and compatibility.",
+      "If you need to convert {source} to {target}, this guide explains the practical method and the output checks that reduce compatibility issues.",
+  },
+  {
+    slug: "image-format-convert-best",
+    phrase: "best {source} to {target} converter",
+    phraseSlug: "best",
+    titlePattern: "Best {source} to {target} Converter Workflow (Free Guide)",
+    descriptionPattern:
+      "Compare the best {source} to {target} converter workflow for speed, compatibility, and output quality.",
+    introPattern:
+      "This best {source} to {target} converter guide focuses on practical tradeoffs so you can choose settings that match quality and file-size goals.",
   },
 ];
 
-export const imageFormatConvertEntities: ImageFormatConvertEntity[] = [
-  {
-    key: "webp-to-jpg-image",
-    name: "WEBP to JPG",
-    sourceFormat: "WEBP",
-    targetFormat: "JPG",
-    category: "web compatibility",
-    toolSlug: "webp-to-jpg",
-    bestFor: "Uploading modern web images to legacy-friendly platforms.",
-    notes: "JPG is universally supported with adjustable compression.",
-    priority: 1,
-  },
-  {
-    key: "webp-to-png-image",
-    name: "WEBP to PNG",
-    sourceFormat: "WEBP",
-    targetFormat: "PNG",
-    category: "lossless output",
-    toolSlug: "webp-to-jpg",
-    bestFor: "Preserving detail and sharper edges during export.",
-    notes: "PNG files are larger but visually stable.",
-    priority: 2,
-  },
-  {
-    key: "png-to-jpg-image",
-    name: "PNG to JPG",
-    sourceFormat: "PNG",
-    targetFormat: "JPG",
-    category: "file size reduction",
-    toolSlug: "webp-to-jpg",
-    bestFor: "Cutting upload size for web pages and email.",
-    notes: "Transparency is flattened during JPG export.",
-    priority: 3,
-  },
-  {
-    key: "jpg-to-png-image",
-    name: "JPG to PNG",
-    sourceFormat: "JPG",
-    targetFormat: "PNG",
-    category: "editing workflow",
-    toolSlug: "webp-to-jpg",
-    bestFor: "Re-exporting to a format favored in design tools.",
-    notes: "PNG will not restore compression lost in the source JPG.",
-    priority: 4,
-  },
-  {
-    key: "jpg-to-webp-image",
-    name: "JPG to WEBP",
-    sourceFormat: "JPG",
-    targetFormat: "WEBP",
-    category: "web optimization",
-    toolSlug: "webp-to-jpg",
-    bestFor: "Reducing image weight while keeping visual quality.",
-    notes: "Great for faster page loads on modern browsers.",
-    priority: 5,
-  },
-  {
-    key: "png-to-webp-image",
-    name: "PNG to WEBP",
-    sourceFormat: "PNG",
-    targetFormat: "WEBP",
-    category: "web optimization",
-    toolSlug: "webp-to-jpg",
-    bestFor: "Publishing lighter assets for web and social.",
-    notes: "Compare quality settings before batch exporting.",
-    priority: 6,
-  },
-  {
-    key: "heic-to-jpg-image",
-    name: "HEIC to JPG",
-    sourceFormat: "HEIC",
-    targetFormat: "JPG",
-    category: "iphone compatibility",
-    toolSlug: "heic-to-jpg",
-    bestFor: "Sharing iPhone photos across apps and browsers.",
-    notes: "JPG remains the safest universal destination format.",
-    priority: 7,
-  },
-  {
-    key: "heic-to-png-image",
-    name: "HEIC to PNG",
-    sourceFormat: "HEIC",
-    targetFormat: "PNG",
-    category: "lossless output",
-    toolSlug: "heic-to-jpg",
-    bestFor: "Maintaining detail for graphic workflows.",
-    notes: "Use only when larger file sizes are acceptable.",
-    priority: 8,
-  },
-  {
-    key: "heic-to-webp-image",
-    name: "HEIC to WEBP",
-    sourceFormat: "HEIC",
-    targetFormat: "WEBP",
-    category: "web optimization",
-    toolSlug: "heic-to-jpg",
-    bestFor: "Turning mobile photos into lightweight web assets.",
-    notes: "Test final result on your target CMS or editor.",
-    priority: 9,
-  },
-  {
-    key: "gif-to-png-image",
-    name: "GIF to PNG",
-    sourceFormat: "GIF",
-    targetFormat: "PNG",
-    category: "static extraction",
-    toolSlug: "webp-to-jpg",
-    bestFor: "Using single-frame art in static designs.",
-    notes: "Animated GIFs require frame-level extraction first.",
-    priority: 10,
-  },
-  {
-    key: "bmp-to-jpg-image",
-    name: "BMP to JPG",
-    sourceFormat: "BMP",
-    targetFormat: "JPG",
-    category: "legacy format conversion",
-    toolSlug: "webp-to-jpg",
-    bestFor: "Shrinking old bitmap files for modern use.",
-    notes: "BMP sources can be very large before conversion.",
-    priority: 11,
-  },
-  {
-    key: "tiff-to-jpg-image",
-    name: "TIFF to JPG",
-    sourceFormat: "TIFF",
-    targetFormat: "JPG",
-    category: "delivery format conversion",
-    toolSlug: "webp-to-jpg",
-    bestFor: "Preparing large print-oriented images for web sharing.",
-    notes: "Preserve an archival TIFF copy before down-converting.",
-    priority: 12,
-  },
-];
+export const imageFormatConvertEntities: ImageFormatConvertEntity[] = buildImageFormatEntities();

@@ -30,6 +30,8 @@ function templateLabel(templateSlug: string): string {
   if (templateSlug === "unit-convert-main") return "Conversion Queries";
   if (templateSlug === "unit-convert-converter") return "Converter Queries";
   if (templateSlug === "unit-convert-how-to") return "How-To Queries";
+  if (templateSlug === "unit-convert-formula") return "Formula Queries";
+  if (templateSlug === "unit-convert-chart") return "Chart Queries";
   return "All Queries";
 }
 

@@ -30,6 +30,7 @@ function templateLabel(templateSlug: string): string {
   if (templateSlug === "image-format-convert-main") return "Convert Queries";
   if (templateSlug === "image-format-convert-converter") return "Converter Queries";
   if (templateSlug === "image-format-convert-how-to") return "How-To Queries";
+  if (templateSlug === "image-format-convert-best") return "Best Converter Queries";
   return "All Queries";
 }
 

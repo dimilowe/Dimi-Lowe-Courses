@@ -120,7 +120,7 @@ function applyQualityGate(page: GeneratedPage): GeneratedPage {
   const reasons: string[] = [];
   let score = 0;
 
-  if (page.title.length >= 35 && page.title.length <= 100) {
+  if (page.title.length >= 35 && page.title.length <= 130) {
     score += 25;
   } else {
     reasons.push("title_length_out_of_range");

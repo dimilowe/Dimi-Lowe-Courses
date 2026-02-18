@@ -23,26 +23,206 @@ export type UnitConvertEntity = {
   priority: number;
 };
 
+type UnitDefinition = {
+  label: string;
+  slug: string;
+  toBase: number;
+};
+
+type UnitFamily = {
+  category: string;
+  useCase: string;
+  notes: string;
+  units: UnitDefinition[];
+};
+
+function formatRatio(value: number): string {
+  if (!Number.isFinite(value)) return String(value);
+  if (Math.abs(value) >= 1000 || Math.abs(value) < 0.001) {
+    return value.toExponential(6);
+  }
+  return value.toFixed(8).replace(/\.?0+$/, "");
+}
+
+function temperatureFormula(source: string, target: string): string {
+  if (source === "Celsius" && target === "Fahrenheit") return "Fahrenheit = (Celsius * 9/5) + 32";
+  if (source === "Fahrenheit" && target === "Celsius") return "Celsius = (Fahrenheit - 32) * 5/9";
+  if (source === "Celsius" && target === "Kelvin") return "Kelvin = Celsius + 273.15";
+  if (source === "Kelvin" && target === "Celsius") return "Celsius = Kelvin - 273.15";
+  if (source === "Fahrenheit" && target === "Kelvin") {
+    return "Kelvin = (Fahrenheit - 32) * 5/9 + 273.15";
+  }
+  if (source === "Kelvin" && target === "Fahrenheit") {
+    return "Fahrenheit = (Kelvin - 273.15) * 9/5 + 32";
+  }
+  return `${target} = ${source}`;
+}
+
+function buildLinearFormula(source: UnitDefinition, target: UnitDefinition): string {
+  const ratio = source.toBase / target.toBase;
+  return `${target.label} = ${source.label} * ${formatRatio(ratio)}`;
+}
+
+const unitFamilies: UnitFamily[] = [
+  {
+    category: "length",
+    useCase: "design dimensions, product specs, and map distances",
+    notes: "Keep enough decimal precision for measurement-sensitive outputs.",
+    units: [
+      { label: "mm", slug: "mm", toBase: 0.001 },
+      { label: "cm", slug: "cm", toBase: 0.01 },
+      { label: "meters", slug: "m", toBase: 1 },
+      { label: "km", slug: "km", toBase: 1000 },
+      { label: "inches", slug: "in", toBase: 0.0254 },
+      { label: "feet", slug: "ft", toBase: 0.3048 },
+      { label: "yards", slug: "yd", toBase: 0.9144 },
+      { label: "miles", slug: "mi", toBase: 1609.344 },
+    ],
+  },
+  {
+    category: "weight",
+    useCase: "fitness tracking, shipping weights, and food prep",
+    notes: "Apply context-aware rounding based on scale precision.",
+    units: [
+      { label: "mg", slug: "mg", toBase: 0.001 },
+      { label: "grams", slug: "g", toBase: 1 },
+      { label: "kg", slug: "kg", toBase: 1000 },
+      { label: "oz", slug: "oz", toBase: 28.349523125 },
+      { label: "lbs", slug: "lb", toBase: 453.59237 },
+      { label: "stone", slug: "stone", toBase: 6350.29318 },
+      { label: "metric tons", slug: "ton", toBase: 1000000 },
+    ],
+  },
+  {
+    category: "volume",
+    useCase: "fuel planning, recipe scaling, and fluid handling",
+    notes: "US customary and metric systems differ, so confirm unit system first.",
+    units: [
+      { label: "ml", slug: "ml", toBase: 0.001 },
+      { label: "liters", slug: "l", toBase: 1 },
+      { label: "cups", slug: "cup", toBase: 0.2365882365 },
+      { label: "pints", slug: "pt", toBase: 0.473176473 },
+      { label: "quarts", slug: "qt", toBase: 0.946352946 },
+      { label: "gallons", slug: "gal", toBase: 3.785411784 },
+      { label: "fl oz", slug: "floz", toBase: 0.0295735295625 },
+    ],
+  },
+  {
+    category: "temperature",
+    useCase: "weather checks, cooking, and technical references",
+    notes: "Temperature conversions require offset terms, not only multipliers.",
+    units: [
+      { label: "Celsius", slug: "c", toBase: 1 },
+      { label: "Fahrenheit", slug: "f", toBase: 1 },
+      { label: "Kelvin", slug: "k", toBase: 1 },
+    ],
+  },
+  {
+    category: "area",
+    useCase: "real estate, room layouts, and land planning",
+    notes: "Use consistent unit labels in contracts and reports.",
+    units: [
+      { label: "sq ft", slug: "sqft", toBase: 1 },
+      { label: "sq m", slug: "sqm", toBase: 10.7639104167097 },
+      { label: "sq yards", slug: "sqyd", toBase: 9 },
+      { label: "acres", slug: "acre", toBase: 43560 },
+      { label: "hectares", slug: "hectare", toBase: 107639.104167097 },
+      { label: "sq inches", slug: "sqin", toBase: 1 / 144 },
+    ],
+  },
+  {
+    category: "speed",
+    useCase: "travel pacing, training logs, and route comparisons",
+    notes: "Speed units can represent average or instantaneous values.",
+    units: [
+      { label: "mph", slug: "mph", toBase: 1 },
+      { label: "km/h", slug: "kmh", toBase: 0.621371192237334 },
+      { label: "m/s", slug: "ms", toBase: 2.2369362920544 },
+      { label: "knots", slug: "kn", toBase: 1.15077944802354 },
+      { label: "ft/s", slug: "fts", toBase: 0.681818181818182 },
+    ],
+  },
+  {
+    category: "digital storage",
+    useCase: "media export budgets, storage planning, and upload constraints",
+    notes: "Some systems use decimal (1000) while others use binary (1024) scaling.",
+    units: [
+      { label: "KB", slug: "kb", toBase: 1 },
+      { label: "MB", slug: "mb", toBase: 1024 },
+      { label: "GB", slug: "gb", toBase: 1024 * 1024 },
+      { label: "TB", slug: "tb", toBase: 1024 * 1024 * 1024 },
+      { label: "bytes", slug: "bytes", toBase: 1 / 1024 },
+      { label: "bits", slug: "bits", toBase: 1 / (1024 * 8) },
+    ],
+  },
+  {
+    category: "time",
+    useCase: "project tracking, scheduling, and workload planning",
+    notes: "Time conversions are simple multipliers but rounding changes interpretation.",
+    units: [
+      { label: "seconds", slug: "sec", toBase: 1 },
+      { label: "minutes", slug: "min", toBase: 60 },
+      { label: "hours", slug: "hour", toBase: 3600 },
+      { label: "days", slug: "day", toBase: 86400 },
+      { label: "weeks", slug: "week", toBase: 604800 },
+    ],
+  },
+];
+
+function buildUnitEntities(): UnitConvertEntity[] {
+  const entities: UnitConvertEntity[] = [];
+  let priority = 1;
+
+  for (const family of unitFamilies) {
+    for (const source of family.units) {
+      for (const target of family.units) {
+        if (source.slug === target.slug) continue;
+
+        const formula =
+          family.category === "temperature"
+            ? temperatureFormula(source.label, target.label)
+            : buildLinearFormula(source, target);
+
+        entities.push({
+          key: `${source.slug}-to-${target.slug}`,
+          name: `${source.label} to ${target.label}`,
+          sourceUnit: source.label,
+          targetUnit: target.label,
+          category: family.category,
+          formula,
+          toolSlug: "all",
+          bestFor: `Quick ${family.category} conversions for ${family.useCase}.`,
+          notes: `${family.notes} Verify assumptions before final reporting.`,
+          priority,
+        });
+        priority += 1;
+      }
+    }
+  }
+
+  return entities;
+}
+
 export const unitConvertTemplates: UnitConvertTemplate[] = [
   {
     slug: "unit-convert-main",
     phrase: "{sourceUnit} to {targetUnit}",
     phraseSlug: "convert",
-    titlePattern: "{sourceUnit} to {targetUnit} Conversion | Formula + Quick Tool Path",
+    titlePattern: "{sourceUnit} to {targetUnit} Conversion | Formula + Calculator",
     descriptionPattern:
-      "Convert {sourceUnit} to {targetUnit} with the exact formula, practical examples, and a fast calculator workflow.",
+      "Convert {sourceUnit} to {targetUnit} with the exact formula, reference factors, and a fast calculator workflow.",
     introPattern:
-      "This {sourceUnit} to {targetUnit} conversion page gives you the core formula, when to use it, and the fastest path for everyday calculations.",
+      "This {sourceUnit} to {targetUnit} conversion page gives the practical formula, unit relationship, and a repeatable workflow for accurate estimates.",
   },
   {
     slug: "unit-convert-converter",
     phrase: "{sourceUnit} to {targetUnit} converter",
     phraseSlug: "converter",
-    titlePattern: "{sourceUnit} to {targetUnit} Converter (Free Online Conversion Guide)",
+    titlePattern: "{sourceUnit} to {targetUnit} Converter (Free Online)",
     descriptionPattern:
-      "Need a {sourceUnit} to {targetUnit} converter? Use this quick reference for formula accuracy and repeatable calculation workflows.",
+      "Need a {sourceUnit} to {targetUnit} converter? Use this quick reference for conversion accuracy and repeatable checks.",
     introPattern:
-      "Use this {sourceUnit} to {targetUnit} converter guide when you need repeatable results for planning, budgeting, reporting, or classroom work.",
+      "Use this {sourceUnit} to {targetUnit} converter guide when you need consistent results for planning, reporting, and day-to-day calculations.",
   },
   {
     slug: "unit-convert-how-to",
@@ -50,227 +230,30 @@ export const unitConvertTemplates: UnitConvertTemplate[] = [
     phraseSlug: "how-to",
     titlePattern: "How to Convert {sourceUnit} to {targetUnit} (Step-by-Step)",
     descriptionPattern:
-      "Learn how to convert {sourceUnit} to {targetUnit} with a simple formula walkthrough and practical usage notes.",
+      "Learn how to convert {sourceUnit} to {targetUnit} with a straightforward formula method and practical usage notes.",
     introPattern:
-      "If you are figuring out how to convert {sourceUnit} to {targetUnit}, start with the baseline formula below, then validate with a calculator workflow for final checks.",
+      "If you are figuring out how to convert {sourceUnit} to {targetUnit}, begin with the core formula below, then validate values with a calculator workflow.",
+  },
+  {
+    slug: "unit-convert-formula",
+    phrase: "{sourceUnit} to {targetUnit} formula",
+    phraseSlug: "formula",
+    titlePattern: "{sourceUnit} to {targetUnit} Formula + Worked Conversion Method",
+    descriptionPattern:
+      "Find the {sourceUnit} to {targetUnit} conversion formula and use it with practical examples for clean, repeatable outputs.",
+    introPattern:
+      "This guide highlights the {sourceUnit} to {targetUnit} formula so you can convert values manually and cross-check results in a calculator.",
+  },
+  {
+    slug: "unit-convert-chart",
+    phrase: "{sourceUnit} to {targetUnit} conversion chart",
+    phraseSlug: "chart",
+    titlePattern: "{sourceUnit} to {targetUnit} Conversion Chart Guide",
+    descriptionPattern:
+      "Use this {sourceUnit} to {targetUnit} conversion chart guide to understand unit relationships, formulas, and quick-check workflows.",
+    introPattern:
+      "For fast lookups, this {sourceUnit} to {targetUnit} conversion chart guide summarizes the unit relationship and the exact formula to apply.",
   },
 ];
 
-export const unitConvertEntities: UnitConvertEntity[] = [
-  {
-    key: "cm-to-inches",
-    name: "Centimeters to Inches",
-    sourceUnit: "cm",
-    targetUnit: "inches",
-    category: "length",
-    formula: "inches = cm / 2.54",
-    toolSlug: "all",
-    bestFor: "Design mockups, product dimensions, and print sizing.",
-    notes: "Keep at least two decimal places for layout-sensitive work.",
-    priority: 1,
-  },
-  {
-    key: "inches-to-cm",
-    name: "Inches to Centimeters",
-    sourceUnit: "inches",
-    targetUnit: "cm",
-    category: "length",
-    formula: "cm = inches * 2.54",
-    toolSlug: "all",
-    bestFor: "Converting imperial dimensions to metric specs.",
-    notes: "Useful for manufacturing and cross-region product listings.",
-    priority: 2,
-  },
-  {
-    key: "kg-to-lbs",
-    name: "Kilograms to Pounds",
-    sourceUnit: "kg",
-    targetUnit: "lbs",
-    category: "weight",
-    formula: "lbs = kg * 2.20462",
-    toolSlug: "all",
-    bestFor: "Fitness tracking and shipping estimates.",
-    notes: "Round based on context: 0.1 for bodyweight, 0.01 for logistics.",
-    priority: 3,
-  },
-  {
-    key: "lbs-to-kg",
-    name: "Pounds to Kilograms",
-    sourceUnit: "lbs",
-    targetUnit: "kg",
-    category: "weight",
-    formula: "kg = lbs / 2.20462",
-    toolSlug: "all",
-    bestFor: "International fitness plans and clinical references.",
-    notes: "Use consistent rounding in progress reports.",
-    priority: 4,
-  },
-  {
-    key: "miles-to-km",
-    name: "Miles to Kilometers",
-    sourceUnit: "miles",
-    targetUnit: "km",
-    category: "distance",
-    formula: "km = miles * 1.60934",
-    toolSlug: "all",
-    bestFor: "Travel planning and race pacing conversions.",
-    notes: "Include pace conversions when comparing training logs.",
-    priority: 5,
-  },
-  {
-    key: "km-to-miles",
-    name: "Kilometers to Miles",
-    sourceUnit: "km",
-    targetUnit: "miles",
-    category: "distance",
-    formula: "miles = km / 1.60934",
-    toolSlug: "all",
-    bestFor: "Cross-region route planning and fitness goals.",
-    notes: "Useful for converting 5K/10K distances for US audiences.",
-    priority: 6,
-  },
-  {
-    key: "c-to-f",
-    name: "Celsius to Fahrenheit",
-    sourceUnit: "Celsius",
-    targetUnit: "Fahrenheit",
-    category: "temperature",
-    formula: "F = (C * 9/5) + 32",
-    toolSlug: "all",
-    bestFor: "Weather translation and cooking references.",
-    notes: "For cooking, keep one decimal place for consistent recipes.",
-    priority: 7,
-  },
-  {
-    key: "f-to-c",
-    name: "Fahrenheit to Celsius",
-    sourceUnit: "Fahrenheit",
-    targetUnit: "Celsius",
-    category: "temperature",
-    formula: "C = (F - 32) * 5/9",
-    toolSlug: "all",
-    bestFor: "International recipes and lab reference values.",
-    notes: "Round at the final step to avoid compounded error.",
-    priority: 8,
-  },
-  {
-    key: "liters-to-gallons",
-    name: "Liters to Gallons",
-    sourceUnit: "liters",
-    targetUnit: "gallons",
-    category: "volume",
-    formula: "gallons = liters / 3.78541",
-    toolSlug: "all",
-    bestFor: "Fuel economy and fluid volume comparisons.",
-    notes: "Assumes US liquid gallons.",
-    priority: 9,
-  },
-  {
-    key: "gallons-to-liters",
-    name: "Gallons to Liters",
-    sourceUnit: "gallons",
-    targetUnit: "liters",
-    category: "volume",
-    formula: "liters = gallons * 3.78541",
-    toolSlug: "all",
-    bestFor: "Vehicle, tank, and batch-mix calculations.",
-    notes: "Use imperial gallon conversion only when explicitly required.",
-    priority: 10,
-  },
-  {
-    key: "mb-to-gb",
-    name: "MB to GB",
-    sourceUnit: "MB",
-    targetUnit: "GB",
-    category: "digital storage",
-    formula: "GB = MB / 1024",
-    toolSlug: "all",
-    bestFor: "Storage planning and media export sizing.",
-    notes: "Binary conversion shown; decimal GB may differ by platform.",
-    priority: 11,
-  },
-  {
-    key: "gb-to-mb",
-    name: "GB to MB",
-    sourceUnit: "GB",
-    targetUnit: "MB",
-    category: "digital storage",
-    formula: "MB = GB * 1024",
-    toolSlug: "all",
-    bestFor: "Estimating upload limits and file budget targets.",
-    notes: "Confirm whether your platform uses 1000 or 1024 scaling.",
-    priority: 12,
-  },
-  {
-    key: "sqft-to-sqm",
-    name: "Square Feet to Square Meters",
-    sourceUnit: "sq ft",
-    targetUnit: "sq m",
-    category: "area",
-    formula: "sq m = sq ft / 10.7639",
-    toolSlug: "all",
-    bestFor: "Real estate and space-planning comparisons.",
-    notes: "Use two decimals for listings and quotes.",
-    priority: 13,
-  },
-  {
-    key: "sqm-to-sqft",
-    name: "Square Meters to Square Feet",
-    sourceUnit: "sq m",
-    targetUnit: "sq ft",
-    category: "area",
-    formula: "sq ft = sq m * 10.7639",
-    toolSlug: "all",
-    bestFor: "Converting metric floor plans to US-style references.",
-    notes: "Preserve raw values in internal docs before rounding.",
-    priority: 14,
-  },
-  {
-    key: "oz-to-grams",
-    name: "Ounces to Grams",
-    sourceUnit: "oz",
-    targetUnit: "grams",
-    category: "weight",
-    formula: "grams = oz * 28.3495",
-    toolSlug: "all",
-    bestFor: "Food prep, packaging, and recipe conversions.",
-    notes: "Kitchen use usually rounds to whole grams.",
-    priority: 15,
-  },
-  {
-    key: "grams-to-oz",
-    name: "Grams to Ounces",
-    sourceUnit: "grams",
-    targetUnit: "oz",
-    category: "weight",
-    formula: "oz = grams / 28.3495",
-    toolSlug: "all",
-    bestFor: "Translating metric labels for US nutrition references.",
-    notes: "Use at least one decimal place for packaging accuracy.",
-    priority: 16,
-  },
-  {
-    key: "minutes-to-hours",
-    name: "Minutes to Hours",
-    sourceUnit: "minutes",
-    targetUnit: "hours",
-    category: "time",
-    formula: "hours = minutes / 60",
-    toolSlug: "all",
-    bestFor: "Scheduling and project-time rollups.",
-    notes: "Two decimals usually balances precision and readability.",
-    priority: 17,
-  },
-  {
-    key: "hours-to-minutes",
-    name: "Hours to Minutes",
-    sourceUnit: "hours",
-    targetUnit: "minutes",
-    category: "time",
-    formula: "minutes = hours * 60",
-    toolSlug: "all",
-    bestFor: "Task breakdowns and production planning.",
-    notes: "Useful for converting decimal-hour logs to exact minutes.",
-    priority: 18,
-  },
-];
+export const unitConvertEntities: UnitConvertEntity[] = buildUnitEntities();

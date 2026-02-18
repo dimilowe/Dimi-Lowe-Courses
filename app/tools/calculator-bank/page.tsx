@@ -30,6 +30,8 @@ function templateLabel(templateSlug: string): string {
   if (templateSlug === "calculator-intent-main") return "Calculator Queries";
   if (templateSlug === "calculator-intent-free") return "Free Calculator Queries";
   if (templateSlug === "calculator-intent-how-to") return "How-To Queries";
+  if (templateSlug === "calculator-intent-online") return "Online Calculator Queries";
+  if (templateSlug === "calculator-intent-best") return "Best Calculator Queries";
   return "All Queries";
 }
 
