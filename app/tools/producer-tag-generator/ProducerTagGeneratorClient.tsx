@@ -30,6 +30,11 @@ type ProducerTagPresetJson = {
   sourceVolumeDb: number;
 };
 type ProducerTagPresetRecord = ToolPresetRecord<ProducerTagPresetJson>;
+type ChunkUploadMeta = {
+  uploadId: string;
+  totalChunks: number;
+  uploadName: string;
+};
 
 const VOICE_OPTIONS: { id: VoiceId; label: string; description: string }[] = [
   { id: 'female_soft', label: 'Female Soft', description: 'Smooth and subtle' },
@@ -43,6 +48,10 @@ const MAIN_AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a'];
 const MAIN_AUDIO_MIME_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
 const TAG_AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a'];
 const TAG_AUDIO_MIME_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
+const MAIN_AUDIO_MAX_BYTES = 200 * 1024 * 1024;
+const TAG_AUDIO_MAX_BYTES = 10 * 1024 * 1024;
+const CHUNK_UPLOAD_SIZE_BYTES = 4 * 1024 * 1024;
+const CHUNK_UPLOAD_THRESHOLD_BYTES = 20 * 1024 * 1024;
 const PREVIEW_CLIP_SECONDS = 8;
 const PREVIEW_TARGET_SAMPLE_RATE = 8000;
 const PREVIEW_MAX_FALLBACK_MB = 1;
@@ -79,7 +88,7 @@ export default function ProducerTagGeneratorClient() {
   });
 
   const validateAndSetFile = (selectedFile: File) => {
-    if (selectedFile.size > 200 * 1024 * 1024) {
+    if (selectedFile.size > MAIN_AUDIO_MAX_BYTES) {
       setError('File too large. Maximum size is 200MB.');
       return;
     }
@@ -147,7 +156,7 @@ export default function ProducerTagGeneratorClient() {
   };
 
   const validateAndSetTagFile = (selectedFile: File) => {
-    if (selectedFile.size > 10 * 1024 * 1024) {
+    if (selectedFile.size > TAG_AUDIO_MAX_BYTES) {
       setError('Tag snippet too large. Maximum size is 10MB.');
       return;
     }
@@ -470,6 +479,82 @@ export default function ProducerTagGeneratorClient() {
     }
   };
 
+  const uploadMainFileInChunks = async (sourceFile: File): Promise<ChunkUploadMeta> => {
+    const uploadId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const totalChunks = Math.ceil(sourceFile.size / CHUNK_UPLOAD_SIZE_BYTES);
+
+    if (!Number.isFinite(totalChunks) || totalChunks <= 0) {
+      throw new Error('Upload failed: invalid chunk metadata.');
+    }
+
+    for (let index = 0; index < totalChunks; index += 1) {
+      const start = index * CHUNK_UPLOAD_SIZE_BYTES;
+      const end = Math.min(sourceFile.size, start + CHUNK_UPLOAD_SIZE_BYTES);
+      const chunk = sourceFile.slice(start, end);
+
+      setStatus(`Uploading your audio... part ${index + 1}/${totalChunks}`);
+
+      const response = await fetch(
+        `/api/producer-tag/chunk?uploadId=${encodeURIComponent(uploadId)}&index=${index}&total=${totalChunks}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/octet-stream',
+          },
+          body: chunk,
+        }
+      );
+
+      if (!response.ok) {
+        let message = `Chunk upload failed (${response.status}).`;
+        try {
+          const data = await response.json();
+          if (data?.error) {
+            message = data.error;
+          }
+        } catch {
+          try {
+            const raw = await response.text();
+            if (raw?.trim()) {
+              message = raw.trim().slice(0, 180);
+            }
+          } catch {}
+        }
+        throw new Error(message);
+      }
+    }
+
+    return {
+      uploadId,
+      totalChunks,
+      uploadName: sourceFile.name,
+    };
+  };
+
+  const buildProcessingFormData = (chunkMeta: ChunkUploadMeta | null): FormData => {
+    const formData = new FormData();
+    if (chunkMeta) {
+      formData.append('uploadId', chunkMeta.uploadId);
+      formData.append('totalChunks', String(chunkMeta.totalChunks));
+      formData.append('uploadName', chunkMeta.uploadName);
+    } else if (file) {
+      formData.append('file', file);
+    }
+    formData.append('mode', mode);
+    formData.append('intervalSeconds', intervalSeconds.toString());
+    formData.append('tagVolumeDb', tagVolumeDb.toString());
+    formData.append('sourceVolumeDb', sourceVolumeDb.toString());
+    formData.append('phrase', phrase);
+    formData.append('voiceId', voiceId);
+    if (tagFile) {
+      formData.append('tagFile', tagFile);
+    }
+    return formData;
+  };
+
   const handleSubmit = async () => {
     if (!file) {
       setError('Please upload an audio file first.');
@@ -491,24 +576,25 @@ export default function ProducerTagGeneratorClient() {
     setStatus('Uploading your audio...');
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('mode', mode);
-      formData.append('intervalSeconds', intervalSeconds.toString());
-      formData.append('tagVolumeDb', tagVolumeDb.toString());
-      formData.append('sourceVolumeDb', sourceVolumeDb.toString());
-      formData.append('phrase', phrase);
-      formData.append('voiceId', voiceId);
-      if (tagFile) {
-        formData.append('tagFile', tagFile);
+      let chunkMeta: ChunkUploadMeta | null = null;
+      if (file.size > CHUNK_UPLOAD_THRESHOLD_BYTES) {
+        chunkMeta = await uploadMainFileInChunks(file);
       }
 
       setStatus('Processing your audio with producer tag...');
-
-      const response = await fetch('/api/producer-tag', {
+      let response = await fetch('/api/producer-tag', {
         method: 'POST',
-        body: formData,
+        body: buildProcessingFormData(chunkMeta),
       });
+      if (response.status === 413 && !chunkMeta) {
+        setStatus('Large upload detected. Retrying in chunk mode...');
+        chunkMeta = await uploadMainFileInChunks(file);
+        setStatus('Processing your audio with producer tag...');
+        response = await fetch('/api/producer-tag', {
+          method: 'POST',
+          body: buildProcessingFormData(chunkMeta),
+        });
+      }
 
       const contentType = response.headers.get('content-type') || '';
       const isJson = contentType.includes('application/json');
@@ -519,7 +605,7 @@ export default function ProducerTagGeneratorClient() {
         const fromServer = data?.error || textBody;
         const fallbackMessage =
           response.status === 413
-            ? 'Upload is too large for live processing limits. Try MP3/M4A under ~20MB, then retry.'
+            ? 'Upload was rejected by ingress limits. Try a smaller source file or a smaller uploaded tag snippet, then retry.'
             : `Request failed (${response.status}). The processing worker may have timed out.`;
         throw new Error((fromServer && String(fromServer).slice(0, 200)) || fallbackMessage);
       }
@@ -622,7 +708,7 @@ export default function ProducerTagGeneratorClient() {
                     <p className="text-gray-600 font-medium">
                       {dragActive ? 'Drop your MP3, WAV, or M4A here' : 'Drag & drop or click to upload MP3, WAV, or M4A'}
                     </p>
-                    <p className="text-sm text-gray-500 mt-1">Max 200MB</p>
+                    <p className="text-sm text-gray-500 mt-1">Max 200MB. Large files auto-upload in parts.</p>
                   </>
                 )}
               </div>
@@ -799,7 +885,7 @@ export default function ProducerTagGeneratorClient() {
                   {isPreviewingMix ? <Loader2 className="w-4 h-4 animate-spin" /> : <Music className="w-4 h-4" />}
                   Preview Full Mix
                 </button>
-                <p className="text-xs text-gray-500">Renders about 30 seconds using your current settings.</p>
+                <p className="text-xs text-gray-500">Renders about {PREVIEW_CLIP_SECONDS} seconds using your current settings.</p>
               </div>
               {mixPreviewUrl && (
                 <audio controls src={mixPreviewUrl} className="w-full mt-3" />

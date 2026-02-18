@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir, unlink, readdir, stat } from 'fs/promises';
+import { writeFile, unlink, readdir, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { processAudioWithTag, getOrCreateTagVoice, getDefaultTagPath, getAudioDuration } from '@/lib/audio-processor';
+import {
+  PRODUCER_TAG_MAX_CHUNKS,
+  PRODUCER_TAG_MAX_FILE_SIZE_BYTES,
+  PRODUCER_TAG_MAX_TAG_FILE_SIZE_BYTES,
+  PRODUCER_TAG_UPLOAD_DIR,
+  PRODUCER_TAG_OUTPUT_DIR,
+  assembleProducerTagChunks,
+  cleanupProducerTagChunks,
+  ensureProducerTagDirectories,
+  isAllowedProducerTagAudioExt,
+  sanitizeProducerTagUploadId,
+} from '@/lib/producerTagUpload';
 
-const UPLOAD_DIR = '/tmp/producer-tag-uploads';
-const OUTPUT_DIR = '/tmp/producer-tag-output';
-const MAX_FILE_SIZE = 200 * 1024 * 1024;
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
@@ -32,20 +41,12 @@ function getRateLimitInfo(ip: string): { allowed: boolean; remaining: number } {
   return { allowed: true, remaining: RATE_LIMIT - record.count };
 }
 
-async function ensureDirectories() {
-  for (const dir of [UPLOAD_DIR, OUTPUT_DIR]) {
-    if (!existsSync(dir)) {
-      await mkdir(dir, { recursive: true });
-    }
-  }
-}
-
 async function cleanupOldFiles() {
   try {
     const now = Date.now();
     const maxAge = 30 * 60 * 1000;
     
-    for (const dir of [UPLOAD_DIR, OUTPUT_DIR]) {
+    for (const dir of [PRODUCER_TAG_UPLOAD_DIR, PRODUCER_TAG_OUTPUT_DIR]) {
       if (!existsSync(dir)) continue;
       
       const files = await readdir(dir);
@@ -68,6 +69,7 @@ async function cleanupOldFiles() {
 export async function POST(request: NextRequest) {
   let uploadedFilePath: string | null = null;
   let uploadedTagFilePath: string | null = null;
+  let chunkUploadIdForCleanup: string | null = null;
   
   try {
     const ip = request.headers.get('x-forwarded-for') || 'unknown';
@@ -80,11 +82,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await ensureDirectories();
+    await ensureProducerTagDirectories();
     cleanupOldFiles();
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
+    const uploadIdRaw = formData.get('uploadId') as string | null;
+    const totalChunksRaw = formData.get('totalChunks') as string | null;
+    const uploadName = (formData.get('uploadName') as string | null) || 'uploaded-audio.wav';
     const mode = formData.get('mode') as string || 'custom';
     const defaultTag = formData.get('defaultTag') as string || 'vcmsuite';
     let intervalSeconds = parseInt(formData.get('intervalSeconds') as string || '15', 10);
@@ -104,26 +109,52 @@ export async function POST(request: NextRequest) {
     const voiceId = formData.get('voiceId') as string || 'female_soft';
     const tagFile = formData.get('tagFile') as File | null;
 
-    if (!file) {
+    if (!file && !uploadIdRaw) {
       return NextResponse.json(
-        { error: 'No audio file provided' },
+        { error: 'No audio file provided.' },
         { status: 400 }
       );
     }
 
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: 'File too large. Maximum size is 200MB.' },
-        { status: 400 }
-      );
-    }
+    let ext = '';
+    if (file) {
+      if (file.size > PRODUCER_TAG_MAX_FILE_SIZE_BYTES) {
+        return NextResponse.json(
+          { error: 'File too large. Maximum size is 200MB.' },
+          { status: 400 }
+        );
+      }
 
-    const ext = path.extname(file.name).toLowerCase();
-    if (!['.mp3', '.wav', '.m4a'].includes(ext)) {
-      return NextResponse.json(
-        { error: 'Invalid file type. Main track must be MP3, WAV, or M4A.' },
-        { status: 400 }
-      );
+      ext = path.extname(file.name).toLowerCase();
+      if (!isAllowedProducerTagAudioExt(ext)) {
+        return NextResponse.json(
+          { error: 'Invalid file type. Main track must be MP3, WAV, or M4A.' },
+          { status: 400 }
+        );
+      }
+    } else {
+      const uploadId = sanitizeProducerTagUploadId(uploadIdRaw || '');
+      const totalChunks = parseInt(totalChunksRaw || '', 10);
+      ext = path.extname(uploadName).toLowerCase();
+      if (!uploadId) {
+        return NextResponse.json(
+          { error: 'Invalid upload id.' },
+          { status: 400 }
+        );
+      }
+      if (!Number.isFinite(totalChunks) || totalChunks <= 0 || totalChunks > PRODUCER_TAG_MAX_CHUNKS) {
+        return NextResponse.json(
+          { error: 'Invalid chunk count.' },
+          { status: 400 }
+        );
+      }
+      if (!isAllowedProducerTagAudioExt(ext)) {
+        return NextResponse.json(
+          { error: 'Invalid file type. Main track must be MP3, WAV, or M4A.' },
+          { status: 400 }
+        );
+      }
+      chunkUploadIdForCleanup = uploadId;
     }
 
     if (mode === 'custom') {
@@ -147,13 +178,13 @@ export async function POST(request: NextRequest) {
         );
       }
       const tagExt = path.extname(tagFile.name).toLowerCase();
-      if (!['.mp3', '.wav', '.m4a'].includes(tagExt)) {
+      if (!isAllowedProducerTagAudioExt(tagExt)) {
         return NextResponse.json(
           { error: 'Tag snippet must be MP3, WAV, or M4A.' },
           { status: 400 }
         );
       }
-      if (tagFile.size > 10 * 1024 * 1024) {
+      if (tagFile.size > PRODUCER_TAG_MAX_TAG_FILE_SIZE_BYTES) {
         return NextResponse.json(
           { error: 'Tag snippet is too large. Max size is 10MB.' },
           { status: 400 }
@@ -167,10 +198,19 @@ export async function POST(request: NextRequest) {
     }
 
     const uploadId = uuidv4();
-    uploadedFilePath = path.join(UPLOAD_DIR, `${uploadId}${ext}`);
-    
-    const bytes = await file.arrayBuffer();
-    await writeFile(uploadedFilePath, Buffer.from(bytes));
+    uploadedFilePath = path.join(PRODUCER_TAG_UPLOAD_DIR, `${uploadId}${ext}`);
+
+    if (file) {
+      const bytes = await file.arrayBuffer();
+      await writeFile(uploadedFilePath, Buffer.from(bytes));
+    } else if (chunkUploadIdForCleanup) {
+      await assembleProducerTagChunks({
+        uploadId: chunkUploadIdForCleanup,
+        totalChunks: parseInt(totalChunksRaw || '0', 10),
+        outputPath: uploadedFilePath,
+        maxFileBytes: PRODUCER_TAG_MAX_FILE_SIZE_BYTES,
+      });
+    }
     console.log(`File uploaded: ${uploadedFilePath}`);
 
     let tagPath: string;
@@ -180,7 +220,7 @@ export async function POST(request: NextRequest) {
       tagPath = await getOrCreateTagVoice(phrase, voiceId);
     } else if (mode === 'upload') {
       const tagExt = path.extname(tagFile!.name).toLowerCase();
-      uploadedTagFilePath = path.join(UPLOAD_DIR, `${uploadId}_tag${tagExt}`);
+      uploadedTagFilePath = path.join(PRODUCER_TAG_UPLOAD_DIR, `${uploadId}_tag${tagExt}`);
       const tagBytes = await tagFile!.arrayBuffer();
       await writeFile(uploadedTagFilePath, Buffer.from(tagBytes));
 
@@ -243,5 +283,9 @@ export async function POST(request: NextRequest) {
       { error: error instanceof Error ? error.message : 'Audio processing failed. Please try again.' },
       { status: 500 }
     );
+  } finally {
+    if (chunkUploadIdForCleanup) {
+      await cleanupProducerTagChunks(chunkUploadIdForCleanup);
+    }
   }
 }

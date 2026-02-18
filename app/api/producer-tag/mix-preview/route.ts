@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { mkdir, readFile, unlink, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { readFile, unlink, writeFile } from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -9,21 +8,18 @@ import {
   getOrCreateTagVoice,
   processAudioPreviewWithTag,
 } from '@/lib/audio-processor';
+import {
+  PRODUCER_TAG_MAX_FILE_SIZE_BYTES,
+  PRODUCER_TAG_MAX_TAG_FILE_SIZE_BYTES,
+  PRODUCER_TAG_OUTPUT_DIR,
+  PRODUCER_TAG_UPLOAD_DIR,
+  ensureProducerTagDirectories,
+  isAllowedProducerTagAudioExt,
+} from '@/lib/producerTagUpload';
 
-const UPLOAD_DIR = '/tmp/producer-tag-uploads';
-const OUTPUT_DIR = '/tmp/producer-tag-output';
-const MAX_FILE_SIZE = 200 * 1024 * 1024;
 const PREVIEW_SECONDS = 30;
 export const runtime = 'nodejs';
 export const maxDuration = 300;
-
-async function ensureDirectories() {
-  for (const dir of [UPLOAD_DIR, OUTPUT_DIR]) {
-    if (!existsSync(dir)) {
-      await mkdir(dir, { recursive: true });
-    }
-  }
-}
 
 export async function POST(request: NextRequest) {
   let uploadedFilePath: string | null = null;
@@ -31,7 +27,7 @@ export async function POST(request: NextRequest) {
   let previewPath: string | null = null;
 
   try {
-    await ensureDirectories();
+    await ensureProducerTagDirectories();
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
@@ -47,11 +43,11 @@ export async function POST(request: NextRequest) {
     if (!file) {
       return NextResponse.json({ error: 'No audio file provided' }, { status: 400 });
     }
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size > PRODUCER_TAG_MAX_FILE_SIZE_BYTES) {
       return NextResponse.json({ error: 'File too large. Maximum size is 200MB.' }, { status: 400 });
     }
     const ext = path.extname(file.name).toLowerCase();
-    if (!['.mp3', '.wav', '.m4a'].includes(ext)) {
+    if (!isAllowedProducerTagAudioExt(ext)) {
       return NextResponse.json({ error: 'Invalid file type. Main track must be MP3, WAV, or M4A.' }, { status: 400 });
     }
 
@@ -71,10 +67,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Please upload a tag snippet (MP3, WAV, or M4A).' }, { status: 400 });
       }
       const tagExt = path.extname(tagFile.name).toLowerCase();
-      if (!['.mp3', '.wav', '.m4a'].includes(tagExt)) {
+      if (!isAllowedProducerTagAudioExt(tagExt)) {
         return NextResponse.json({ error: 'Tag snippet must be MP3, WAV, or M4A.' }, { status: 400 });
       }
-      if (tagFile.size > 10 * 1024 * 1024) {
+      if (tagFile.size > PRODUCER_TAG_MAX_TAG_FILE_SIZE_BYTES) {
         return NextResponse.json({ error: 'Tag snippet is too large. Max size is 10MB.' }, { status: 400 });
       }
     } else if (mode !== 'default') {
@@ -82,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     const uploadId = uuidv4();
-    uploadedFilePath = path.join(UPLOAD_DIR, `${uploadId}${ext}`);
+    uploadedFilePath = path.join(PRODUCER_TAG_UPLOAD_DIR, `${uploadId}${ext}`);
     await writeFile(uploadedFilePath, Buffer.from(await file.arrayBuffer()));
 
     let tagPath: string;
@@ -90,7 +86,7 @@ export async function POST(request: NextRequest) {
       tagPath = await getOrCreateTagVoice(phrase, voiceId);
     } else if (mode === 'upload') {
       const tagExt = path.extname(tagFile!.name).toLowerCase();
-      uploadedTagFilePath = path.join(UPLOAD_DIR, `${uploadId}_tag${tagExt}`);
+      uploadedTagFilePath = path.join(PRODUCER_TAG_UPLOAD_DIR, `${uploadId}_tag${tagExt}`);
       await writeFile(uploadedTagFilePath, Buffer.from(await tagFile!.arrayBuffer()));
 
       const tagDuration = await getAudioDuration(uploadedTagFilePath);
@@ -114,7 +110,7 @@ export async function POST(request: NextRequest) {
       sourceVolumeDb,
       PREVIEW_SECONDS
     );
-    previewPath = path.join(OUTPUT_DIR, previewFilename);
+    previewPath = path.join(PRODUCER_TAG_OUTPUT_DIR, previewFilename);
     const previewBuffer = await readFile(previewPath);
 
     return new NextResponse(new Uint8Array(previewBuffer), {
