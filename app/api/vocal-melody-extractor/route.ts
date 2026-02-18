@@ -29,6 +29,7 @@ interface WorkerResult {
     wav: string;
     note_count: number;
     duration: number;
+    method?: string;
   };
   error?: string;
 }
@@ -96,10 +97,20 @@ function runPythonWorker(
       const pythonCmd = pythonCandidates[candidateIndex];
       let proc;
       try {
+        const forceLibrosaFallback =
+          process.env.VCM_DISABLE_BASIC_PITCH ??
+          (process.env.NODE_ENV === 'production' ? '1' : '0');
+
         proc = spawn(
           pythonCmd,
           [workerPath, '--input', inputPath, '--out', outputDir],
-          { stdio: ['ignore', 'pipe', 'pipe'] }
+          {
+            stdio: ['ignore', 'pipe', 'pipe'],
+            env: {
+              ...process.env,
+              VCM_DISABLE_BASIC_PITCH: forceLibrosaFallback
+            }
+          }
         );
       } catch (rawErr) {
         const err = rawErr as NodeJS.ErrnoException;
@@ -162,6 +173,7 @@ function runPythonWorker(
           if (errObj.error) errorMsg = errObj.error;
         } catch (e) {
           if (cleanStderr) errorMsg = cleanStderr.substring(0, 200);
+          else errorMsg = `Worker exited with code ${String(code)} and no stderr output.`;
         }
         console.error('vocal-melody worker stderr:', stderr);
         finish({ success: false, error: errorMsg });
@@ -334,7 +346,8 @@ export async function POST(request: NextRequest) {
           durationSec: result.duration,
           processingMs: processingTime,
           format: ext.replace('.', '').toUpperCase(),
-          noteCount: result.note_count
+          noteCount: result.note_count,
+          extractorMethod: result.method || 'unknown'
         }
       });
       
