@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File too large. Maximum size is 200MB.' }, { status: 400 });
     }
     const ext = path.extname(file.name).toLowerCase();
-    if (!['.mp3', '.wav'].includes(ext)) {
-      return NextResponse.json({ error: 'Invalid file type. Only MP3 and WAV files are supported.' }, { status: 400 });
+    if (!['.mp3', '.wav', '.m4a'].includes(ext)) {
+      return NextResponse.json({ error: 'Invalid file type. Main track must be MP3, WAV, or M4A.' }, { status: 400 });
     }
 
     if (isNaN(intervalSeconds) || intervalSeconds < 5 || intervalSeconds > 60) intervalSeconds = 15;
@@ -68,11 +68,11 @@ export async function POST(request: NextRequest) {
       }
     } else if (mode === 'upload') {
       if (!tagFile) {
-        return NextResponse.json({ error: 'Please upload a tag snippet (MP3 or WAV).' }, { status: 400 });
+        return NextResponse.json({ error: 'Please upload a tag snippet (MP3, WAV, or M4A).' }, { status: 400 });
       }
       const tagExt = path.extname(tagFile.name).toLowerCase();
-      if (!['.mp3', '.wav'].includes(tagExt)) {
-        return NextResponse.json({ error: 'Tag snippet must be MP3 or WAV.' }, { status: 400 });
+      if (!['.mp3', '.wav', '.m4a'].includes(tagExt)) {
+        return NextResponse.json({ error: 'Tag snippet must be MP3, WAV, or M4A.' }, { status: 400 });
       }
       if (tagFile.size > 10 * 1024 * 1024) {
         return NextResponse.json({ error: 'Tag snippet is too large. Max size is 10MB.' }, { status: 400 });

@@ -2143,11 +2143,22 @@ function ImageStudio({
   );
 }
 
-function AudioStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLoggedIn: boolean; tools: ToolOption[] }) {
+function AudioStudio({
+  onBack,
+  isLoggedIn,
+  tools,
+  preloadAudio,
+}: {
+  onBack: () => void;
+  isLoggedIn: boolean;
+  tools: ToolOption[];
+  preloadAudio?: { src?: string | null; title?: string | null; itemId?: string | null };
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const lastPreloadKeyRef = useRef<string | null>(null);
   const gainRef = useRef<GainNode | null>(null);
   const lowPassRef = useRef<BiquadFilterNode | null>(null);
   const [clips, setClips] = useState<UploadedAsset[]>([]);
@@ -2698,6 +2709,54 @@ function AudioStudio({ onBack, isLoggedIn, tools }: { onBack: () => void; isLogg
     if (!files || files.length === 0) return;
     void importAudioFiles(Array.from(files));
   }
+
+  useEffect(() => {
+    const preloadKey = `${preloadAudio?.itemId || ""}::${preloadAudio?.src || ""}`;
+    if (!preloadAudio || (!preloadAudio.src && !preloadAudio.itemId)) return;
+    if (lastPreloadKeyRef.current === preloadKey) return;
+    const currentPreload = preloadAudio;
+
+    let cancelled = false;
+    async function run() {
+      let src = currentPreload.src || "";
+      if (!src && currentPreload.itemId) {
+        try {
+          const res = await fetch(`/api/workspace/items/${encodeURIComponent(currentPreload.itemId)}`, { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            if (typeof data?.file_url === "string") src = data.file_url;
+          }
+        } catch {}
+      }
+      if (!src || cancelled) return;
+      lastPreloadKeyRef.current = preloadKey;
+      const title = currentPreload.title?.trim() || "Imported audio";
+
+      setClips((prev) => {
+        const existing = prev.find((clip) => clip.src === src);
+        if (existing) {
+          setSelectedClip(existing.src);
+          return prev;
+        }
+        const next: UploadedAsset = {
+          localId: currentPreload.itemId || makeId(),
+          id: currentPreload.itemId || undefined,
+          title,
+          src,
+          status: currentPreload.itemId ? "uploaded" : "local",
+          type: "audio",
+        };
+        setSelectedClip(src);
+        return [next, ...prev];
+      });
+      setNotice(`Loaded: ${title}`);
+    }
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [preloadAudio?.itemId, preloadAudio?.src, preloadAudio?.title]);
+
   async function importWorkspaceAudio(dataTransfer: DataTransfer) {
     const workspacePayload = getWorkspaceDragPayload(dataTransfer);
     if (!workspacePayload?.fileUrl) return false;
@@ -3160,7 +3219,7 @@ export default function WorkstationsClient({ isLoggedIn }: WorkstationsClientPro
   const [mode, setMode] = useState<WorkstationMode | null>(null);
   const [tools, setTools] = useState<ToolOption[]>([]);
   const [loadingTools, setLoadingTools] = useState(true);
-  const preloadImage = useMemo(
+  const preloadItem = useMemo(
     () => ({
       src: searchParams?.get("src"),
       title: searchParams?.get("title"),
@@ -3236,10 +3295,10 @@ export default function WorkstationsClient({ isLoggedIn }: WorkstationsClientPro
         onBack={() => setMode(null)}
         isLoggedIn={isLoggedIn}
         tools={tools}
-        preloadPdf={preloadImage}
+        preloadPdf={preloadItem}
       />
     );
   }
-  if (mode === "image") return <ImageStudio onBack={() => setMode(null)} isLoggedIn={isLoggedIn} tools={tools} preloadImage={preloadImage} />;
-  return <AudioStudio onBack={() => setMode(null)} isLoggedIn={isLoggedIn} tools={tools} />;
+  if (mode === "image") return <ImageStudio onBack={() => setMode(null)} isLoggedIn={isLoggedIn} tools={tools} preloadImage={preloadItem} />;
+  return <AudioStudio onBack={() => setMode(null)} isLoggedIn={isLoggedIn} tools={tools} preloadAudio={preloadItem} />;
 }

@@ -12,9 +12,7 @@ import {
   Sparkles,
   Volume2,
   Clock,
-  CheckCircle,
-  ChevronDown,
-  ChevronUp
+  CheckCircle
 } from 'lucide-react';
 import ExploreMoreTools from '@/components/ExploreMoreTools';
 import PostResultUpsell from '@/components/PostResultUpsell';
@@ -41,6 +39,11 @@ const VOICE_OPTIONS: { id: VoiceId; label: string; description: string }[] = [
   { id: 'male_deep', label: 'Male Deep', description: 'Low and powerful' },
 ];
 
+const MAIN_AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a'];
+const MAIN_AUDIO_MIME_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
+const TAG_AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a'];
+const TAG_AUDIO_MIME_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
+
 export default function ProducerTagGeneratorClient() {
   const [file, setFile] = useState<File | null>(null);
   const [tagFile, setTagFile] = useState<File | null>(null);
@@ -64,7 +67,6 @@ export default function ProducerTagGeneratorClient() {
   const [customPreviewPhrase, setCustomPreviewPhrase] = useState<string>('');
   const [uploadedTagPreviewUrl, setUploadedTagPreviewUrl] = useState<string | null>(null);
   const [mixPreviewUrl, setMixPreviewUrl] = useState<string | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [presetName, setPresetName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tagFileInputRef = useRef<HTMLInputElement>(null);
@@ -78,9 +80,12 @@ export default function ProducerTagGeneratorClient() {
       setError('File too large. Maximum size is 200MB.');
       return;
     }
-    const ext = selectedFile.name.split('.').pop()?.toLowerCase();
-    if (!['mp3', 'wav'].includes(ext || '')) {
-      setError('Invalid file type. Only MP3 and WAV files are supported.');
+    const ext = selectedFile.name.split('.').pop()?.toLowerCase() || '';
+    const mime = (selectedFile.type || '').toLowerCase();
+    const hasAllowedExt = MAIN_AUDIO_EXTENSIONS.includes(ext);
+    const hasAllowedMime = MAIN_AUDIO_MIME_TYPES.includes(mime);
+    if (!hasAllowedExt && !hasAllowedMime) {
+      setError('Invalid file type. Main track must be MP3, WAV, or M4A.');
       return;
     }
     setFile(selectedFile);
@@ -143,9 +148,12 @@ export default function ProducerTagGeneratorClient() {
       setError('Tag snippet too large. Maximum size is 10MB.');
       return;
     }
-    const ext = selectedFile.name.split('.').pop()?.toLowerCase();
-    if (!['mp3', 'wav'].includes(ext || '')) {
-      setError('Tag snippet must be MP3 or WAV.');
+    const ext = selectedFile.name.split('.').pop()?.toLowerCase() || '';
+    const mime = (selectedFile.type || '').toLowerCase();
+    const hasAllowedExt = TAG_AUDIO_EXTENSIONS.includes(ext);
+    const hasAllowedMime = TAG_AUDIO_MIME_TYPES.includes(mime);
+    if (!hasAllowedExt && !hasAllowedMime) {
+      setError('Tag snippet must be MP3, WAV, or M4A.');
       return;
     }
     setTagFile(selectedFile);
@@ -294,7 +302,7 @@ export default function ProducerTagGeneratorClient() {
       return;
     }
     if (mode === 'upload' && !tagFile) {
-      setError('Please upload a tag snippet (MP3 or WAV).');
+      setError('Please upload a tag snippet (MP3, WAV, or M4A).');
       return;
     }
 
@@ -352,7 +360,7 @@ export default function ProducerTagGeneratorClient() {
       return;
     }
     if (mode === 'upload' && !tagFile) {
-      setError('Please upload a tag snippet (MP3 or WAV).');
+      setError('Please upload a tag snippet (MP3, WAV, or M4A).');
       return;
     }
 
@@ -425,7 +433,6 @@ export default function ProducerTagGeneratorClient() {
     setIntervalSeconds(Math.max(5, Math.min(60, payload.intervalSeconds ?? 15)));
     setSourceVolumeDb(Math.max(-20, Math.min(6, payload.sourceVolumeDb ?? 0)));
     setTagVolumeDb(Math.max(-20, Math.min(6, payload.tagVolumeDb ?? -3)));
-    setShowAdvanced(true);
   };
 
   return (
@@ -473,7 +480,7 @@ export default function ProducerTagGeneratorClient() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".mp3,.wav"
+                  accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a"
                   onChange={handleFileChange}
                   className="hidden"
                 />
@@ -489,7 +496,7 @@ export default function ProducerTagGeneratorClient() {
                   <>
                     <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
                     <p className="text-gray-600 font-medium">
-                      {dragActive ? 'Drop your MP3 or WAV here' : 'Drag & drop or click to upload MP3 or WAV'}
+                      {dragActive ? 'Drop your MP3, WAV, or M4A here' : 'Drag & drop or click to upload MP3, WAV, or M4A'}
                     </p>
                     <p className="text-sm text-gray-500 mt-1">Max 200MB</p>
                   </>
@@ -591,7 +598,7 @@ export default function ProducerTagGeneratorClient() {
             ) : (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Upload Tag Snippet (MP3 or WAV)
+                  Upload Tag Snippet (MP3, WAV, or M4A)
                 </label>
                 <div
                   onClick={() => tagFileInputRef.current?.click()}
@@ -606,7 +613,7 @@ export default function ProducerTagGeneratorClient() {
                   <input
                     ref={tagFileInputRef}
                     type="file"
-                    accept=".mp3,.wav"
+                    accept=".mp3,.wav,.m4a,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a"
                     onChange={handleTagFileChange}
                     className="hidden"
                   />
@@ -675,74 +682,66 @@ export default function ProducerTagGeneratorClient() {
               )}
             </div>
 
-            <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-            >
-              {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              Advanced Settings
-            </button>
+            <div className="text-sm font-medium text-gray-700">Advanced Settings</div>
 
-            {showAdvanced && (
-              <div className="grid md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Tag Interval (seconds)
-                  </label>
-                  <input
-                    type="number"
-                    value={intervalSeconds}
-                    onChange={(e) => setIntervalSeconds(Math.max(5, Math.min(60, parseInt(e.target.value) || 15)))}
-                    min={5}
-                    max={60}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">How often the tag plays (5-60 seconds)</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Music className="w-4 h-4" />
-                    Original Track Volume (dB)
-                  </label>
-                  <input
-                    type="number"
-                    value={sourceVolumeDb}
-                    onChange={(e) => {
-                      const parsed = parseInt(e.target.value, 10);
-                      const safe = Number.isNaN(parsed) ? 0 : parsed;
-                      setSourceVolumeDb(Math.max(-20, Math.min(6, safe)));
-                    }}
-                    min={-20}
-                    max={6}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Lower this if your tag gets buried in the mix</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <Volume2 className="w-4 h-4" />
-                    Tag Volume (dB)
-                  </label>
-                  <input
-                    type="number"
-                    value={tagVolumeDb}
-                    onChange={(e) => {
-                      const parsed = parseInt(e.target.value, 10);
-                      const safe = Number.isNaN(parsed) ? -3 : parsed;
-                      setTagVolumeDb(Math.max(-20, Math.min(6, safe)));
-                    }}
-                    min={-20}
-                    max={6}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Set to 0 to +6 dB for stronger tags</p>
-                </div>
-                <div className="md:col-span-3 text-xs text-gray-600">
-                  Quick mix tip: start with <strong>Track -3 dB</strong> and <strong>Tag +3 dB</strong>, then adjust.
-                </div>
+            <div className="grid md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Tag Interval (seconds)
+                </label>
+                <input
+                  type="number"
+                  value={intervalSeconds}
+                  onChange={(e) => setIntervalSeconds(Math.max(5, Math.min(60, parseInt(e.target.value) || 15)))}
+                  min={5}
+                  max={60}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">How often the tag plays (5-60 seconds)</p>
               </div>
-            )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Music className="w-4 h-4" />
+                  Original Track Volume (dB)
+                </label>
+                <input
+                  type="number"
+                  value={sourceVolumeDb}
+                  onChange={(e) => {
+                    const parsed = parseInt(e.target.value, 10);
+                    const safe = Number.isNaN(parsed) ? 0 : parsed;
+                    setSourceVolumeDb(Math.max(-20, Math.min(6, safe)));
+                  }}
+                  min={-20}
+                  max={6}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Lower this if your tag gets buried in the mix</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Volume2 className="w-4 h-4" />
+                  Tag Volume (dB)
+                </label>
+                <input
+                  type="number"
+                  value={tagVolumeDb}
+                  onChange={(e) => {
+                    const parsed = parseInt(e.target.value, 10);
+                    const safe = Number.isNaN(parsed) ? -3 : parsed;
+                    setTagVolumeDb(Math.max(-20, Math.min(6, safe)));
+                  }}
+                  min={-20}
+                  max={6}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Set to 0 to +6 dB for stronger tags</p>
+              </div>
+              <div className="md:col-span-3 text-xs text-gray-600">
+                Quick mix tip: start with <strong>Track -3 dB</strong> and <strong>Tag +3 dB</strong>, then adjust.
+              </div>
+            </div>
 
             <ToolPresetBar
               presetName={presetName}
@@ -889,7 +888,7 @@ export default function ProducerTagGeneratorClient() {
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <h3 className="font-semibold text-gray-900 mb-2">What audio formats are supported?</h3>
               <p className="text-sm text-gray-600">
-                You can upload MP3 and WAV files up to 200MB. The processed output is always delivered as a 
+                You can upload MP3, WAV, and M4A files up to 200MB. The processed output is always delivered as a 
                 high-quality MP3 file at 192kbps, perfect for beat stores and streaming platforms.
               </p>
             </div>

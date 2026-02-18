@@ -119,9 +119,9 @@ export async function POST(request: NextRequest) {
     }
 
     const ext = path.extname(file.name).toLowerCase();
-    if (!['.mp3', '.wav'].includes(ext)) {
+    if (!['.mp3', '.wav', '.m4a'].includes(ext)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Only MP3 and WAV files are supported.' },
+        { error: 'Invalid file type. Main track must be MP3, WAV, or M4A.' },
         { status: 400 }
       );
     }
@@ -142,14 +142,14 @@ export async function POST(request: NextRequest) {
     } else if (mode === 'upload') {
       if (!tagFile) {
         return NextResponse.json(
-          { error: 'Please upload a tag snippet (MP3 or WAV).' },
+          { error: 'Please upload a tag snippet (MP3, WAV, or M4A).' },
           { status: 400 }
         );
       }
       const tagExt = path.extname(tagFile.name).toLowerCase();
-      if (!['.mp3', '.wav'].includes(tagExt)) {
+      if (!['.mp3', '.wav', '.m4a'].includes(tagExt)) {
         return NextResponse.json(
-          { error: 'Tag snippet must be MP3 or WAV.' },
+          { error: 'Tag snippet must be MP3, WAV, or M4A.' },
           { status: 400 }
         );
       }

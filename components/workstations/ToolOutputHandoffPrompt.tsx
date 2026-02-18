@@ -16,11 +16,24 @@ function inferModeFromToolSlug(toolSlug: string | null): WorkstationMode {
     slug.includes("wav") ||
     slug.includes("bpm") ||
     slug.includes("key") ||
-    slug.includes("vocal")
+    slug.includes("vocal") ||
+    slug.includes("producer-tag")
   ) {
     return "audio";
   }
   return "image";
+}
+
+function inferModeFromOutputHint(
+  fallbackMode: WorkstationMode,
+  outputName?: string | null,
+  candidateHref?: string | null
+): WorkstationMode {
+  const hint = `${outputName || ""} ${candidateHref || ""}`.toLowerCase();
+  if (/\.(mp3|wav|m4a|aac|flac|ogg|aif|aiff|opus|webm)(\?|$)/i.test(hint)) return "audio";
+  if (/\.(pdf)(\?|$)/i.test(hint)) return "pdf";
+  if (/\.(png|jpe?g|webp|gif|bmp|svg|heic|avif)(\?|$)/i.test(hint)) return "image";
+  return fallbackMode;
 }
 
 function getModeBenefits(mode: WorkstationMode): string {
@@ -31,6 +44,16 @@ function getModeBenefits(mode: WorkstationMode): string {
     return "Layer clips, apply audio widgets, and export from one timeline workspace.";
   }
   return "Layer elements, place tool outputs, and keep editing in one image canvas.";
+}
+
+function getModeIntro(mode: WorkstationMode): string {
+  if (mode === "audio") {
+    return "Keep momentum, then open the audio timeline for chain edits and export.";
+  }
+  if (mode === "pdf") {
+    return "Keep momentum, then continue in a document canvas with modular PDF tools.";
+  }
+  return "Keep momentum, then continue in one image canvas with modular widgets.";
 }
 
 type OutputReadyDetail = {
@@ -56,6 +79,7 @@ export default function ToolOutputHandoffPrompt() {
   const [handoffHref, setHandoffHref] = useState<string | null>(null);
   const [downloadHref, setDownloadHref] = useState<string | null>(null);
   const [downloadName, setDownloadName] = useState<string | null>(null);
+  const [handoffMode, setHandoffMode] = useState<WorkstationMode>("image");
   const [isPreparing, setIsPreparing] = useState(false);
   const hideTimerRef = useRef<number | null>(null);
   const lastTriggerRef = useRef<{ key: string; at: number } | null>(null);
@@ -66,6 +90,7 @@ export default function ToolOutputHandoffPrompt() {
   }, [pathname]);
 
   const workstationMode = useMemo(() => inferModeFromToolSlug(toolSlug), [toolSlug]);
+  const activeMode = handoffMode || workstationMode;
 
   const uploadBlobToWorkspace = async (blob: Blob, fileName: string) => {
     const formData = new FormData();
@@ -121,6 +146,7 @@ export default function ToolOutputHandoffPrompt() {
       setHandoffHref(nextHandoffHref);
       setDownloadHref(fileUrl || null);
       setDownloadName(title || params.fileName || null);
+      setHandoffMode(mode);
       setIsVisible(true);
       if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
       hideTimerRef.current = window.setTimeout(() => setIsVisible(false), 12000);
@@ -145,7 +171,8 @@ export default function ToolOutputHandoffPrompt() {
     fileName?: string;
   }) => {
     const href = (params.candidateHref || "").trim();
-    const key = `${params.mode}::${href}::${params.outputName}`;
+    const resolvedMode = inferModeFromOutputHint(params.mode, params.outputName, href);
+    const key = `${resolvedMode}::${href}::${params.outputName}`;
     if (shouldSkipDuplicateTrigger(key)) return;
 
     const isBlobHref = href.startsWith("blob:");
@@ -156,7 +183,7 @@ export default function ToolOutputHandoffPrompt() {
         if (res.ok) {
           const blob = await res.blob();
           await showPreparedHandoff({
-            mode: params.mode,
+            mode: resolvedMode,
             fileUrl: href,
             title: params.outputName,
             blob,
@@ -167,7 +194,7 @@ export default function ToolOutputHandoffPrompt() {
       } catch {}
     }
     await showPreparedHandoff({
-      mode: params.mode,
+      mode: resolvedMode,
       fileUrl: href || null,
       title: params.outputName,
       blob: params.blob,
@@ -260,18 +287,18 @@ export default function ToolOutputHandoffPrompt() {
           <div>
             <p className="text-sm font-semibold text-gray-900">Output ready. Continue in workstation.</p>
             <p className="text-xs text-gray-600 mt-0.5">
-              Keep download speed, then move into one canvas for deeper edits with modular widgets.
+              {getModeIntro(activeMode)}
             </p>
-            <p className="text-xs text-gray-700 mt-1 font-medium">{getModeBenefits(workstationMode)}</p>
+            <p className="text-xs text-gray-700 mt-1 font-medium">{getModeBenefits(activeMode)}</p>
             <div className="mt-2 flex items-center gap-2 flex-wrap">
               <Link
-                href={handoffHref || `/workstations?mode=${workstationMode}`}
+                href={handoffHref || `/workstations?mode=${activeMode}`}
                 data-track-output="true"
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
                   isPreparing ? "bg-orange-300 text-white cursor-wait" : "bg-orange-500 text-white hover:bg-orange-600"
                 }`}
               >
-                {isPreparing ? "Preparing file..." : getWorkstationLabelForMode(workstationMode)}
+                {isPreparing ? "Preparing file..." : getWorkstationLabelForMode(activeMode)}
                 <ArrowRight className="w-4 h-4" />
               </Link>
               {downloadHref && (
