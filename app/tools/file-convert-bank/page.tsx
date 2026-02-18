@@ -30,6 +30,8 @@ function templateLabel(templateSlug: string): string {
   if (templateSlug === "file-convert-main") return "Convert Queries";
   if (templateSlug === "file-convert-converter") return "Converter Queries";
   if (templateSlug === "file-convert-how-to") return "How-To Queries";
+  if (templateSlug === "file-convert-online") return "Online Converter Queries";
+  if (templateSlug === "file-convert-best") return "Best Converter Queries";
   return "All Queries";
 }
 

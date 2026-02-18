@@ -31,6 +31,12 @@ function templateLabel(templateSlug: string): string {
   if (templateSlug === "size") return "Size Queries";
   if (templateSlug === "dimensions") return "Dimensions Queries";
   if (templateSlug === "aspect-ratio") return "Aspect Ratio Queries";
+  if (templateSlug === "resolution") return "Resolution Queries";
+  if (templateSlug === "pixel-size") return "Pixel Size Queries";
+  if (templateSlug === "recommended-size") return "Recommended Size Queries";
+  if (templateSlug === "safe-area-size") return "Safe Area Queries";
+  if (templateSlug === "image-specs") return "Image Specs Queries";
+  if (templateSlug === "size-guide") return "Size Guide Queries";
   return "All Queries";
 }
 

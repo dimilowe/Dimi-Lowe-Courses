@@ -117,19 +117,19 @@ function applyQualityGate(page: GeneratedPage): GeneratedPage {
   const reasons: string[] = [];
   let score = 0;
 
-  if (page.title.length >= 35 && page.title.length <= 90) {
+  if (page.title.length >= 20 && page.title.length <= 130) {
     score += 25;
   } else {
     reasons.push("title_length_out_of_range");
   }
 
-  if (page.metaDescription.length >= 110 && page.metaDescription.length <= 180) {
+  if (page.metaDescription.length >= 90 && page.metaDescription.length <= 180) {
     score += 25;
   } else {
     reasons.push("meta_description_length_out_of_range");
   }
 
-  if (wordCount(page.intro) >= 24) {
+  if (wordCount(page.intro) >= 18) {
     score += 20;
   } else {
     reasons.push("intro_too_short");

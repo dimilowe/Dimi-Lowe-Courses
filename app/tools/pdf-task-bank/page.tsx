@@ -30,6 +30,8 @@ function templateLabel(templateSlug: string): string {
   if (templateSlug === "pdf-task-main") return "Task Queries";
   if (templateSlug === "pdf-task-tool") return "Tool Queries";
   if (templateSlug === "pdf-task-how-to") return "How-To Queries";
+  if (templateSlug === "pdf-task-online") return "Online Queries";
+  if (templateSlug === "pdf-task-best") return "Best Practice Queries";
   return "All Queries";
 }
 

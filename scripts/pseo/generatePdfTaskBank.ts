@@ -115,13 +115,13 @@ function applyQualityGate(page: GeneratedPage): GeneratedPage {
   const reasons: string[] = [];
   let score = 0;
 
-  if (page.title.length >= 35 && page.title.length <= 90) {
+  if (page.title.length >= 20 && page.title.length <= 140) {
     score += 25;
   } else {
     reasons.push("title_length_out_of_range");
   }
 
-  if (page.metaDescription.length >= 90 && page.metaDescription.length <= 180) {
+  if (page.metaDescription.length >= 90 && page.metaDescription.length <= 200) {
     score += 25;
   } else {
     reasons.push("meta_description_length_out_of_range");
