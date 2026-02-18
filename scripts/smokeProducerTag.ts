@@ -124,3 +124,5 @@ run().catch((error) => {
   console.error(message);
   process.exit(1);
 });
+
+export {};

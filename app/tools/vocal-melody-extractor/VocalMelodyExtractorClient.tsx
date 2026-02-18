@@ -19,6 +19,11 @@ interface ExtractResult {
   };
 }
 
+interface ApiResponseData {
+  [key: string]: unknown;
+  error?: string;
+}
+
 function sanitizeUploadFilename(name: string): string {
   const lastDot = name.lastIndexOf('.');
   const hasExt = lastDot > 0 && lastDot < name.length - 1;
@@ -27,6 +32,46 @@ function sanitizeUploadFilename(name: string): string {
   const safeBase = base.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_').slice(0, 64) || 'upload';
   const safeExt = ext.replace(/[^a-z0-9.]/g, '') || '.wav';
   return `${safeBase}${safeExt}`;
+}
+
+function createUploadFormData(file: File): FormData {
+  const formData = new FormData();
+  const safeFilename = sanitizeUploadFilename(file.name);
+  const blob = file.slice(0, file.size, file.type || 'application/octet-stream');
+  formData.append('file', blob, safeFilename);
+  return formData;
+}
+
+function postWithXhr(file: File): Promise<{ ok: boolean; status: number; data: ApiResponseData }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/vocal-melody-extractor');
+    xhr.timeout = REQUEST_TIMEOUT_MS;
+
+    xhr.onload = () => {
+      let data: ApiResponseData = {};
+      try {
+        data = JSON.parse(xhr.responseText || '{}') as ApiResponseData;
+      } catch {
+        data = { error: 'Failed to parse server response.' };
+      }
+      resolve({
+        ok: xhr.status >= 200 && xhr.status < 300,
+        status: xhr.status,
+        data
+      });
+    };
+
+    xhr.onerror = () => reject(new Error('Upload failed. Please check your connection and try again.'));
+    xhr.ontimeout = () => reject(new DOMException('Upload timed out', 'AbortError'));
+    xhr.send(createUploadFormData(file));
+  });
+}
+
+function shouldForceXhrUpload(): boolean {
+  if (typeof window === 'undefined') return false;
+  const forced = new URLSearchParams(window.location.search).get('forceUpload');
+  return forced?.toLowerCase() === 'xhr';
 }
 
 export default function VocalMelodyExtractorClient() {
@@ -92,33 +137,50 @@ export default function VocalMelodyExtractorClient() {
     setState('uploading');
     
     try {
-      const formData = new FormData();
-      formData.append('file', file, sanitizeUploadFilename(file.name));
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-      
       setState('transcribing');
-      
-      let response: Response;
-      try {
-        response = await fetch('/api/vocal-melody-extractor', {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeoutId);
+
+      let ok = false;
+      let data: ApiResponseData = {};
+
+      if (shouldForceXhrUpload()) {
+        const fallback = await postWithXhr(file);
+        ok = fallback.ok;
+        data = fallback.data;
+      } else {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+          let response: Response;
+          try {
+            response = await fetch('/api/vocal-melody-extractor', {
+              method: 'POST',
+              body: createUploadFormData(file),
+              signal: controller.signal,
+            });
+          } finally {
+            clearTimeout(timeoutId);
+          }
+          ok = response.ok;
+          data = await response.json();
+        } catch (fetchErr) {
+          const message = fetchErr instanceof Error ? fetchErr.message : '';
+          if (/did not match the expected pattern/i.test(message)) {
+            const fallback = await postWithXhr(file);
+            ok = fallback.ok;
+            data = fallback.data;
+          } else {
+            throw fetchErr;
+          }
+        }
       }
 
       setState('cleaning');
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Extraction failed');
+      if (!ok) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Extraction failed');
       }
-      
-      setResult(data);
+
+      setResult(data as unknown as ExtractResult);
       setState('done');
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -126,7 +188,7 @@ export default function VocalMelodyExtractorClient() {
       } else {
         const message = err instanceof Error ? err.message : 'An error occurred';
         if (/did not match the expected pattern/i.test(message)) {
-          setError('Your filename has unsupported characters. Rename the file (letters/numbers only) and try again.');
+          setError('Upload failed due to a Safari request-format issue. Please retry once or use Chrome while we continue hardening this path.');
         } else {
           setError(message);
         }
