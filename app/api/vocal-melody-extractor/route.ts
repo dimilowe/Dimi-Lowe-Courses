@@ -88,8 +88,8 @@ function runPythonWorker(
         [
           process.env.PYTHON_BIN,
           process.env.PYTHON_PATH,
-          'python3',
           'python3.11',
+          'python3',
           'python',
           '/usr/bin/python3',
           '/opt/homebrew/bin/python3',
