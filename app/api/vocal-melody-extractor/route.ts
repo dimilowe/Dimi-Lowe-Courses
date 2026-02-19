@@ -62,6 +62,10 @@ function isRetryableSpawnFailure(err: NodeJS.ErrnoException): boolean {
   );
 }
 
+function isRetryableWorkerExitCode(code: number | null): boolean {
+  return code === -2 || code === 126 || code === 127;
+}
+
 function runPythonWorker(
   inputPath: string,
   outputDir: string,
@@ -69,6 +73,14 @@ function runPythonWorker(
 ): Promise<WorkerResult> {
   return new Promise((resolve) => {
     const workerPath = path.join(process.cwd(), 'python', 'vocal_melody_worker.py');
+    if (!fs.existsSync(workerPath)) {
+      resolve({
+        success: false,
+        error: `Worker script missing at ${workerPath}`,
+      });
+      return;
+    }
+
     let lastSpawnError = '';
 
     const pythonCandidates = Array.from(
@@ -76,15 +88,16 @@ function runPythonWorker(
         [
           process.env.PYTHON_BIN,
           process.env.PYTHON_PATH,
+          'python3',
+          'python3.11',
+          'python',
           '/usr/bin/python3',
           '/opt/homebrew/bin/python3',
           '/usr/local/bin/python3',
-          'python3.11',
-          'python3',
-          'python'
         ].filter(Boolean)
       )
-    ) as string[];
+    )
+      .filter((candidate) => !path.isAbsolute(candidate) || fs.existsSync(candidate)) as string[];
 
     const trySpawn = (candidateIndex: number) => {
       if (candidateIndex >= pythonCandidates.length) {
@@ -113,6 +126,7 @@ function runPythonWorker(
             env: {
               ...process.env,
               VCM_DISABLE_BASIC_PITCH: disableBasicPitch,
+              PYTHONUNBUFFERED: '1',
             }
           }
         );
@@ -136,6 +150,13 @@ function runPythonWorker(
         settled = true;
         clearTimeout(timeoutId);
         resolve(result);
+      };
+
+      const moveToNextCandidate = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        trySpawn(candidateIndex + 1);
       };
 
       const timeoutId = setTimeout(() => {
@@ -166,12 +187,19 @@ function runPythonWorker(
           return;
         }
 
-        let errorMsg = 'Melody extraction failed';
         const cleanStderr = stderr
           .split('\n')
           .filter((line) => !line.startsWith('WARNING:'))
           .join('\n')
           .trim();
+
+        if (isRetryableWorkerExitCode(code) && !cleanStderr) {
+          lastSpawnError = `Python worker failed for "${pythonCmd}" with exit code ${String(code)}`;
+          moveToNextCandidate();
+          return;
+        }
+
+        let errorMsg = 'Melody extraction failed';
         try {
           const errObj = JSON.parse(cleanStderr || stderr.trim());
           if (errObj.error) errorMsg = errObj.error;
@@ -187,8 +215,7 @@ function runPythonWorker(
         const typedErr = err as NodeJS.ErrnoException;
         lastSpawnError = `Python spawn failed for "${pythonCmd}": ${typedErr.message}`;
         if (isRetryableSpawnFailure(typedErr)) {
-          clearTimeout(timeoutId);
-          trySpawn(candidateIndex + 1);
+          moveToNextCandidate();
           return;
         }
         finish({ success: false, error: `Worker error: ${typedErr.message}` });
