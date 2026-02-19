@@ -44,7 +44,7 @@ function runPythonWorker(
 
     const pythonCandidates = Array.from(
       new Set(
-        [process.env.PYTHON_BIN, process.env.PYTHON_PATH, 'python3.11', 'python3', 'python'].filter(Boolean)
+        [process.env.PYTHON_BIN, process.env.PYTHON_PATH, '/home/runner/workspace/.pythonlibs/bin/python3.11', 'python3.11', 'python3', 'python'].filter(Boolean)
       )
     ) as string[];
 

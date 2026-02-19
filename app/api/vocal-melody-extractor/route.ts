@@ -88,6 +88,7 @@ function runPythonWorker(
         [
           process.env.PYTHON_BIN,
           process.env.PYTHON_PATH,
+          '/home/runner/workspace/.pythonlibs/bin/python3.11',
           'python3.11',
           'python3',
           'python',

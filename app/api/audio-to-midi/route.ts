@@ -50,12 +50,13 @@ async function runPythonWorker(
         [
           process.env.PYTHON_BIN,
           process.env.PYTHON_PATH,
-          '/usr/bin/python3',
-          '/opt/homebrew/bin/python3',
-          '/usr/local/bin/python3',
+          '/home/runner/workspace/.pythonlibs/bin/python3.11',
           'python3.11',
           'python3',
-          'python'
+          'python',
+          '/usr/bin/python3',
+          '/opt/homebrew/bin/python3',
+          '/usr/local/bin/python3'
         ].filter(Boolean)
       )
     ) as string[];
