@@ -98,7 +98,7 @@ function runPythonWorker(
         ].filter(Boolean)
       )
     )
-      .filter((candidate) => !path.isAbsolute(candidate) || fs.existsSync(candidate)) as string[];
+      .filter((candidate): candidate is string => typeof candidate === 'string' && (!path.isAbsolute(candidate) || fs.existsSync(candidate)));
 
     const trySpawn = (candidateIndex: number) => {
       if (candidateIndex >= pythonCandidates.length) {
