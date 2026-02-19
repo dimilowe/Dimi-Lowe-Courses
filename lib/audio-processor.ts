@@ -22,6 +22,7 @@ function getOpenAIClient(): OpenAI {
 
 const TAG_CACHE_DIR = '/tmp/producer-tag-cache';
 const OUTPUT_DIR = '/tmp/producer-tag-output';
+const WAV_HEADER_BYTES = 44;
 
 [TAG_CACHE_DIR, OUTPUT_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) {
@@ -37,6 +38,75 @@ const VOICE_MAP: Record<string, string> = {
   'male_deep': 'echo',
   'alloy': 'alloy'
 };
+
+function isEnvEnabled(value: string | undefined): boolean {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+function getFallbackTagPath(phrase: string, voiceId: string): string {
+  const normalized = phrase.trim().toLowerCase() || 'vcm suite';
+  const hash = crypto
+    .createHash('sha1')
+    .update(`fallback:${voiceId}:${normalized}`)
+    .digest('hex')
+    .slice(0, 16);
+  return path.join(TAG_CACHE_DIR, `${hash}_fallback.wav`);
+}
+
+function writeFallbackTagWav(outputPath: string): void {
+  const sampleRate = 22050;
+  const durationSeconds = 0.78;
+  const totalSamples = Math.max(1, Math.floor(durationSeconds * sampleRate));
+  const dataSize = totalSamples * 2;
+  const wav = Buffer.alloc(WAV_HEADER_BYTES + dataSize);
+
+  wav.write('RIFF', 0, 4, 'ascii');
+  wav.writeUInt32LE(36 + dataSize, 4);
+  wav.write('WAVE', 8, 4, 'ascii');
+  wav.write('fmt ', 12, 4, 'ascii');
+  wav.writeUInt32LE(16, 16); // PCM fmt chunk length
+  wav.writeUInt16LE(1, 20); // PCM format
+  wav.writeUInt16LE(1, 22); // mono
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(sampleRate * 2, 28); // byte rate
+  wav.writeUInt16LE(2, 32); // block align
+  wav.writeUInt16LE(16, 34); // bits per sample
+  wav.write('data', 36, 4, 'ascii');
+  wav.writeUInt32LE(dataSize, 40);
+
+  const twoPi = Math.PI * 2;
+  const attackSeconds = 0.03;
+  const releaseSeconds = 0.07;
+  const splitPoint = 0.34;
+
+  for (let i = 0; i < totalSamples; i += 1) {
+    const t = i / sampleRate;
+    const freq = t < splitPoint ? 690 : 540;
+
+    let env = 1;
+    if (t < attackSeconds) {
+      env = t / attackSeconds;
+    } else if (t > durationSeconds - releaseSeconds) {
+      env = Math.max(0, (durationSeconds - t) / releaseSeconds);
+    }
+
+    const shimmer = 1 + 0.06 * Math.sin(twoPi * 5.3 * t);
+    const sample = 0.26 * env * Math.sin(twoPi * freq * t) * shimmer;
+    const pcm = Math.max(-1, Math.min(1, sample));
+    wav.writeInt16LE(Math.round(pcm * 32767), WAV_HEADER_BYTES + i * 2);
+  }
+
+  fs.writeFileSync(outputPath, wav);
+}
+
+function ensureFallbackTagExists(phrase: string, voiceId: string): string {
+  const fallbackPath = getFallbackTagPath(phrase, voiceId);
+  if (!fs.existsSync(fallbackPath)) {
+    writeFallbackTagWav(fallbackPath);
+  }
+  return fallbackPath;
+}
 
 export async function getAudioDuration(filePath: string): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -85,10 +155,15 @@ export async function getOrCreateTagVoice(phrase: string, voiceId: string): Prom
     return cachedPath;
   } catch (error) {
     console.error('OpenAI TTS error:', error);
-    if (error instanceof Error) {
-      throw new Error(error.message);
+    if (isEnvEnabled(process.env.VCM_PRODUCER_TAG_DISABLE_TTS_FALLBACK)) {
+      if (error instanceof Error) {
+        throw new Error(error.message);
+      }
+      throw new Error('Failed to generate custom voice tag');
     }
-    throw new Error('Failed to generate custom voice tag');
+    const fallbackPath = ensureFallbackTagExists(phrase, voiceId);
+    console.warn(`Using fallback tag audio (no external TTS): ${fallbackPath}`);
+    return fallbackPath;
   }
 }
 
@@ -212,6 +287,13 @@ const DEFAULT_TAG_PHRASES: Record<string, string> = {
 export async function getDefaultTagPath(tagName: string): Promise<string> {
   const phrase = DEFAULT_TAG_PHRASES[tagName] || 'VCM Suite';
   return getOrCreateTagVoice(phrase, 'female_soft');
+}
+
+export function getAudioMimeType(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === '.wav') return 'audio/wav';
+  if (ext === '.m4a') return 'audio/mp4';
+  return 'audio/mpeg';
 }
 
 export function cleanupFile(filePath: string): void {

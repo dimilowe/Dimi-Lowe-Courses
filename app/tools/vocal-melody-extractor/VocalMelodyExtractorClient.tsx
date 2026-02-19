@@ -4,8 +4,8 @@ import { useState, useCallback } from 'react';
 import { Upload, Music, FileText, AudioLines, Download, Loader2, AlertCircle, CheckCircle2, X, Lightbulb } from 'lucide-react';
 
 type ProcessingState = 'idle' | 'uploading' | 'transcribing' | 'cleaning' | 'done' | 'error';
-const REQUEST_TIMEOUT_MS = 130000;
-const MAX_UPLOAD_MB = 30;
+const REQUEST_TIMEOUT_MS = 260000;
+const MAX_UPLOAD_MB = 200;
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
 
 interface ExtractResult {
@@ -154,12 +154,12 @@ export default function VocalMelodyExtractorClient() {
   }, []);
 
   const validateAndSetFile = (f: File) => {
-    const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a', 'audio/flac', 'audio/ogg'];
-    const allowedExts = ['.mp3', '.wav', '.m4a', '.flac', '.ogg'];
+    const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a', 'audio/flac', 'audio/ogg', 'audio/webm'];
+    const allowedExts = ['.mp3', '.wav', '.m4a', '.flac', '.ogg', '.webm'];
     const ext = f.name.toLowerCase().substring(f.name.lastIndexOf('.'));
     
     if (!allowedTypes.includes(f.type) && !allowedExts.includes(ext)) {
-      setError('Please upload an MP3, WAV, M4A, FLAC, or OGG file.');
+      setError('Please upload an MP3, WAV, M4A, FLAC, OGG, or WEBM file.');
       return;
     }
     
@@ -294,7 +294,7 @@ export default function VocalMelodyExtractorClient() {
               <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
               <p className="text-lg font-medium text-gray-700 mb-2">Drop a clean vocal or acapella</p>
               <p className="text-gray-500 mb-4">or click to browse</p>
-              <p className="text-sm text-gray-400">MP3, WAV, M4A, FLAC, OGG (max 30MB, 10 min)</p>
+              <p className="text-sm text-gray-400">MP3, WAV, M4A, FLAC, OGG, WEBM (max 200MB, 10 min)</p>
             </label>
           ) : (
             <div>

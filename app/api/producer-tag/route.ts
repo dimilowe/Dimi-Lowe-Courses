@@ -21,7 +21,12 @@ export const runtime = 'nodejs';
 export const maxDuration = 300;
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT = 5;
+const DEFAULT_RATE_LIMIT = 30;
+const configuredRateLimit = Number.parseInt(process.env.PRODUCER_TAG_RATE_LIMIT_PER_HOUR || '', 10);
+const RATE_LIMIT =
+  Number.isFinite(configuredRateLimit) && configuredRateLimit > 0
+    ? configuredRateLimit
+    : DEFAULT_RATE_LIMIT;
 const RATE_LIMIT_WINDOW = 60 * 60 * 1000;
 
 function getRateLimitInfo(ip: string): { allowed: boolean; remaining: number } {
@@ -72,7 +77,10 @@ export async function POST(request: NextRequest) {
   let chunkUploadIdForCleanup: string | null = null;
   
   try {
-    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    const ip =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
     const { allowed, remaining } = getRateLimitInfo(ip);
     
     if (!allowed) {

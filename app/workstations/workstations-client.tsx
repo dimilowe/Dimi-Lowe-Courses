@@ -3,7 +3,7 @@
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, FileText, Image as ImageIcon, Music2, Pause, Play, Upload, X, Undo2, Redo2, Square, Type, Layers, Trash2 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { getToolUI } from "@/lib/ui/get-tool-ui";
 import { getWorkspaceDragPayload, WORKSPACE_DRAG_MIME } from "@/lib/workspace/workspaceDragImport";
 
@@ -3215,6 +3215,8 @@ function AudioStudio({
 }
 
 export default function WorkstationsClient({ isLoggedIn }: WorkstationsClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<WorkstationMode | null>(null);
   const [tools, setTools] = useState<ToolOption[]>([]);
@@ -3271,6 +3273,29 @@ export default function WorkstationsClient({ isLoggedIn }: WorkstationsClientPro
     };
   }, [mode]);
 
+  function handleBackFromStudio() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      try {
+        if (document.referrer) {
+          const refUrl = new URL(document.referrer);
+          if (refUrl.origin === window.location.origin && !refUrl.pathname.startsWith("/workstations")) {
+            router.back();
+            return;
+          }
+        }
+      } catch {}
+    }
+
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    params.delete("mode");
+    params.delete("src");
+    params.delete("title");
+    params.delete("itemId");
+    const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    router.replace(nextUrl);
+    setMode(null);
+  }
+
   if (!mode) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
@@ -3292,13 +3317,13 @@ export default function WorkstationsClient({ isLoggedIn }: WorkstationsClientPro
   if (mode === "pdf") {
     return (
       <PdfStudio
-        onBack={() => setMode(null)}
+        onBack={handleBackFromStudio}
         isLoggedIn={isLoggedIn}
         tools={tools}
         preloadPdf={preloadItem}
       />
     );
   }
-  if (mode === "image") return <ImageStudio onBack={() => setMode(null)} isLoggedIn={isLoggedIn} tools={tools} preloadImage={preloadItem} />;
-  return <AudioStudio onBack={() => setMode(null)} isLoggedIn={isLoggedIn} tools={tools} preloadAudio={preloadItem} />;
+  if (mode === "image") return <ImageStudio onBack={handleBackFromStudio} isLoggedIn={isLoggedIn} tools={tools} preloadImage={preloadItem} />;
+  return <AudioStudio onBack={handleBackFromStudio} isLoggedIn={isLoggedIn} tools={tools} preloadAudio={preloadItem} />;
 }

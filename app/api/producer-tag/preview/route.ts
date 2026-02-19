@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
-import { getOrCreateTagVoice } from '@/lib/audio-processor';
+import { getAudioMimeType, getOrCreateTagVoice } from '@/lib/audio-processor';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     return new NextResponse(new Uint8Array(audio), {
       headers: {
-        'Content-Type': 'audio/mpeg',
+        'Content-Type': getAudioMimeType(tagPath),
         'Cache-Control': 'no-store',
       },
     });

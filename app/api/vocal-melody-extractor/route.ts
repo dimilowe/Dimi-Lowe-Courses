@@ -6,9 +6,12 @@ import os from 'os';
 import { getAudioInfo, normalizeAudioToWav } from '@/server/lib/audio/ffmpeg';
 import { acquireLock, releaseLock } from '@/server/lib/audio/ipRateLimit';
 
-const MAX_FILE_SIZE = 30 * 1024 * 1024;
+export const runtime = 'nodejs';
+export const maxDuration = 300;
+
+const MAX_FILE_SIZE = 200 * 1024 * 1024;
 const MAX_DURATION_SECONDS = 600;
-const PROCESSING_TIMEOUT_MS = 120000;
+const PROCESSING_TIMEOUT_MS = 300000;
 
 function cleanupDirectory(dirPath: string) {
   try {
@@ -97,10 +100,11 @@ function runPythonWorker(
       const pythonCmd = pythonCandidates[candidateIndex];
       let proc;
       try {
-        const forceLibrosaFallback =
-          process.env.VCM_DISABLE_BASIC_PITCH ??
-          (process.env.NODE_ENV === 'production' ? '1' : '0');
-
+        // Keep this tool on the Basic Pitch path by default even if broader low-cost
+        // env settings disable it globally. Fallback still happens in-worker on failure.
+        const disableBasicPitch =
+          process.env.VCM_VOCAL_MELODY_DISABLE_BASIC_PITCH ??
+          '0';
         proc = spawn(
           pythonCmd,
           [workerPath, '--input', inputPath, '--out', outputDir],
@@ -108,7 +112,7 @@ function runPythonWorker(
             stdio: ['ignore', 'pipe', 'pipe'],
             env: {
               ...process.env,
-              VCM_DISABLE_BASIC_PITCH: forceLibrosaFallback
+              VCM_DISABLE_BASIC_PITCH: disableBasicPitch,
             }
           }
         );
@@ -216,7 +220,7 @@ export async function POST(request: NextRequest) {
     
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 30MB.' },
+        { error: 'File too large. Maximum size is 200MB.' },
         { status: 400 }
       );
     }

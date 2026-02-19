@@ -52,16 +52,15 @@ const MAIN_AUDIO_MAX_BYTES = 200 * 1024 * 1024;
 const TAG_AUDIO_MAX_BYTES = 10 * 1024 * 1024;
 const CHUNK_UPLOAD_SIZE_BYTES = 4 * 1024 * 1024;
 const CHUNK_UPLOAD_THRESHOLD_BYTES = 20 * 1024 * 1024;
-const PREVIEW_CLIP_SECONDS = 8;
-const PREVIEW_TARGET_SAMPLE_RATE = 8000;
-const PREVIEW_MAX_FALLBACK_MB = 1;
+const PREVIEW_CLIP_SECONDS = 30;
+const PREVIEW_TARGET_SAMPLE_RATE = 22050;
 
 export default function ProducerTagGeneratorClient() {
   const [file, setFile] = useState<File | null>(null);
   const [tagFile, setTagFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [tagDragActive, setTagDragActive] = useState(false);
-  const [mode, setMode] = useState<Mode>('custom');
+  const [mode, setMode] = useState<Mode>('upload');
   const [phrase, setPhrase] = useState('');
   const [voiceId, setVoiceId] = useState<VoiceId>('female_soft');
   const [intervalSeconds, setIntervalSeconds] = useState(15);
@@ -358,10 +357,7 @@ export default function ProducerTagGeneratorClient() {
         : undefined;
 
     if (!AudioContextCtor) {
-      if (sourceFile.size <= PREVIEW_MAX_FALLBACK_MB * 1024 * 1024) {
-        return sourceFile;
-      }
-      throw new Error('Preview could not start in this browser. Try a smaller MP3/M4A file under ~1MB for preview.');
+      return sourceFile;
     }
 
     const audioContext = new AudioContextCtor();
@@ -376,30 +372,27 @@ export default function ProducerTagGeneratorClient() {
         1,
         Math.floor((sourceFrameCount * PREVIEW_TARGET_SAMPLE_RATE) / decodedBuffer.sampleRate)
       );
-      const monoSamples = new Float32Array(outputFrameCount);
       const channelCount = Math.max(1, decodedBuffer.numberOfChannels || 1);
+      const outputChannelCount = Math.min(2, channelCount);
+      const outputSamples = new Float32Array(outputFrameCount * outputChannelCount);
 
       for (let i = 0; i < outputFrameCount; i += 1) {
         const sourceIndex = Math.min(
           sourceFrameCount - 1,
           Math.floor((i * decodedBuffer.sampleRate) / PREVIEW_TARGET_SAMPLE_RATE)
         );
-        let summed = 0;
-        for (let ch = 0; ch < channelCount; ch += 1) {
-          const channelData = decodedBuffer.getChannelData(ch);
-          summed += channelData[sourceIndex] || 0;
+        for (let ch = 0; ch < outputChannelCount; ch += 1) {
+          const sourceChannel = Math.min(ch, channelCount - 1);
+          const channelData = decodedBuffer.getChannelData(sourceChannel);
+          outputSamples[i * outputChannelCount + ch] = channelData[sourceIndex] || 0;
         }
-        monoSamples[i] = summed / channelCount;
       }
 
-      const wavBlob = createWavBlob(monoSamples, PREVIEW_TARGET_SAMPLE_RATE, 1);
+      const wavBlob = createWavBlob(outputSamples, PREVIEW_TARGET_SAMPLE_RATE, outputChannelCount);
       const baseName = sourceFile.name.replace(/\.[^.]+$/, '');
       return new File([wavBlob], `${baseName}_preview.wav`, { type: 'audio/wav' });
     } catch {
-      if (sourceFile.size <= PREVIEW_MAX_FALLBACK_MB * 1024 * 1024) {
-        return sourceFile;
-      }
-      throw new Error('Preview upload is too large for live limits. Try MP3/M4A under ~1MB for preview.');
+      return sourceFile;
     } finally {
       try {
         await audioContext.close();
@@ -420,11 +413,6 @@ export default function ProducerTagGeneratorClient() {
       setError('Please upload a tag snippet (MP3, WAV, or M4A).');
       return;
     }
-    if (mode === 'upload' && tagFile && tagFile.size > PREVIEW_MAX_FALLBACK_MB * 1024 * 1024) {
-      setError('Tag snippet is too large for live preview. Use a shorter MP3/M4A snippet under ~1MB.');
-      return;
-    }
-
     setIsPreviewingMix(true);
     setError(null);
 
