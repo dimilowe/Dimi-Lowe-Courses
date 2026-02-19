@@ -6,6 +6,14 @@ import { CheckCircle2, Music, FileText, AudioLines, Download, Zap, Shield, Clock
 export const metadata: Metadata = {
   title: 'Free Acapella Vocal to MIDI Melody Extractor | VCM Suite',
   description: 'Upload clean vocals or acapella and convert the lead melody to MIDI for free. Get melody MIDI, pitch curve CSV, and audio preview.',
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
   keywords: [
     'vocal melody extractor',
     'vocals to midi',

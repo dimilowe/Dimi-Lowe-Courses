@@ -67,10 +67,10 @@ const midiSourceNames: Array<{ label: string; slug: string; toolSlug: string }> 
   { label: "OGG", slug: "ogg", toolSlug: "audio-to-midi" },
   { label: "Guitar Audio", slug: "guitar-audio", toolSlug: "audio-to-midi" },
   { label: "Piano Audio", slug: "piano-audio", toolSlug: "audio-to-midi" },
-  { label: "Vocal Audio", slug: "vocal-audio", toolSlug: "vocal-melody-extractor" },
-  { label: "Voice Memo", slug: "voice-memo", toolSlug: "vocal-melody-extractor" },
-  { label: "Podcast Audio", slug: "podcast-audio", toolSlug: "vocal-melody-extractor" },
-  { label: "Singing Recording", slug: "singing-recording", toolSlug: "vocal-melody-extractor" },
+  { label: "Vocal Audio", slug: "vocal-audio", toolSlug: "audio-to-midi" },
+  { label: "Voice Memo", slug: "voice-memo", toolSlug: "audio-to-midi" },
+  { label: "Podcast Audio", slug: "podcast-audio", toolSlug: "audio-to-midi" },
+  { label: "Singing Recording", slug: "singing-recording", toolSlug: "audio-to-midi" },
 ];
 
 function resolveImageCategory(source: string, target: string): string {

@@ -30,7 +30,6 @@ const tools = [
   { name: "BPM Finder", href: "/tools/bpm-finder" },
   { name: "Vocal Doubler", href: "/tools/vocal-doubler" },
   { name: "Audio to MIDI", href: "/tools/audio-to-midi" },
-  { name: "Vocal Melody Extractor", href: "/tools/vocal-melody-extractor" },
   { name: "Audio Key Detector", href: "/tools/audio-key-detector" },
   { name: "Chord Progression Finder", href: "/tools/chord-progression-finder" },
   { name: "BuyLens", href: "/tools/buylens" },
