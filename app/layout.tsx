@@ -10,6 +10,7 @@ import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { getSiteUrl } from "@/lib/site-url";
 
 const inter = Inter({ subsets: ["latin"] });
+const SUNSET_MODE = true;
 
 export const metadata: Metadata = {
   title: "VCM Suite - Free Tools & Resources for Creators",
@@ -38,63 +39,71 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <Script id="internal-user-flag" strategy="beforeInteractive">
-          {`
-            if (localStorage.getItem('vcm_internal_user') === 'true') {
-              window.dataLayer = window.dataLayer || [];
-              window.dataLayer.push({
-                user_properties: { internal_user: 'true' }
-              });
-            }
-          `}
-        </Script>
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-0SGBDR0QMG"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-0SGBDR0QMG');
-          `}
-        </Script>
-        <Script id="ops-page-view" strategy="afterInteractive">
-          {`
-            (function () {
-              try {
-                var referrer = document.referrer || "";
-                var isOrganic = /(google\\.|bing\\.|yahoo\\.|duckduckgo\\.|ecosia\\.|baidu\\.|yandex\\.)/i.test(referrer);
-                fetch("/api/analytics/track", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    event: "page_view",
-                    properties: {
-                      path: window.location.pathname,
-                      referrer: referrer,
-                      isOrganic: isOrganic
-                    }
-                  }),
-                  keepalive: true
-                }).catch(function () {});
-              } catch (e) {}
-            })();
-          `}
-        </Script>
+        {!SUNSET_MODE && (
+          <>
+            <Script id="internal-user-flag" strategy="beforeInteractive">
+              {`
+                if (localStorage.getItem('vcm_internal_user') === 'true') {
+                  window.dataLayer = window.dataLayer || [];
+                  window.dataLayer.push({
+                    user_properties: { internal_user: 'true' }
+                  });
+                }
+              `}
+            </Script>
+            <Script
+              src="https://www.googletagmanager.com/gtag/js?id=G-0SGBDR0QMG"
+              strategy="afterInteractive"
+            />
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'G-0SGBDR0QMG');
+              `}
+            </Script>
+            <Script id="ops-page-view" strategy="afterInteractive">
+              {`
+                (function () {
+                  try {
+                    var referrer = document.referrer || "";
+                    var isOrganic = /(google\\.|bing\\.|yahoo\\.|duckduckgo\\.|ecosia\\.|baidu\\.|yandex\\.)/i.test(referrer);
+                    fetch("/api/analytics/track", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        event: "page_view",
+                        properties: {
+                          path: window.location.pathname,
+                          referrer: referrer,
+                          isOrganic: isOrganic
+                        }
+                      }),
+                      keepalive: true
+                    }).catch(function () {});
+                  } catch (e) {}
+                })();
+              `}
+            </Script>
+          </>
+        )}
       </head>
       <body className={inter.className}>
-        <CartProvider>
-          <AppProvider>
-            <Navbar />
-            <main className="min-h-screen">
-              {children}
-            </main>
-            <FeedbackDialog hideTrigger />
-            <FloatingToolsButton />
-          </AppProvider>
-        </CartProvider>
+        {SUNSET_MODE ? (
+          <main className="min-h-screen">{children}</main>
+        ) : (
+          <CartProvider>
+            <AppProvider>
+              <Navbar />
+              <main className="min-h-screen">
+                {children}
+              </main>
+              <FeedbackDialog hideTrigger />
+              <FloatingToolsButton />
+            </AppProvider>
+          </CartProvider>
+        )}
       </body>
     </html>
   );

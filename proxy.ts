@@ -3,6 +3,9 @@ import type { NextRequest } from "next/server";
 import { normalizePathname } from "@/lib/seo/urlNormalization";
 import { recordApiInvocation } from "@/lib/ops/metrics";
 
+const SUNSET_MODE = true;
+const SUNSET_MESSAGE = "VCM Suite is now closed. Thank you for your support over the years.";
+
 const API_RATE_WINDOW_MS = 10 * 60 * 1000;
 const API_DEFAULT_LIMIT = 120;
 const API_HEAVY_LIMIT = 30;
@@ -45,6 +48,17 @@ const UPLOAD_API_BYPASS_PREFIXES = [
   "/api/pdf/merge",
   "/api/pdf/split",
 ];
+
+const RETIRED_PUBLIC_PATHS = new Set([
+  "/tools/vocal-melody-extractor",
+  "/tools/vocal-melody-extractor/",
+]);
+
+const SUNSET_ALLOWED_PATHS = new Set([
+  "/",
+  "/robots.txt",
+  "/sitemap.xml",
+]);
 
 type RateLimitEntry = {
   count: number;
@@ -137,6 +151,48 @@ function cleanupRateLimitState(): void {
 export default function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const method = request.method.toUpperCase();
+
+  if (SUNSET_MODE && !SUNSET_ALLOWED_PATHS.has(pathname)) {
+    const isApi = pathname.startsWith("/api/");
+    if (isApi) {
+      return NextResponse.json(
+        { error: "VCM Suite is now closed." },
+        {
+          status: 410,
+          headers: {
+            "Cache-Control": "public, max-age=300",
+            "X-Robots-Tag": "noindex, nofollow, noarchive",
+          },
+        }
+      );
+    }
+
+    return new NextResponse(
+      `<!doctype html><html><head><title>410 Gone</title></head><body><h1>410 Gone</h1><p>${SUNSET_MESSAGE}</p></body></html>`,
+      {
+        status: 410,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=300",
+          "X-Robots-Tag": "noindex, nofollow, noarchive",
+        },
+      }
+    );
+  }
+
+  if (RETIRED_PUBLIC_PATHS.has(pathname)) {
+    return new NextResponse(
+      "<!doctype html><html><head><title>410 Gone</title></head><body><h1>410 Gone</h1><p>This tool has been discontinued.</p></body></html>",
+      {
+        status: 410,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=300",
+          "X-Robots-Tag": "noindex, nofollow, noarchive",
+        },
+      }
+    );
+  }
 
   if (UPLOAD_API_BYPASS_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return NextResponse.next();

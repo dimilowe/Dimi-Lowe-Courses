@@ -5,9 +5,58 @@ import { recordDbQuery } from "@/lib/ops/metrics";
 // Configure Neon for serverless environments (like APE)
 neonConfig.webSocketConstructor = ws;
 
-if (!process.env.DATABASE_URL) {
+type RuntimeTarget = "dev" | "prod";
+type SourceVar = "DATABASE_URL_DEV" | "DATABASE_URL_PROD" | "DATABASE_URL";
+type RuntimeDbMeta = {
+  target: RuntimeTarget;
+  sourceVar: SourceVar;
+  host: string;
+  database: string;
+  sslmode: string;
+};
+
+function parseRuntimeTarget(): RuntimeTarget {
+  const explicit = (process.env.DB_TARGET_RUNTIME || process.env.DB_TARGET || "").toLowerCase();
+  if (explicit === "prod" || explicit === "production") return "prod";
+  if (explicit === "dev" || explicit === "development") return "dev";
+  return process.env.NODE_ENV === "production" ? "prod" : "dev";
+}
+
+function resolveRuntimeDatabaseUrl(): { url: string; sourceVar: SourceVar; target: RuntimeTarget } | null {
+  const target = parseRuntimeTarget();
+  const devUrl = process.env.DATABASE_URL_DEV;
+  const prodUrl = process.env.DATABASE_URL_PROD;
+  const fallback = process.env.DATABASE_URL;
+
+  if (target === "prod") {
+    if (prodUrl) return { url: prodUrl, sourceVar: "DATABASE_URL_PROD", target };
+    if (fallback) return { url: fallback, sourceVar: "DATABASE_URL", target };
+    return null;
+  }
+
+  if (devUrl) return { url: devUrl, sourceVar: "DATABASE_URL_DEV", target };
+  if (fallback) return { url: fallback, sourceVar: "DATABASE_URL", target };
+  return null;
+}
+
+function safeDbFingerprint(connectionString: string): { host: string; database: string; sslmode: string } | null {
+  try {
+    const parsed = new URL(connectionString);
+    return {
+      host: parsed.hostname || "unknown",
+      database: parsed.pathname.replace(/^\/+/, "") || "unknown",
+      sslmode: parsed.searchParams.get("sslmode") || "unknown",
+    };
+  } catch {
+    return null;
+  }
+}
+
+const runtimeDb = resolveRuntimeDatabaseUrl();
+
+if (!runtimeDb) {
   throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+    "No database URL configured for runtime. Set DATABASE_URL_PROD (prod) or DATABASE_URL_DEV (dev), with DATABASE_URL as fallback.",
   );
 }
 
@@ -26,7 +75,7 @@ const defaultConnectTimeoutMs = isProductionBuild ? 10000 : 30000;
 const defaultIdleTimeoutMs = 30000;
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: runtimeDb.url,
   max: readPositiveIntEnv("DB_POOL_MAX", defaultPoolMax),
   idleTimeoutMillis: readPositiveIntEnv("DB_POOL_IDLE_TIMEOUT_MS", defaultIdleTimeoutMs),
   connectionTimeoutMillis: readPositiveIntEnv(
@@ -35,6 +84,34 @@ export const pool = new Pool({
   ),
   allowExitOnIdle: true,
 });
+
+const fingerprint = safeDbFingerprint(runtimeDb.url);
+const runtimeDbMeta: RuntimeDbMeta = {
+  target: runtimeDb.target,
+  sourceVar: runtimeDb.sourceVar,
+  host: fingerprint?.host || "unparseable",
+  database: fingerprint?.database || "unparseable",
+  sslmode: fingerprint?.sslmode || "unknown",
+};
+if (fingerprint) {
+  console.log("[db] runtime connection selected", {
+    target: runtimeDbMeta.target,
+    sourceVar: runtimeDbMeta.sourceVar,
+    host: runtimeDbMeta.host,
+    database: runtimeDbMeta.database,
+    sslmode: runtimeDbMeta.sslmode,
+  });
+} else {
+  console.log("[db] runtime connection selected", {
+    target: runtimeDbMeta.target,
+    sourceVar: runtimeDbMeta.sourceVar,
+    host: "unparseable",
+  });
+}
+
+export function getRuntimeDbMeta(): RuntimeDbMeta {
+  return runtimeDbMeta;
+}
 
 export async function query(text: string, params?: any[]) {
   const start = Date.now();
