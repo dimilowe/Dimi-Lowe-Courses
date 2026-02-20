@@ -3,6 +3,7 @@ import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import { findOrCreateUserByEmail } from "@/lib/auth";
+import { ensureCourseWorkspaceEntryByProductId } from "@/lib/workspace/courseResources";
 import Stripe from "stripe";
 
 function getStripeClient() {
@@ -91,6 +92,15 @@ export async function POST(request: NextRequest) {
            ON CONFLICT (user_id, product_id) DO NOTHING`,
           [userId, productId, "purchase"]
         );
+
+        const numericProductId = parseInt(productId, 10);
+        if (Number.isFinite(numericProductId)) {
+          try {
+            await ensureCourseWorkspaceEntryByProductId(userId, numericProductId);
+          } catch (error) {
+            console.error("Failed to create course workspace entry:", error);
+          }
+        }
       } else {
         // User doesn't exist - store pending purchase
         await query(

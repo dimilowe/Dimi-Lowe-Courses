@@ -1,6 +1,7 @@
 import { query } from '@/lib/db';
 import { grantCloudEntitlement } from '@/lib/cloudEntitlements';
 import type { CloudId, EntitlementTier } from '@/lib/types/cloudEntitlements';
+import { ensureCourseWorkspaceEntryBySlug } from '@/lib/workspace/courseResources';
 
 type GrantAccessParams = {
   userId: string;
@@ -72,6 +73,14 @@ export async function grantAccessForOffer(params: GrantAccessParams): Promise<vo
     [userId, cmsSlug, "purchase", JSON.stringify({ offerKey })]
   );
 
+  if (cmsSlug) {
+    try {
+      await ensureCourseWorkspaceEntryBySlug(userId, cmsSlug);
+    } catch (error) {
+      console.error("[Offers] Failed to create course workspace entry:", error);
+    }
+  }
+
   const cloudEnts = CLOUD_OFFER_MAP[offerKey];
   if (cloudEnts) {
     for (const { cloudId, tier } of cloudEnts) {
@@ -136,6 +145,14 @@ export async function claimPendingPurchases(userId: string, email: string): Prom
        ON CONFLICT DO NOTHING`,
       [userId, purchase.product_slug, "purchase", JSON.stringify({ offerKey })]
     );
+
+    if (purchase.product_slug) {
+      try {
+        await ensureCourseWorkspaceEntryBySlug(userId, purchase.product_slug);
+      } catch (error) {
+        console.error("[Offers] Failed to create course workspace entry on claim:", error);
+      }
+    }
 
     const cloudEnts = CLOUD_OFFER_MAP[offerKey];
     if (cloudEnts) {

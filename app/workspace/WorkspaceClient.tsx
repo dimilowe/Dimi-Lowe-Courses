@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
-  Search, Star, Filter, Clock, Grid, List, 
+  Search, Star, Clock, Grid, List, 
   FileText, Image, Video, File, Sparkles, 
-  ChevronDown, Loader2, Trash2, AlertCircle,
-  Upload, CheckCircle, ChevronLeft, ChevronRight, Copy, Folder, Tag
+  Loader2, Trash2, AlertCircle,
+  Upload, CheckCircle, ChevronLeft, ChevronRight, Copy, Folder
 } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 20;
@@ -32,17 +32,6 @@ interface WorkspaceItem {
   last_opened_at: string | null;
 }
 
-const CLOUDS = [
-  { id: 'creation', name: 'Creation', color: 'bg-pink-500' },
-  { id: 'video', name: 'Video', color: 'bg-red-500' },
-  { id: 'writing', name: 'Writing', color: 'bg-blue-500' },
-  { id: 'files', name: 'Files', color: 'bg-gray-500' },
-  { id: 'monetize', name: 'Monetize', color: 'bg-yellow-500' },
-  { id: 'intelligence', name: 'Intelligence', color: 'bg-purple-500' },
-  { id: 'music', name: 'Music', color: 'bg-green-500' },
-  { id: 'growth', name: 'Growth', color: 'bg-orange-500' },
-];
-
 const TYPE_ICONS: Record<string, typeof FileText> = {
   copy_output: FileText,
   prompt_output: Sparkles,
@@ -54,6 +43,7 @@ const TYPE_ICONS: Record<string, typeof FileText> = {
   uploaded_audio: File,
   uploaded_document: FileText,
   uploaded_file: File,
+  course_resource: FileText,
   file_output: File,
   generic: File,
 };
@@ -69,6 +59,7 @@ const TYPE_COLORS: Record<string, string> = {
   uploaded_audio: 'from-green-400 to-green-500',
   uploaded_document: 'from-blue-400 to-blue-500',
   uploaded_file: 'from-gray-400 to-gray-500',
+  course_resource: 'from-orange-400 to-orange-500',
   file_output: 'from-gray-400 to-gray-500',
   generic: 'from-zinc-400 to-zinc-500',
 };
@@ -79,16 +70,10 @@ export default function WorkspaceClient() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
-  const [tagFilter, setTagFilter] = useState('');
-  const [folderFilter, setFolderFilter] = useState<string>('');
-  const [cloudFilter, setCloudFilter] = useState<string>('');
   const [sort, setSort] = useState<'recent' | 'updated' | 'name'>('recent');
   const [starredOnly, setStarredOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showCloudDropdown, setShowCloudDropdown] = useState(false);
   const [recentProjects, setRecentProjects] = useState<WorkspaceItem[]>([]);
-  const [availableFolders, setAvailableFolders] = useState<string[]>([]);
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ fileName: string; status: 'uploading' | 'success' | 'error' }[]>([]);
@@ -103,10 +88,7 @@ export default function WorkspaceClient() {
     setFetchError(null);
     try {
       const params = new URLSearchParams();
-      if (cloudFilter) params.set('cloud_id', cloudFilter);
       if (search) params.set('q', search);
-      if (tagFilter) params.set('tag', tagFilter);
-      if (folderFilter) params.set('folder', folderFilter);
       params.set('sort', sort);
       if (starredOnly) params.set('starred', 'true');
       params.set('limit', String(ITEMS_PER_PAGE));
@@ -126,15 +108,13 @@ export default function WorkspaceClient() {
       const data = await res.json();
       setItems(data.items || []);
       setTotal(data.total || 0);
-      setAvailableFolders(data.facets?.folders || []);
-      setAvailableTags(data.facets?.tags || []);
     } catch (error) {
       console.error('Failed to fetch workspace items:', error);
       setFetchError('Failed to load workspace items. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [cloudFilter, search, tagFilter, folderFilter, sort, starredOnly, currentPage, router]);
+  }, [search, sort, starredOnly, currentPage, router]);
 
   const fetchRecentProjects = useCallback(async () => {
     try {
@@ -164,7 +144,7 @@ export default function WorkspaceClient() {
       setCurrentPage(1);
       fetchItems(1);
     }
-  }, [cloudFilter, sort, starredOnly]);
+  }, [sort, starredOnly]);
 
   useEffect(() => {
     if (initialFetchDone.current) {
@@ -188,7 +168,7 @@ export default function WorkspaceClient() {
         clearTimeout(searchDebounceRef.current);
       }
     };
-  }, [search, tagFilter, folderFilter]);
+  }, [search]);
 
   useEffect(() => {
     const onWorkspaceUpdated = () => {
@@ -307,7 +287,7 @@ export default function WorkspaceClient() {
       try {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('cloud_id', cloudFilter || 'files');
+        formData.append('cloud_id', 'file-data');
         
         const res = await fetch('/api/workspace/upload', {
           method: 'POST',
@@ -370,8 +350,6 @@ export default function WorkspaceClient() {
     return date.toLocaleDateString();
   };
 
-  const selectedCloud = CLOUDS.find(c => c.id === cloudFilter);
-
   return (
     <div 
       className="min-h-screen bg-zinc-50 relative"
@@ -392,7 +370,7 @@ export default function WorkspaceClient() {
         <div className="mb-8 flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold text-zinc-900">Workspace</h1>
-            <p className="text-zinc-500 mt-1">Your saved outputs across all tools and clouds</p>
+            <p className="text-zinc-500 mt-1">Your files locker for course resources, notes, and homework.</p>
           </div>
           <div>
             <input
@@ -444,8 +422,8 @@ export default function WorkspaceClient() {
         {recentProjects.length > 0 && (
           <div className="mb-6 bg-white rounded-2xl border border-zinc-200 shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-zinc-800">Recent Projects</h2>
-              <span className="text-xs text-zinc-500">Jump back into your latest saved work</span>
+              <h2 className="text-sm font-semibold text-zinc-800">Recent Files</h2>
+              <span className="text-xs text-zinc-500">Jump back into your latest files</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {recentProjects.map((project) => (
@@ -479,75 +457,11 @@ export default function WorkspaceClient() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
               <input
                 type="text"
-                placeholder="Search workspace..."
+                placeholder="Search files..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               />
-            </div>
-
-            <div className="relative">
-              <button
-                onClick={() => setShowCloudDropdown(!showCloudDropdown)}
-                className="flex items-center gap-2 px-4 py-2 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
-              >
-                <Filter className="w-4 h-4 text-zinc-400" />
-                <span className="text-sm font-medium text-zinc-700">
-                  {selectedCloud ? selectedCloud.name : 'All Clouds'}
-                </span>
-                <ChevronDown className="w-4 h-4 text-zinc-400" />
-              </button>
-              
-              {showCloudDropdown && (
-                <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-zinc-200 rounded-lg shadow-lg z-10">
-                  <button
-                    onClick={() => { setCloudFilter(''); setShowCloudDropdown(false); }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-zinc-50 ${!cloudFilter ? 'bg-orange-50 text-orange-600' : 'text-zinc-700'}`}
-                  >
-                    All Clouds
-                  </button>
-                  {CLOUDS.map(cloud => (
-                    <button
-                      key={cloud.id}
-                      onClick={() => { setCloudFilter(cloud.id); setShowCloudDropdown(false); }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-zinc-50 flex items-center gap-2 ${cloudFilter === cloud.id ? 'bg-orange-50 text-orange-600' : 'text-zinc-700'}`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${cloud.color}`}></span>
-                      {cloud.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <select
-              value={folderFilter}
-              onChange={(e) => setFolderFilter(e.target.value)}
-              className="px-4 py-2 border border-zinc-200 rounded-lg text-sm font-medium text-zinc-700 focus:outline-none focus:ring-2 focus:ring-orange-500 min-w-[180px]"
-            >
-              <option value="">All Folders</option>
-              {availableFolders.map((folder) => (
-                <option key={folder} value={folder}>
-                  {folder}
-                </option>
-              ))}
-            </select>
-
-            <div className="relative min-w-[180px]">
-              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-              <input
-                type="text"
-                list="workspace-tag-suggestions"
-                placeholder="Filter by tag..."
-                value={tagFilter}
-                onChange={(e) => setTagFilter(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
-              />
-              <datalist id="workspace-tag-suggestions">
-                {availableTags.map((tag) => (
-                  <option key={tag} value={tag} />
-                ))}
-              </datalist>
             </div>
 
             <select
@@ -614,9 +528,9 @@ export default function WorkspaceClient() {
             </div>
             <h3 className="text-lg font-semibold text-zinc-900 mb-2">No items yet</h3>
             <p className="text-zinc-500 max-w-sm mx-auto">
-              {search || cloudFilter || starredOnly || folderFilter || tagFilter
+              {search || starredOnly
                 ? 'No items match your filters. Try adjusting your search.'
-                : 'Start using tools to save outputs, or drag and drop files here to upload.'}
+                : 'Upload your course resources, notes, and homework files to keep everything in one place.'}
             </p>
           </div>
         ) : viewMode === 'grid' ? (
@@ -624,7 +538,6 @@ export default function WorkspaceClient() {
             {items.map((item) => {
               const IconComponent = TYPE_ICONS[item.type] || TYPE_ICONS.generic;
               const colorGradient = TYPE_COLORS[item.type] || TYPE_COLORS.generic;
-              const cloud = CLOUDS.find(c => c.id === (item.origin_cloud_id || item.cloud_id || ''));
               
               return (
                 <div key={item.id} className="group bg-white rounded-xl border border-zinc-200 overflow-hidden hover:shadow-md transition-shadow">
@@ -640,11 +553,6 @@ export default function WorkspaceClient() {
                         <div className={`w-full h-full bg-gradient-to-br ${colorGradient} flex items-center justify-center`}>
                           <IconComponent className="w-10 h-10 text-white/80" />
                         </div>
-                      )}
-                      {cloud && (
-                        <span className={`absolute top-2 left-2 ${cloud.color} text-white text-[10px] font-semibold px-2 py-0.5 rounded-full`}>
-                          {cloud.name}
-                        </span>
                       )}
                     </div>
                   </Link>
@@ -710,7 +618,6 @@ export default function WorkspaceClient() {
             {items.map((item) => {
               const IconComponent = TYPE_ICONS[item.type] || TYPE_ICONS.generic;
               const colorGradient = TYPE_COLORS[item.type] || TYPE_COLORS.generic;
-              const cloud = CLOUDS.find(c => c.id === (item.origin_cloud_id || item.cloud_id || ''));
               
               return (
                 <div key={item.id} className="group bg-white rounded-xl border border-zinc-200 p-4 hover:shadow-md transition-shadow flex items-center gap-4">
@@ -737,11 +644,6 @@ export default function WorkspaceClient() {
                       <p className="text-sm text-zinc-500 mt-0.5 line-clamp-1">{item.preview_text}</p>
                     )}
                     <div className="flex items-center gap-3 mt-2">
-                      {cloud && (
-                        <span className={`${cloud.color} text-white text-[10px] font-semibold px-2 py-0.5 rounded-full`}>
-                          {cloud.name}
-                        </span>
-                      )}
                       <span className="text-xs text-zinc-400 uppercase">{item.type.replace('_', ' ')}</span>
                       {item.folder && (
                         <span className="text-xs text-zinc-500 inline-flex items-center gap-1">

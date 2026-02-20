@@ -34,23 +34,13 @@ interface Props {
   item: WorkspaceItemData;
 }
 
-const CLOUDS: Record<string, { name: string; color: string }> = {
-  creation: { name: 'Creation', color: 'bg-pink-500' },
-  video: { name: 'Video', color: 'bg-red-500' },
-  writing: { name: 'Writing', color: 'bg-blue-500' },
-  files: { name: 'Files', color: 'bg-gray-500' },
-  monetize: { name: 'Monetize', color: 'bg-yellow-500' },
-  intelligence: { name: 'Intelligence', color: 'bg-purple-500' },
-  music: { name: 'Music', color: 'bg-green-500' },
-  growth: { name: 'Growth', color: 'bg-orange-500' },
-};
-
 const TYPE_ICONS: Record<string, typeof FileText> = {
   copy_output: FileText,
   prompt_output: Sparkles,
   image_asset: Image,
   ad_bundle: FileText,
   workflow_run: File,
+  course_resource: FileText,
   generic: File,
 };
 
@@ -78,7 +68,6 @@ export default function WorkspaceItemClient({ item }: Props) {
   const [versionNoteInput, setVersionNoteInput] = useState('');
   const [creatingVersion, setCreatingVersion] = useState(false);
 
-  const cloud = (item.origin_cloud_id || item.cloud_id) ? CLOUDS[item.origin_cloud_id || item.cloud_id || ''] : null;
   const IconComponent = TYPE_ICONS[item.type] || TYPE_ICONS.generic;
 
   const toggleStar = async () => {
@@ -353,11 +342,6 @@ export default function WorkspaceItemClient({ item }: Props) {
             <div className="flex items-start justify-between gap-4 mb-6">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  {cloud && (
-                    <span className={`${cloud.color} text-white text-xs font-semibold px-2 py-0.5 rounded-full`}>
-                      {cloud.name}
-                    </span>
-                  )}
                   <span className="text-xs text-zinc-500 uppercase bg-zinc-100 px-2 py-0.5 rounded">
                     {item.type.replace(/_/g, ' ')}
                   </span>

@@ -10,11 +10,6 @@ import {
   type QuickImportKind,
   isToolQuickImportCompatible,
 } from '@/lib/workspace/toolQuickImport';
-import {
-  getWorkstationHrefForItem,
-  getWorkstationLabelForMode,
-  getWorkstationModeForItemType,
-} from '@/lib/workstations/getWorkstationTarget';
 
 type WorkspaceItem = {
   id: string;
@@ -145,13 +140,6 @@ export default function ToolsRecentFilesDock() {
             {items.map((item) => {
               const kind = mapType(item.type);
               const Icon = TYPE_ICON[kind] || TYPE_ICON.default;
-              const workstationMode = getWorkstationModeForItemType(item.type);
-              const workstationHref = getWorkstationHrefForItem({
-                type: item.type,
-                fileUrl: item.file_url,
-                title: item.title,
-                itemId: item.id,
-              });
               return (
                 <div
                   key={item.id}
@@ -185,14 +173,6 @@ export default function ToolsRecentFilesDock() {
                       >
                         {importingId === item.id ? 'Using...' : 'Use here'}
                       </button>
-                    )}
-                    {workstationMode && workstationHref && (
-                      <Link
-                        href={workstationHref}
-                        className="text-xs px-2 py-1 rounded-md bg-white text-orange-700 hover:bg-orange-50 font-semibold"
-                      >
-                        {getWorkstationLabelForMode(workstationMode)}
-                      </Link>
                     )}
                     <Link
                       href={`/workspace/${item.id}`}

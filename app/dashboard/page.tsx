@@ -1,4 +1,3 @@
-import { query } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -8,6 +7,7 @@ import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import { SessionManager } from "@/components/SessionManager";
 import { LoginForm } from "@/components/LoginForm";
 import type { Metadata } from "next";
+import { getEntitledProductsForUser, type EntitledProduct } from "@/lib/products/entitlements";
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
@@ -15,33 +15,54 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-interface Entitlement {
-  product_id: string;
-  product_name: string;
-  product_slug: string;
-  product_type: string;
-  thumbnail_url: string;
-  download_url: string;
-  created_at: Date;
+async function getUserEntitlements(userId: string): Promise<EntitledProduct[]> {
+  return getEntitledProductsForUser(userId);
 }
 
-async function getUserEntitlements(userId: string): Promise<Entitlement[]> {
-  const result = await query(
-    `SELECT 
-      e.product_id,
-      p.name as product_name,
-      p.slug as product_slug,
-      p.type as product_type,
-      p.thumbnail_url,
-      p.download_url,
-      e.created_at
-     FROM entitlements e
-     JOIN products p ON e.product_id = p.id
-     WHERE e.user_id = $1
-     ORDER BY e.created_at DESC`,
-    [userId]
+function ProductCardItem({ item }: { item: EntitledProduct }) {
+  return (
+    <Card className="h-full hover:shadow-lg transition-shadow">
+      {item.thumbnail_url && (
+        <div className="aspect-video bg-muted rounded-t-lg overflow-hidden">
+          <img
+            src={item.thumbnail_url}
+            alt={item.product_name}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+      <CardHeader>
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-lg">{item.product_name}</CardTitle>
+          <Badge variant="secondary" className="capitalize shrink-0">
+            {item.product_type}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Added {new Date(item.created_at).toLocaleDateString()}
+        </p>
+        {item.product_type === "video" && (
+          <Link
+            href={`/courses/${item.product_slug}`}
+            className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 h-10 px-4 py-2 w-full"
+          >
+            Continue Course
+          </Link>
+        )}
+        {item.download_url && (
+          <a
+            href={item.download_url}
+            download
+            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-orange-500 text-white hover:bg-orange-600 h-10 px-4 py-2 w-full"
+          >
+            Download Now
+          </a>
+        )}
+      </CardContent>
+    </Card>
   );
-  return result.rows;
 }
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ success?: string; session_id?: string }> }) {
@@ -67,15 +88,25 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   }
 
   const entitlements = await getUserEntitlements(session.userId);
+  const courseEntitlements = entitlements.filter((item) => item.product_type === "video");
+  const otherEntitlements = entitlements.filter((item) => item.product_type !== "video");
   const showSuccess = params.success === 'true';
 
   return (
     <div className="container mx-auto px-4 py-12">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">My Dashboard</h1>
-        <p className="text-xl text-muted-foreground">
-          Access all your purchased products and courses
-        </p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-bold mb-2">My Dashboard</h1>
+          <p className="text-xl text-muted-foreground">
+            Access all your purchased products and courses
+          </p>
+        </div>
+        <Link
+          href="/workspace"
+          className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-zinc-300 text-zinc-700 hover:bg-zinc-50 h-10 px-4 py-2"
+        >
+          Open Workspace
+        </Link>
       </div>
 
       {showSuccess && (
@@ -101,42 +132,34 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </CardContent>
         </Card>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {entitlements.map((item) => (
-            <Card key={item.product_id} className="h-full hover:shadow-lg transition-shadow">
-              {item.thumbnail_url && (
-                <div className="aspect-video bg-muted rounded-t-lg overflow-hidden">
-                  <img
-                    src={item.thumbnail_url}
-                    alt={item.product_name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-lg">{item.product_name}</CardTitle>
-                  <Badge variant="secondary" className="capitalize shrink-0">
-                    {item.product_type}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Added {new Date(item.created_at).toLocaleDateString()}
-                </p>
-                {item.download_url && (
-                  <a
-                    href={item.download_url}
-                    download
-                    className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-orange-500 text-white hover:bg-orange-600 h-10 px-4 py-2 w-full"
-                  >
-                    Download Now
-                  </a>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+        <div className="space-y-10">
+          {courseEntitlements.length > 0 && (
+            <section>
+              <div className="mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">My Courses</h2>
+                <p className="text-muted-foreground">Continue watching your purchased video courses.</p>
+              </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {courseEntitlements.map((item) => (
+                  <ProductCardItem key={`course-${item.product_id}`} item={item} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {otherEntitlements.length > 0 && (
+            <section>
+              <div className="mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">My Products</h2>
+                <p className="text-muted-foreground">Downloads and other purchased resources.</p>
+              </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {otherEntitlements.map((item) => (
+                  <ProductCardItem key={`product-${item.product_id}`} item={item} />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
     </div>

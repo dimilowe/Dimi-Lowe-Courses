@@ -3,6 +3,7 @@ import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import { query } from "@/lib/db";
+import { ensureCourseWorkspaceEntryByProductId } from "@/lib/workspace/courseResources";
 import Stripe from "stripe";
 
 function getStripeClient() {
@@ -80,6 +81,15 @@ export async function POST(request: NextRequest) {
              ON CONFLICT (user_id, product_id) DO NOTHING`,
             [session.userId, purchase.product_id]
           );
+
+          const numericProductId = Number(purchase.product_id);
+          if (Number.isFinite(numericProductId)) {
+            try {
+              await ensureCourseWorkspaceEntryByProductId(session.userId, numericProductId);
+            } catch (error) {
+              console.error("Failed to create course workspace entry:", error);
+            }
+          }
 
           // Get product download URL
           const productResult = await query(

@@ -4,9 +4,8 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Calendar, Eye } from "lucide-react";
+import { ArrowLeft, Calendar, Eye, GraduationCap } from "lucide-react";
 import { AudioPlayer } from "@/components/AudioPlayer";
-import SidebarTools from "@/components/SidebarTools";
 
 function formatContent(content: string): string {
   // Tiptap already outputs HTML, so just return it as-is
@@ -24,6 +23,15 @@ interface BlogPost {
   published_at: Date;
   view_count: number;
   is_indexed: boolean;
+}
+
+interface RecommendedCourse {
+  id: number;
+  slug: string;
+  name: string;
+  thumbnail_url: string | null;
+  price_type: string | null;
+  price: number | null;
 }
 
 async function getBlogPost(slug: string): Promise<BlogPost | null> {
@@ -57,6 +65,18 @@ async function getRelatedPosts(currentPostId: number): Promise<BlogPost[]> {
      ORDER BY published_at DESC
      LIMIT 3`,
     [currentPostId]
+  );
+  return result.rows;
+}
+
+async function getRecommendedCourses(): Promise<RecommendedCourse[]> {
+  const result = await query(
+    `SELECT id, slug, name, thumbnail_url, price_type, price
+     FROM products
+     WHERE visibility = 'public'
+       AND type IN ('video', 'course')
+     ORDER BY created_at DESC
+     LIMIT 3`
   );
   return result.rows;
 }
@@ -99,6 +119,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   await incrementViewCount(post.id);
   
   const relatedPosts = await getRelatedPosts(post.id);
+  const recommendedCourses = await getRecommendedCourses();
   
   return (
     <div className="min-h-screen bg-gray-50">
@@ -183,10 +204,50 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             
             {/* Sidebar */}
             <aside className="lg:col-span-1">
-              <div className="lg:sticky lg:top-8 space-y-6">
-                {/* Free Creator Tools */}
-                <SidebarTools />
-                
+              <div className="space-y-6">
+                {/* Related Courses */}
+                <div className="bg-white rounded-lg border-2 border-orange-500 overflow-hidden">
+                  <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="w-5 h-5 text-white" />
+                      <h3 className="text-lg font-bold text-white">Recommended Courses</h3>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-sm text-gray-600 mb-3">
+                      Keep learning with these related courses.
+                    </p>
+                    {recommendedCourses.length > 0 ? (
+                      <div className="space-y-2 mb-4">
+                        {recommendedCourses.map((course) => (
+                          <Link
+                            key={course.id}
+                            href={`/product/${course.slug}`}
+                            className="flex items-center justify-between gap-2 px-3 py-2 bg-gray-100 hover:bg-orange-100 hover:text-orange-700 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            <span className="line-clamp-1">{course.name}</span>
+                            <span className="shrink-0 text-xs font-semibold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">
+                              {course.price_type === "free" || course.price === 0
+                                ? "Free"
+                                : `$${((course.price || 0) / 100).toFixed(2)}`}
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-600 mb-4">
+                        Course recommendations will appear here once courses are published.
+                      </p>
+                    )}
+                    <Link
+                      href="/store"
+                      className="block w-full text-center px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Browse Courses
+                    </Link>
+                  </div>
+                </div>
+
                 {/* Related Posts */}
                 {relatedPosts.length > 0 && (
                   <Card>
