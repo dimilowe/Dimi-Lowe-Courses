@@ -6,6 +6,7 @@ import {
   updatePendingGlobalSubscriptionStatus,
 } from "@/lib/subscription/pending";
 import { PUBLIC_CLOUD_IDS } from "@/lib/types/cloudEntitlements";
+import { ensureCourseWorkspaceEntryByProductId } from "@/lib/workspace/courseResources";
 import Stripe from "stripe";
 
 function getStripeClient() {
@@ -336,6 +337,72 @@ async function handleCmsCheckoutCompleted(session: Stripe.Checkout.Session) {
   }
 }
 
+function extractProductIdsFromMetadata(metadata: Record<string, string | undefined>): number[] {
+  const raw = metadata.productIds || metadata.productId || "";
+  const ids = raw
+    .split(",")
+    .map((id) => Number.parseInt(id.trim(), 10))
+    .filter((id) => Number.isFinite(id) && id > 0);
+  return Array.from(new Set(ids));
+}
+
+async function handleProductCheckoutCompleted(session: Stripe.Checkout.Session) {
+  const customerEmail = session.customer_email || session.customer_details?.email;
+  const paymentIntentId =
+    typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+  const productIds = extractProductIdsFromMetadata(session.metadata || {});
+
+  if (!customerEmail) {
+    console.error("[Webhook] Missing customer email for product checkout:", session.id);
+    return;
+  }
+
+  if (!paymentIntentId || productIds.length === 0) {
+    console.error("[Webhook] Invalid product checkout metadata:", {
+      sessionId: session.id,
+      paymentIntentId,
+      productIds,
+    });
+    return;
+  }
+
+  const user = await getUserByEmail(customerEmail);
+  const existingRows = await query(
+    "SELECT product_id FROM purchases WHERE stripe_payment_intent_id = $1",
+    [paymentIntentId]
+  );
+  const existingProductIds = new Set(
+    existingRows.rows
+      .map((row: { product_id: unknown }) => Number.parseInt(String(row.product_id), 10))
+      .filter((id: number) => Number.isFinite(id))
+  );
+
+  for (const productId of productIds) {
+    if (!existingProductIds.has(productId)) {
+      await query(
+        `INSERT INTO purchases (user_id, product_id, stripe_payment_intent_id, amount, status)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [user?.id || null, productId, paymentIntentId, session.amount_total, user ? "completed" : "pending"]
+      );
+    }
+
+    if (!user) continue;
+
+    await query(
+      `INSERT INTO entitlements (user_id, product_id, source)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, product_id) DO NOTHING`,
+      [user.id, productId, "purchase"]
+    );
+
+    try {
+      await ensureCourseWorkspaceEntryByProductId(String(user.id), productId);
+    } catch (error) {
+      console.error("[Webhook] Failed to create course workspace entry:", error);
+    }
+  }
+}
+
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const stripeSubscriptionId = subscription.id;
 
@@ -398,6 +465,8 @@ export async function POST(request: NextRequest) {
         await handleGlobalProCheckoutCompleted(stripe, session);
       } else if (checkoutType === "cloud") {
         await handleCloudCheckoutCompleted(stripe, session);
+      } else if (checkoutType === "product") {
+        await handleProductCheckoutCompleted(session);
       } else if (checkoutType === "cms" || session.metadata?.offer_key) {
         await handleCmsCheckoutCompleted(session);
       } else {

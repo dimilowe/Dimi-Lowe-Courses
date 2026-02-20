@@ -11,6 +11,7 @@ import { InlineUploader } from "@/components/inline-uploader";
 import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Package, GripVertical } from "lucide-react";
 import { extractCourseResourceLinks, type CourseResourceLink } from "@/lib/products/courseResourceLinks";
 import { extractOrderBumpMeta } from "@/lib/products/orderBump";
+import { extractPostPurchaseOffersMeta } from "@/lib/products/postPurchaseOffers";
 
 interface Product {
   id: string;
@@ -87,6 +88,16 @@ export default function AdminProductsPage() {
     headline: "",
     description: "",
     ctaLabel: "",
+  });
+  const [postPurchaseOffersForm, setPostPurchaseOffersForm] = useState({
+    upsellProductId: "",
+    downsellProductId: "",
+    upsellHeadline: "",
+    upsellDescription: "",
+    upsellCtaLabel: "",
+    downsellHeadline: "",
+    downsellDescription: "",
+    downsellCtaLabel: "",
   });
   
   const [formData, setFormData] = useState({
@@ -295,6 +306,50 @@ export default function AdminProductsPage() {
         delete nextMeta.order_bump;
       }
 
+      const upsellProductId = Number.parseInt(postPurchaseOffersForm.upsellProductId, 10);
+      const downsellProductId = Number.parseInt(postPurchaseOffersForm.downsellProductId, 10);
+      const hasUpsell = Number.isFinite(upsellProductId) && upsellProductId > 0;
+      const hasDownsell = Number.isFinite(downsellProductId) && downsellProductId > 0;
+
+      if (editingProduct) {
+        const editingId = Number.parseInt(String(editingProduct.id), 10);
+        if (hasUpsell && upsellProductId === editingId) {
+          alert("Upsell product must be different from the main product.");
+          return;
+        }
+        if (hasDownsell && downsellProductId === editingId) {
+          alert("Downsell product must be different from the main product.");
+          return;
+        }
+      }
+
+      if (hasUpsell || hasDownsell) {
+        nextMeta.post_purchase_offers = {
+          ...(hasUpsell ? { upsell_product_id: upsellProductId } : {}),
+          ...(hasDownsell ? { downsell_product_id: downsellProductId } : {}),
+          ...(postPurchaseOffersForm.upsellHeadline.trim()
+            ? { upsell_headline: postPurchaseOffersForm.upsellHeadline.trim() }
+            : {}),
+          ...(postPurchaseOffersForm.upsellDescription.trim()
+            ? { upsell_description: postPurchaseOffersForm.upsellDescription.trim() }
+            : {}),
+          ...(postPurchaseOffersForm.upsellCtaLabel.trim()
+            ? { upsell_cta_label: postPurchaseOffersForm.upsellCtaLabel.trim() }
+            : {}),
+          ...(postPurchaseOffersForm.downsellHeadline.trim()
+            ? { downsell_headline: postPurchaseOffersForm.downsellHeadline.trim() }
+            : {}),
+          ...(postPurchaseOffersForm.downsellDescription.trim()
+            ? { downsell_description: postPurchaseOffersForm.downsellDescription.trim() }
+            : {}),
+          ...(postPurchaseOffersForm.downsellCtaLabel.trim()
+            ? { downsell_cta_label: postPurchaseOffersForm.downsellCtaLabel.trim() }
+            : {}),
+        };
+      } else {
+        delete nextMeta.post_purchase_offers;
+      }
+
       if (formData.type === "course" || formData.type === "video") {
         if (cleanedResources.length > 0) {
           nextMeta.course_resources = cleanedResources;
@@ -333,6 +388,7 @@ export default function AdminProductsPage() {
   const handleEdit = (product: Product) => {
     const normalizedMeta = normalizeMeta(product.meta);
     const orderBumpMeta = extractOrderBumpMeta(normalizedMeta);
+    const postPurchaseOffersMeta = extractPostPurchaseOffersMeta(normalizedMeta);
     setEditingProduct(product);
     setFormData({
       slug: product.slug,
@@ -352,6 +408,20 @@ export default function AdminProductsPage() {
       headline: orderBumpMeta?.headline || "",
       description: orderBumpMeta?.description || "",
       ctaLabel: orderBumpMeta?.cta_label || "",
+    });
+    setPostPurchaseOffersForm({
+      upsellProductId: postPurchaseOffersMeta?.upsell_product_id
+        ? String(postPurchaseOffersMeta.upsell_product_id)
+        : "",
+      downsellProductId: postPurchaseOffersMeta?.downsell_product_id
+        ? String(postPurchaseOffersMeta.downsell_product_id)
+        : "",
+      upsellHeadline: postPurchaseOffersMeta?.upsell_headline || "",
+      upsellDescription: postPurchaseOffersMeta?.upsell_description || "",
+      upsellCtaLabel: postPurchaseOffersMeta?.upsell_cta_label || "",
+      downsellHeadline: postPurchaseOffersMeta?.downsell_headline || "",
+      downsellDescription: postPurchaseOffersMeta?.downsell_description || "",
+      downsellCtaLabel: postPurchaseOffersMeta?.downsell_cta_label || "",
     });
     setCourseResources(extractCourseResourceLinks(normalizedMeta).map(toResourceDraft));
     setResourceUploadError(null);
@@ -396,6 +466,16 @@ export default function AdminProductsPage() {
       description: "",
       ctaLabel: "",
     });
+    setPostPurchaseOffersForm({
+      upsellProductId: "",
+      downsellProductId: "",
+      upsellHeadline: "",
+      upsellDescription: "",
+      upsellCtaLabel: "",
+      downsellHeadline: "",
+      downsellDescription: "",
+      downsellCtaLabel: "",
+    });
     setCourseResources([]);
     setResourceUploadError(null);
     setIsUploadingResourceFiles(false);
@@ -433,6 +513,7 @@ export default function AdminProductsPage() {
       return true;
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+  const postPurchaseOfferOptions = orderBumpOptions;
 
   return (
     <AdminLayout>
@@ -605,6 +686,106 @@ export default function AdminProductsPage() {
                     rows={2}
                     value={orderBumpForm.description}
                     onChange={(e) => setOrderBumpForm((prev) => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Post-Purchase Funnel (Optional)</p>
+                    <p className="text-xs text-gray-600">
+                      Show an upsell offer right after checkout, then a downsell if they decline.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700">Upsell Product</label>
+                      <select
+                        className="w-full border rounded px-3 py-2"
+                        value={postPurchaseOffersForm.upsellProductId}
+                        onChange={(e) =>
+                          setPostPurchaseOffersForm((prev) => ({ ...prev, upsellProductId: e.target.value }))
+                        }
+                      >
+                        <option value="">No upsell</option>
+                        {postPurchaseOfferOptions.map((option) => (
+                          <option key={`upsell-${option.id}`} value={option.id}>
+                            {option.name} - ${(Number(option.price) / 100).toFixed(2)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700">Downsell Product</label>
+                      <select
+                        className="w-full border rounded px-3 py-2"
+                        value={postPurchaseOffersForm.downsellProductId}
+                        onChange={(e) =>
+                          setPostPurchaseOffersForm((prev) => ({ ...prev, downsellProductId: e.target.value }))
+                        }
+                      >
+                        <option value="">No downsell</option>
+                        {postPurchaseOfferOptions.map((option) => (
+                          <option key={`downsell-${option.id}`} value={option.id}>
+                            {option.name} - ${(Number(option.price) / 100).toFixed(2)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {postPurchaseOfferOptions.length === 0 && (
+                    <p className="text-xs text-gray-500">
+                      Create paid public products first, then attach them as upsell/downsell offers.
+                    </p>
+                  )}
+
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <Input
+                      placeholder="Upsell headline (optional)"
+                      value={postPurchaseOffersForm.upsellHeadline}
+                      onChange={(e) =>
+                        setPostPurchaseOffersForm((prev) => ({ ...prev, upsellHeadline: e.target.value }))
+                      }
+                    />
+                    <Input
+                      placeholder="Upsell CTA label (optional)"
+                      value={postPurchaseOffersForm.upsellCtaLabel}
+                      onChange={(e) =>
+                        setPostPurchaseOffersForm((prev) => ({ ...prev, upsellCtaLabel: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <Textarea
+                    rows={2}
+                    placeholder="Upsell description (optional)"
+                    value={postPurchaseOffersForm.upsellDescription}
+                    onChange={(e) =>
+                      setPostPurchaseOffersForm((prev) => ({ ...prev, upsellDescription: e.target.value }))
+                    }
+                  />
+
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <Input
+                      placeholder="Downsell headline (optional)"
+                      value={postPurchaseOffersForm.downsellHeadline}
+                      onChange={(e) =>
+                        setPostPurchaseOffersForm((prev) => ({ ...prev, downsellHeadline: e.target.value }))
+                      }
+                    />
+                    <Input
+                      placeholder="Downsell CTA label (optional)"
+                      value={postPurchaseOffersForm.downsellCtaLabel}
+                      onChange={(e) =>
+                        setPostPurchaseOffersForm((prev) => ({ ...prev, downsellCtaLabel: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <Textarea
+                    rows={2}
+                    placeholder="Downsell description (optional)"
+                    value={postPurchaseOffersForm.downsellDescription}
+                    onChange={(e) =>
+                      setPostPurchaseOffersForm((prev) => ({ ...prev, downsellDescription: e.target.value }))
+                    }
                   />
                 </div>
 

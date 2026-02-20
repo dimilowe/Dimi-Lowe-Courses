@@ -128,7 +128,7 @@ async function handleCatalogProductCheckout(
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "payment",
     line_items: lineItems,
-    success_url: `${baseUrl}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}&product=${product.slug}`,
+    success_url: `${baseUrl}/offers?success=true&session_id={CHECKOUT_SESSION_ID}&product=${product.slug}`,
     cancel_url: `${baseUrl}/products/${product.slug}?canceled=true`,
     customer_email: customerEmail,
     metadata: {
