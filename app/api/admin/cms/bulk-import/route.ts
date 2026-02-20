@@ -134,7 +134,7 @@ function getPathForType(type: string, slug: string): string {
     case "mbb":
       return `/mbb/${slug}`;
     case "product":
-      return `/product/${slug}`;
+      return `/products/${slug}`;
     case "pillar":
     case "cluster":
       return `/tools/clusters/${slug}`;

@@ -42,7 +42,7 @@ export default function MonetizationBar() {
             
             <div className="flex items-center gap-3 flex-shrink-0">
               <Link 
-                href="/product/nudge"
+                href="/products/nudge"
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-gray-900 rounded-full text-xs font-semibold transition-colors whitespace-nowrap"
               >
                 <Bell className="w-3.5 h-3.5" />
@@ -50,7 +50,7 @@ export default function MonetizationBar() {
               </Link>
               
               <Link 
-                href="/product/qrsocial"
+                href="/products/qrsocial"
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-gray-900 rounded-full text-xs font-semibold transition-colors whitespace-nowrap"
               >
                 <QrCode className="w-3.5 h-3.5" />

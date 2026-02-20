@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     const productsResult = await query(`SELECT slug, name FROM products`);
     for (const product of productsResult.rows) {
       discoveredUrls.push({
-        url: `/product/${product.slug}`,
+        url: `/products/${product.slug}`,
         type: "product",
         title: product.name
       });

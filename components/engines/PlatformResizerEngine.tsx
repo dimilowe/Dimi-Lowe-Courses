@@ -340,14 +340,14 @@ function PostResultUpsell({ platformId }: { platformId: string }) {
       
       <div className="flex flex-col sm:flex-row gap-3">
         <Link
-          href="/product/nudge"
+          href="/products/nudge"
           className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium rounded-xl transition-all group shadow-md hover:shadow-lg"
         >
           Try Nudge
           <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
         </Link>
         <Link
-          href="/product/qrsocial"
+          href="/products/qrsocial"
           className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-medium rounded-xl transition-all group shadow-md hover:shadow-lg"
         >
           Get QR Social

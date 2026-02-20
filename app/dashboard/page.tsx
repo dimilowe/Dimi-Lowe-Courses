@@ -19,6 +19,10 @@ async function getUserEntitlements(userId: string): Promise<EntitledProduct[]> {
   return getEntitledProductsForUser(userId);
 }
 
+function isCourseProductType(productType: string): boolean {
+  return productType === "video" || productType === "course";
+}
+
 function ProductCardItem({ item }: { item: EntitledProduct }) {
   return (
     <Card className="h-full hover:shadow-lg transition-shadow">
@@ -43,7 +47,7 @@ function ProductCardItem({ item }: { item: EntitledProduct }) {
         <p className="text-sm text-muted-foreground">
           Added {new Date(item.created_at).toLocaleDateString()}
         </p>
-        {item.product_type === "video" && (
+        {isCourseProductType(item.product_type) && (
           <Link
             href={`/courses/${item.product_slug}`}
             className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 h-10 px-4 py-2 w-full"
@@ -88,8 +92,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   }
 
   const entitlements = await getUserEntitlements(session.userId);
-  const courseEntitlements = entitlements.filter((item) => item.product_type === "video");
-  const otherEntitlements = entitlements.filter((item) => item.product_type !== "video");
+  const courseEntitlements = entitlements.filter((item) => isCourseProductType(item.product_type));
+  const otherEntitlements = entitlements.filter((item) => !isCourseProductType(item.product_type));
   const showSuccess = params.success === 'true';
 
   return (

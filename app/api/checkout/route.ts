@@ -30,6 +30,87 @@ async function getCmsProductBySlug(slug: string) {
   return result.rows[0] || null;
 }
 
+type CatalogProduct = {
+  id: number;
+  slug: string;
+  name: string;
+  price_type: string | null;
+  price: number | string | null;
+  stripe_price_id: string | null;
+  visibility: string | null;
+};
+
+async function getCatalogProductById(productId: number): Promise<CatalogProduct | null> {
+  const result = await query(
+    `SELECT id, slug, name, price_type, price,
+            to_jsonb(products)->>'stripe_price_id' AS stripe_price_id,
+            visibility
+     FROM products
+     WHERE id = $1
+     LIMIT 1`,
+    [productId]
+  );
+  return result.rows[0] || null;
+}
+
+async function handleCatalogProductCheckout(
+  request: NextRequest,
+  body: { productId: string | number }
+) {
+  const productIdNum = Number.parseInt(String(body.productId), 10);
+  if (!Number.isFinite(productIdNum)) {
+    return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
+  }
+
+  const product = await getCatalogProductById(productIdNum);
+  if (!product || product.visibility !== "public") {
+    return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  }
+
+  const unitAmountCents = Math.round(Number(product.price || 0));
+  const isFree = product.price_type === "free";
+  if (isFree || unitAmountCents <= 0) {
+    return NextResponse.json({ error: "This product is free and does not require checkout." }, { status: 400 });
+  }
+
+  const stripe = getStripeClient();
+  const baseUrl = getBaseUrl(request);
+  const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);
+  const customerEmail = session.isLoggedIn ? session.email || undefined : undefined;
+
+  const lineItem =
+    product.stripe_price_id && product.stripe_price_id.trim().length > 0
+      ? {
+          price: product.stripe_price_id,
+          quantity: 1,
+        }
+      : {
+          price_data: {
+            currency: "usd",
+            unit_amount: unitAmountCents,
+            product_data: {
+              name: product.name,
+            },
+          },
+          quantity: 1,
+        };
+
+  const checkoutSession = await stripe.checkout.sessions.create({
+    mode: "payment",
+    line_items: [lineItem],
+    success_url: `${baseUrl}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}&product=${product.slug}`,
+    cancel_url: `${baseUrl}/products/${product.slug}?canceled=true`,
+    customer_email: customerEmail,
+    metadata: {
+      productId: String(product.id),
+      productSlug: product.slug,
+      checkout_type: "product",
+    },
+  });
+
+  return NextResponse.json({ url: checkoutSession.url });
+}
+
 async function handleCmsProductCheckout(
   request: NextRequest,
   body: { slug: string; priceId?: string; mode?: string; offerKey?: string }
@@ -175,7 +256,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const checkoutType = body.type;
 
-    if (checkoutType === "global") {
+    if (body.productId) {
+      return handleCatalogProductCheckout(request, body);
+    } else if (checkoutType === "global") {
       return handleGlobalProCheckout(request);
     } else if (checkoutType === "cloud") {
       return NextResponse.json(

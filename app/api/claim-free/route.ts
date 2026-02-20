@@ -12,6 +12,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const productResult = await query(
+      `SELECT price_type
+       FROM products
+       WHERE id = $1
+       LIMIT 1`,
+      [productId]
+    );
+
+    if (productResult.rows.length === 0) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+
+    if (productResult.rows[0].price_type !== "free") {
+      return NextResponse.json({ error: "Only free products can be claimed." }, { status: 400 });
+    }
+
     await query(
       `INSERT INTO entitlements (user_id, product_id, source) 
        VALUES ($1, $2, $3)

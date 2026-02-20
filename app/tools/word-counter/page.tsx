@@ -398,7 +398,7 @@ export default function WordCounterPage() {
             Use APE (Auto Paywall Everything) to instantly gate your best articles, emails, and guides behind tips, subscriptions, or one-time unlocks.
           </p>
           <Link
-            href="/product/ape"
+            href="/products/ape"
             className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-gray-900 font-semibold py-3 px-6 rounded-lg transition-all"
           >
             Learn About APE

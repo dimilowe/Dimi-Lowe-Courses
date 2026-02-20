@@ -96,7 +96,7 @@ export default function StrategyAIPage() {
                             {message.suggestedProducts.map((product: any) => (
                               <li key={product.id}>
                                 <Link
-                                  href={`/product/${product.slug}`}
+                                  href={`/products/${product.slug}`}
                                   className="text-blue-600 hover:underline"
                                 >
                                   {product.name}

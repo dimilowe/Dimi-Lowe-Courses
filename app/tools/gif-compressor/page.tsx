@@ -450,7 +450,7 @@ export default function GifCompressorPage() {
             <p className="text-gray-300 mb-4">
               Use APE (Auto Paywall Everything) to gate your best GIFs and animations behind tips, subscriptions, or one-time unlocks.
             </p>
-            <Link href="/product/ape">
+            <Link href="/products/ape">
               <Button className="bg-orange-500 hover:bg-orange-600 text-white">
                 Learn About APE
               </Button>

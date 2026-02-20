@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { extractCourseResourceLinks } from "@/lib/products/courseResourceLinks";
 
 type CourseProduct = {
   id: number;
@@ -8,7 +9,12 @@ type CourseProduct = {
   thumbnail_url: string | null;
   download_url: string | null;
   external_url: string | null;
+  meta: unknown;
 };
+
+function isCourseProductType(productType: string): boolean {
+  return productType === "video" || productType === "course";
+}
 
 function toUserId(userId: number | string): number | null {
   const parsed = typeof userId === "number" ? userId : parseInt(userId, 10);
@@ -18,7 +24,8 @@ function toUserId(userId: number | string): number | null {
 
 async function getCourseProductBySlug(slug: string): Promise<CourseProduct | null> {
   const result = await query(
-    `SELECT id, slug, name, type, thumbnail_url, download_url, external_url
+    `SELECT id, slug, name, type, thumbnail_url, download_url, external_url,
+            to_jsonb(products)->'meta' AS meta
      FROM products
      WHERE slug = $1
      LIMIT 1`,
@@ -29,7 +36,8 @@ async function getCourseProductBySlug(slug: string): Promise<CourseProduct | nul
 
 async function getCourseProductById(productId: number): Promise<CourseProduct | null> {
   const result = await query(
-    `SELECT id, slug, name, type, thumbnail_url, download_url, external_url
+    `SELECT id, slug, name, type, thumbnail_url, download_url, external_url,
+            to_jsonb(products)->'meta' AS meta
      FROM products
      WHERE id = $1
      LIMIT 1`,
@@ -53,7 +61,8 @@ async function getExistingWorkspaceEntryId(userId: number, productSlug: string):
 }
 
 async function ensureWorkspaceEntry(userId: number, course: CourseProduct): Promise<string | null> {
-  if (course.type !== "video") return null;
+  if (!isCourseProductType(course.type)) return null;
+  const courseResourceLinks = extractCourseResourceLinks(course.meta);
 
   const existingId = await getExistingWorkspaceEntryId(userId, course.slug);
   if (existingId) return existingId;
@@ -76,6 +85,7 @@ async function ensureWorkspaceEntry(userId: number, course: CourseProduct): Prom
         product_slug: course.slug,
         course_video_url: course.external_url,
         resource_download_url: course.download_url,
+        resource_links: courseResourceLinks,
       }),
     ]
   );

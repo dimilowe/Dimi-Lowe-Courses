@@ -1,7 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react";
-import Image from "next/image";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { AdminLayout } from "@/components/admin/admin-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { InlineUploader } from "@/components/inline-uploader";
-import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Package } from "lucide-react";
+import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Package, GripVertical } from "lucide-react";
+import { extractCourseResourceLinks, type CourseResourceLink } from "@/lib/products/courseResourceLinks";
 
 interface Product {
   id: string;
@@ -23,6 +23,46 @@ interface Product {
   download_url: string | null;
   external_url: string | null;
   visibility: string;
+  meta?: unknown;
+}
+
+interface CourseResourceDraft {
+  id: string;
+  label: string;
+  url: string;
+}
+
+function makeResourceId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeMeta(meta: unknown): Record<string, any> {
+  if (typeof meta === "object" && meta !== null && !Array.isArray(meta)) {
+    return { ...(meta as Record<string, any>) };
+  }
+  if (typeof meta === "string") {
+    try {
+      const parsed = JSON.parse(meta);
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        return parsed as Record<string, any>;
+      }
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function toResourceDraft(resource: CourseResourceLink): CourseResourceDraft {
+  return { id: makeResourceId(), label: resource.label, url: resource.url };
+}
+
+function generateSlug(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 export default function AdminProductsPage() {
@@ -32,6 +72,15 @@ export default function AdminProductsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 9;
+  const resourceFilesInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingResourceFiles, setIsUploadingResourceFiles] = useState(false);
+  const [resourceUploadError, setResourceUploadError] = useState<string | null>(null);
+  const [courseResources, setCourseResources] = useState<CourseResourceDraft[]>([]);
+  const [draggingResourceId, setDraggingResourceId] = useState<string | null>(null);
+  const [isResourceDropActive, setIsResourceDropActive] = useState(false);
+  const [slugEditedManually, setSlugEditedManually] = useState(false);
+  const [priceInput, setPriceInput] = useState("0.00");
+  const [baseMeta, setBaseMeta] = useState<Record<string, any>>({});
   
   const [formData, setFormData] = useState({
     slug: "",
@@ -71,26 +120,176 @@ export default function AdminProductsPage() {
       body: formData,
     });
     
-    if (!res.ok) throw new Error("Failed to upload file");
-    const data = await res.json();
+    const raw = await res.text();
+    let data: any = null;
+    try {
+      data = raw ? JSON.parse(raw) : null;
+    } catch {
+      data = null;
+    }
+
+    if (!res.ok) {
+      const message =
+        data?.error ||
+        data?.detail ||
+        (raw && raw.length < 300 ? raw : null) ||
+        `Upload failed (HTTP ${res.status})`;
+      throw new Error(message);
+    }
+
     if (!data.fileUrl) throw new Error("No file URL returned");
     return data.fileUrl;
+  };
+
+  const upsertCourseResource = (id: string, field: "label" | "url", value: string) => {
+    setCourseResources((prev) =>
+      prev.map((resource) => (resource.id === id ? { ...resource, [field]: value } : resource))
+    );
+  };
+
+  const addEmptyCourseResource = () => {
+    setCourseResources((prev) => [...prev, { id: makeResourceId(), label: "", url: "" }]);
+  };
+
+  const removeCourseResource = (id: string) => {
+    setCourseResources((prev) => prev.filter((resource) => resource.id !== id));
+  };
+
+  const reorderCourseResource = (draggedId: string, targetId: string) => {
+    if (!draggedId || !targetId || draggedId === targetId) return;
+    setCourseResources((prev) => {
+      const fromIndex = prev.findIndex((resource) => resource.id === draggedId);
+      const toIndex = prev.findIndex((resource) => resource.id === targetId);
+      if (fromIndex < 0 || toIndex < 0) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const handleResourceDragStart = (event: DragEvent<HTMLButtonElement>, resourceId: string) => {
+    setDraggingResourceId(resourceId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", resourceId);
+  };
+
+  const handleResourceDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  };
+
+  const handleResourceDrop = (event: DragEvent<HTMLDivElement>, targetId: string) => {
+    event.preventDefault();
+    const sourceId = draggingResourceId || event.dataTransfer.getData("text/plain");
+    reorderCourseResource(sourceId, targetId);
+    setDraggingResourceId(null);
+  };
+
+  const handleResourceDragEnd = () => {
+    setDraggingResourceId(null);
+  };
+
+  const handleCourseResourceFilesUpload = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+
+    setIsUploadingResourceFiles(true);
+    setResourceUploadError(null);
+    const files = Array.from(fileList);
+
+    const nextResources: CourseResourceDraft[] = [];
+    const failedFiles: string[] = [];
+
+    for (const file of files) {
+      try {
+        const url = await handleFileUpload(file);
+        nextResources.push({
+          id: makeResourceId(),
+          label: file.name.replace(/\.[^/.]+$/, ""),
+          url,
+        });
+      } catch (error) {
+        console.error("Failed to upload course resource file:", error);
+        failedFiles.push(file.name);
+      }
+    }
+
+    if (nextResources.length > 0) {
+      setCourseResources((prev) => [...prev, ...nextResources]);
+    }
+
+    if (failedFiles.length > 0) {
+      const suffix = failedFiles.length > 3 ? ` and ${failedFiles.length - 3} more` : "";
+      setResourceUploadError(
+        `Some files failed to upload: ${failedFiles.slice(0, 3).join(", ")}${suffix}`
+      );
+    }
+
+    if (resourceFilesInputRef.current) {
+      resourceFilesInputRef.current.value = "";
+    }
+    setIsUploadingResourceFiles(false);
+  };
+
+  const handleResourceFilesDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsResourceDropActive(true);
+  };
+
+  const handleResourceFilesDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsResourceDropActive(false);
+  };
+
+  const handleResourceFilesDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsResourceDropActive(false);
+    void handleCourseResourceFilesUpload(event.dataTransfer.files);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
+      if (formData.price_type === "one_time" && formData.price <= 0) {
+        alert("One-time products must have a price greater than $0.00.");
+        return;
+      }
+
       const url = editingProduct
         ? `/api/admin/products/${editingProduct.id}`
         : "/api/admin/products";
       
       const method = editingProduct ? "PUT" : "POST";
       
+      const cleanedResources = courseResources
+        .map((resource) => ({
+          label: resource.label.trim(),
+          url: resource.url.trim(),
+        }))
+        .filter((resource) => resource.label && resource.url);
+
+      const nextMeta = { ...baseMeta };
+      if (formData.type === "course" || formData.type === "video") {
+        if (cleanedResources.length > 0) {
+          nextMeta.course_resources = cleanedResources;
+        } else {
+          delete nextMeta.course_resources;
+        }
+      } else {
+        delete nextMeta.course_resources;
+      }
+
+      const payload = {
+        ...formData,
+        price: formData.price_type === "free" ? 0 : formData.price,
+        meta: Object.keys(nextMeta).length > 0 ? nextMeta : null,
+      };
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -107,6 +306,7 @@ export default function AdminProductsPage() {
   };
 
   const handleEdit = (product: Product) => {
+    const normalizedMeta = normalizeMeta(product.meta);
     setEditingProduct(product);
     setFormData({
       slug: product.slug,
@@ -120,6 +320,11 @@ export default function AdminProductsPage() {
       external_url: product.external_url || "",
       visibility: product.visibility,
     });
+    setBaseMeta(normalizedMeta);
+    setCourseResources(extractCourseResourceLinks(normalizedMeta).map(toResourceDraft));
+    setResourceUploadError(null);
+    setSlugEditedManually(true);
+    setPriceInput((product.price / 100).toFixed(2));
     setShowForm(true);
   };
 
@@ -152,6 +357,13 @@ export default function AdminProductsPage() {
       external_url: "",
       visibility: "public",
     });
+    setBaseMeta({});
+    setCourseResources([]);
+    setResourceUploadError(null);
+    setIsUploadingResourceFiles(false);
+    setIsResourceDropActive(false);
+    setSlugEditedManually(false);
+    setPriceInput("0.00");
     setEditingProduct(null);
     setShowForm(false);
   };
@@ -169,6 +381,8 @@ export default function AdminProductsPage() {
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedProducts = filteredProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const isCourseType = formData.type === "course" || formData.type === "video";
+  const showExternalUrlField = formData.type === "app" || isCourseType;
 
   return (
     <AdminLayout>
@@ -214,13 +428,28 @@ export default function AdminProductsPage() {
                   <Input
                     placeholder="Slug (URL-friendly)"
                     value={formData.slug}
-                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                    onChange={(e) => {
+                      const nextSlug = generateSlug(e.target.value);
+                      setFormData({ ...formData, slug: nextSlug });
+                      setSlugEditedManually(nextSlug.length > 0);
+                    }}
                     required
                   />
                   <Input
                     placeholder="Product Name"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) => {
+                      const nextName = e.target.value;
+                      if (!editingProduct && !slugEditedManually) {
+                        setFormData({
+                          ...formData,
+                          name: nextName,
+                          slug: generateSlug(nextName),
+                        });
+                        return;
+                      }
+                      setFormData({ ...formData, name: nextName });
+                    }}
                     required
                   />
                 </div>
@@ -239,11 +468,11 @@ export default function AdminProductsPage() {
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                   >
                     <option value="app">App</option>
+                    <option value="course">Course</option>
+                    <option value="video">Video (Legacy)</option>
                     <option value="download">Download</option>
                     <option value="funnel">Template</option>
                     <option value="freebie">Freebie</option>
-                    <option value="video">Video</option>
-                    <option value="course">Course</option>
                     <option value="invisible">Invisible</option>
                   </select>
 
@@ -259,13 +488,27 @@ export default function AdminProductsPage() {
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                     <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="10.00"
                       className="pl-8"
-                      value={(formData.price / 100).toFixed(2)}
-                      onChange={(e) => setFormData({ ...formData, price: Math.round(parseFloat(e.target.value || '0') * 100) })}
+                      value={priceInput}
+                      onChange={(e) => {
+                        const rawValue = e.target.value.replace(/[^0-9.]/g, "");
+                        if (!/^\d*\.?\d{0,2}$/.test(rawValue)) return;
+                        setPriceInput(rawValue);
+                        const parsed = parseFloat(rawValue);
+                        setFormData({
+                          ...formData,
+                          price: Number.isFinite(parsed) ? Math.round(parsed * 100) : 0,
+                        });
+                      }}
+                      onBlur={() => {
+                        const parsed = parseFloat(priceInput);
+                        const normalized = Number.isFinite(parsed) ? parsed : 0;
+                        setPriceInput(normalized.toFixed(2));
+                        setFormData({ ...formData, price: Math.round(normalized * 100) });
+                      }}
                     />
                   </div>
                 </div>
@@ -287,32 +530,145 @@ export default function AdminProductsPage() {
                   />
                 </div>
 
-                {formData.type === "app" && (
+                {showExternalUrlField && (
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">External URL (for apps)</label>
+                    <label className="text-sm font-medium">
+                      {isCourseType ? "Course Video URL" : "External URL (for apps)"}
+                    </label>
                     <Input
-                      placeholder="https://your-app-url.com"
+                      placeholder={
+                        isCourseType
+                          ? "https://youtube.com/watch?v=..."
+                          : "https://your-app-url.com"
+                      }
                       value={formData.external_url}
                       onChange={(e) => setFormData({ ...formData, external_url: e.target.value })}
+                    />
+                    {isCourseType && (
+                      <p className="text-xs text-gray-500">
+                        Add your hosted lesson URL (YouTube, Vimeo, Loom, etc). Purchased users will watch from
+                        their course page in Dashboard.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {!isCourseType && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Download File</label>
+                    <InlineUploader
+                      onUpload={async (file) => {
+                        const url = await handleFileUpload(file);
+                        setFormData({ ...formData, download_url: url });
+                        return url;
+                      }}
+                      maxSize={524288000}
+                      currentUrl={formData.download_url}
+                      onRemove={() => setFormData({ ...formData, download_url: "" })}
+                      placeholder="Drop your file here or click to browse"
+                      showPreview={false}
                     />
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Download File</label>
-                  <InlineUploader
-                    onUpload={async (file) => {
-                      const url = await handleFileUpload(file);
-                      setFormData({ ...formData, download_url: url });
-                      return url;
-                    }}
-                    maxSize={524288000}
-                    currentUrl={formData.download_url}
-                    onRemove={() => setFormData({ ...formData, download_url: "" })}
-                    placeholder="Drop your file here or click to browse"
-                    showPreview={false}
-                  />
-                </div>
+                {isCourseType && (
+                  <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Course Resources (Multi-file)</p>
+                        <p className="text-xs text-gray-600">
+                          Add multiple downloadable files/links, then drag to reorder. This order appears on the student course page.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          ref={resourceFilesInputRef}
+                          type="file"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => void handleCourseResourceFilesUpload(e.target.files)}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => resourceFilesInputRef.current?.click()}
+                          disabled={isUploadingResourceFiles}
+                        >
+                          {isUploadingResourceFiles ? "Uploading..." : "Upload Files"}
+                        </Button>
+                        <Button type="button" variant="outline" onClick={addEmptyCourseResource}>
+                          Add Link
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div
+                      onDragOver={handleResourceFilesDragOver}
+                      onDragLeave={handleResourceFilesDragLeave}
+                      onDrop={handleResourceFilesDrop}
+                      onClick={() => resourceFilesInputRef.current?.click()}
+                      className={`rounded-md border-2 border-dashed px-4 py-6 text-center cursor-pointer transition-colors ${
+                        isResourceDropActive
+                          ? "border-orange-500 bg-orange-100/70"
+                          : "border-orange-300 bg-white hover:bg-orange-50"
+                      }`}
+                    >
+                      <p className="text-sm font-medium text-gray-800">
+                        Drag and drop multiple files here
+                      </p>
+                      <p className="mt-1 text-xs text-gray-600">
+                        or click to browse and select multiple files
+                      </p>
+                    </div>
+
+                    {resourceUploadError && (
+                      <p className="text-xs text-red-600">{resourceUploadError}</p>
+                    )}
+
+                    {courseResources.length === 0 ? (
+                      <p className="text-xs text-gray-500">
+                        No extra resource files yet. Upload files or add direct links.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {courseResources.map((resource) => (
+                          <div
+                            key={resource.id}
+                            className={`grid gap-2 md:grid-cols-[auto_1fr_2fr_auto] ${
+                              draggingResourceId === resource.id ? "opacity-60" : ""
+                            }`}
+                            onDragOver={handleResourceDragOver}
+                            onDrop={(event) => handleResourceDrop(event, resource.id)}
+                          >
+                            <button
+                              type="button"
+                              draggable
+                              onDragStart={(event) => handleResourceDragStart(event, resource.id)}
+                              onDragEnd={handleResourceDragEnd}
+                              className="flex items-center justify-center rounded border border-gray-200 bg-white px-2 text-gray-500 cursor-grab active:cursor-grabbing"
+                              title="Drag to reorder"
+                            >
+                              <GripVertical className="h-4 w-4" />
+                            </button>
+                            <Input
+                              placeholder="Resource name"
+                              value={resource.label}
+                              onChange={(e) => upsertCourseResource(resource.id, "label", e.target.value)}
+                            />
+                            <Input
+                              placeholder="https://...resource-file.zip"
+                              value={resource.url}
+                              onChange={(e) => upsertCourseResource(resource.id, "url", e.target.value)}
+                            />
+                            <Button type="button" variant="ghost" onClick={() => removeCourseResource(resource.id)}>
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex gap-2">
                   <Button type="submit" className="bg-orange-500 hover:bg-orange-600">

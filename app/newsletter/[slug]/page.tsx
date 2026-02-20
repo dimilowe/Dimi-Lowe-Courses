@@ -222,12 +222,12 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                         {recommendedCourses.map((course) => (
                           <Link
                             key={course.id}
-                            href={`/product/${course.slug}`}
+                            href={`/products/${course.slug}`}
                             className="flex items-center justify-between gap-2 px-3 py-2 bg-gray-100 hover:bg-orange-100 hover:text-orange-700 text-gray-700 rounded-lg text-sm font-medium transition-colors"
                           >
                             <span className="line-clamp-1">{course.name}</span>
                             <span className="shrink-0 text-xs font-semibold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">
-                              {course.price_type === "free" || course.price === 0
+                              {course.price_type === "free"
                                 ? "Free"
                                 : `$${((course.price || 0) / 100).toFixed(2)}`}
                             </span>

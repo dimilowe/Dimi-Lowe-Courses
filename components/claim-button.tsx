@@ -25,12 +25,13 @@ export function ClaimButton({ product }: ClaimButtonProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const isFree = product.price_type === "free" || product.price === 0;
+  const isFree = product.price_type === "free";
   const hasExternalUrl = product.external_url && product.external_url.trim() !== "";
+  const canOpenExternalDirectly = product.type === "app" && hasExternalUrl;
 
   const handleClick = async () => {
     // If it's an app with an external URL, redirect there
-    if (hasExternalUrl && product.external_url) {
+    if (canOpenExternalDirectly && product.external_url) {
       window.open(product.external_url, '_blank');
       return;
     }
@@ -47,12 +48,19 @@ export function ClaimButton({ product }: ClaimButtonProps) {
         });
 
         const data = await response.json();
-        
+
+        if (!response.ok) {
+          throw new Error(data?.error || "Failed to start checkout");
+        }
+
         if (data.url) {
           window.location.href = data.url;
+        } else {
+          throw new Error("No checkout URL returned");
         }
       } catch (error) {
         console.error("Checkout error:", error);
+        alert(error instanceof Error ? error.message : "Checkout failed");
       } finally {
         setLoading(false);
       }
@@ -79,11 +87,11 @@ export function ClaimButton({ product }: ClaimButtonProps) {
     <>
       <Button
         size="lg"
-        className={`w-full ${hasExternalUrl || !isFree ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-gray-900 font-semibold' : ''}`}
+        className={`w-full ${canOpenExternalDirectly || !isFree ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-gray-900 font-semibold' : ''}`}
         onClick={handleClick}
         disabled={loading}
       >
-        {loading ? "Processing..." : hasExternalUrl ? "Check It Out" : isFree ? "Get it Free" : "Buy Now"}
+        {loading ? "Processing..." : canOpenExternalDirectly ? "Check It Out" : isFree ? "Get it Free" : "Buy Now"}
       </Button>
 
       {showAuthModal && (

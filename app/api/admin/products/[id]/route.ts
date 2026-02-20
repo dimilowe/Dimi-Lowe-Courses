@@ -4,6 +4,13 @@ import { cookies } from "next/headers";
 import { AdminSessionData, sessionOptions } from "@/lib/admin-session";
 import { query } from "@/lib/db";
 
+async function ensureProductsMetaColumn() {
+  await query(
+    `ALTER TABLE products
+     ADD COLUMN IF NOT EXISTS meta JSONB`
+  );
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -27,29 +34,50 @@ export async function PUT(
       download_url,
       external_url,
       visibility,
+      meta,
     } = await request.json();
 
-    const result = await query(
-      `UPDATE products 
-       SET slug = $1, name = $2, description = $3, type = $4, price_type = $5, 
-           price = $6, thumbnail_url = $7, download_url = $8, external_url = $9, 
-           visibility = $10, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $11
-       RETURNING *`,
-      [
-        slug,
-        name,
-        description,
-        type,
-        price_type,
-        price,
-        thumbnail_url,
-        download_url,
-        external_url,
-        visibility,
-        id,
-      ]
-    );
+    const values = [
+      slug,
+      name,
+      description,
+      type,
+      price_type,
+      price,
+      thumbnail_url,
+      download_url,
+      external_url,
+      visibility,
+    ];
+    const metaJson = meta ? JSON.stringify(meta) : null;
+
+    let result;
+    try {
+      result = await query(
+        `UPDATE products 
+         SET slug = $1, name = $2, description = $3, type = $4, price_type = $5, 
+             price = $6, thumbnail_url = $7, download_url = $8, external_url = $9, 
+             visibility = $10, meta = $11, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $12
+         RETURNING *`,
+        [...values, metaJson, id]
+      );
+    } catch (error: any) {
+      const message = String(error?.message || "");
+      if (!message.includes('column "meta"')) {
+        throw error;
+      }
+      await ensureProductsMetaColumn();
+      result = await query(
+        `UPDATE products 
+         SET slug = $1, name = $2, description = $3, type = $4, price_type = $5, 
+             price = $6, thumbnail_url = $7, download_url = $8, external_url = $9, 
+             visibility = $10, meta = $11, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $12
+         RETURNING *`,
+        [...values, metaJson, id]
+      );
+    }
 
     if (result.rows.length === 0) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });

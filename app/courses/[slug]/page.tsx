@@ -7,6 +7,7 @@ import { query } from "@/lib/db";
 import { userSessionOptions, type UserSessionData } from "@/lib/user-session";
 import { userHasProductEntitlement } from "@/lib/products/entitlements";
 import { ensureCourseWorkspaceEntryBySlug } from "@/lib/workspace/courseResources";
+import { extractCourseResourceLinks } from "@/lib/products/courseResourceLinks";
 
 type CourseProduct = {
   id: number;
@@ -16,13 +17,19 @@ type CourseProduct = {
   thumbnail_url: string | null;
   external_url: string | null;
   download_url: string | null;
+  meta: unknown;
   type: string;
   visibility: string | null;
 };
 
+function isCourseProductType(productType: string): boolean {
+  return productType === "video" || productType === "course";
+}
+
 async function getCourseProduct(slug: string): Promise<CourseProduct | null> {
   const result = await query(
-    `SELECT id, slug, name, description, thumbnail_url, external_url, download_url, type, visibility
+    `SELECT id, slug, name, description, thumbnail_url, external_url, download_url,
+            to_jsonb(products)->'meta' AS meta, type, visibility
      FROM products
      WHERE slug = $1
      LIMIT 1`,
@@ -72,7 +79,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const course = await getCourseProduct(slug);
 
-  if (!course || course.type !== "video") {
+  if (!course || !isCourseProductType(course.type)) {
     return {
       title: "Course Not Found | VCM Suite",
       robots: { index: false, follow: false },
@@ -94,7 +101,7 @@ export default async function CoursePage({
   const { slug } = await params;
   const course = await getCourseProduct(slug);
 
-  if (!course || course.type !== "video") {
+  if (!course || !isCourseProductType(course.type)) {
     notFound();
   }
 
@@ -114,6 +121,7 @@ export default async function CoursePage({
     : `/workspace?q=${encodeURIComponent(course.slug)}`;
 
   const youtubeEmbedUrl = extractYoutubeEmbedUrl(course.external_url);
+  const courseResourceLinks = extractCourseResourceLinks(course.meta);
 
   return (
     <div className="container mx-auto px-4 py-10">
@@ -172,6 +180,26 @@ export default async function CoursePage({
             </a>
           )}
         </div>
+
+        {courseResourceLinks.length > 0 && (
+          <div className="mt-6 rounded-xl border border-gray-200 bg-white p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-3">Course Resources</h2>
+            <div className="space-y-2">
+              {courseResourceLinks.map((resource) => (
+                <a
+                  key={`${resource.label}-${resource.url}`}
+                  href={resource.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between rounded-md border border-gray-200 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <span className="font-medium">{resource.label}</span>
+                  <span className="text-orange-600">Download</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

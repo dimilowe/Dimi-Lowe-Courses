@@ -51,7 +51,7 @@ export default function SavedItemsPage() {
                 <div className="flex items-center gap-4">
                   <div className="flex-1 min-w-0">
                     <Link 
-                      href={`/product/${item.slug}`}
+                      href={`/products/${item.slug}`}
                       className="text-lg font-semibold text-gray-900 hover:text-orange-500 transition-colors"
                     >
                       {item.name}

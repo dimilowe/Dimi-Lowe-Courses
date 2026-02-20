@@ -9,7 +9,6 @@ import { AddToCartButton } from "@/components/add-to-cart-button";
 import CreatorStack from "@/components/CreatorStack";
 import MonetizationBar from "@/components/MonetizationBar";
 import Link from "next/link";
-import { Wrench } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 
 export const dynamic = 'force-dynamic';
@@ -43,7 +42,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     notFound();
   }
 
-  const isFree = product.price_type === "free" || product.price === 0;
+  const isFree = product.price_type === "free";
   
   // Convert plain text formatting to markdown
   const formatDescription = (text: string) => {
@@ -151,18 +150,6 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       <ProductRecommendations currentProductId={product.id} productType={product.type} />
       
       <CreatorStack />
-      
-      {/* Free Tools link - subtle, placed BELOW CreatorStack to avoid cannibalizing impulse buys */}
-      <div className="mt-12 mb-8 text-center">
-        <Link 
-          href="/tools" 
-          className="inline-flex items-center gap-2 text-gray-600 hover:text-orange-600 transition-colors group"
-        >
-          <Wrench className="w-4 h-4 text-orange-500" />
-          <span className="text-sm font-medium">Explore 25+ Free Creator Tools</span>
-          <span className="text-orange-500 group-hover:translate-x-1 transition-transform">→</span>
-        </Link>
-      </div>
       
       <MonetizationBar />
     </div>

@@ -5,7 +5,7 @@ const recommendations = [
   {
     benefit: "Boost video clicks",
     product: "Nudge",
-    href: "/product/nudge",
+    href: "/products/nudge",
     icon: Bell,
     color: "bg-amber-500",
     available: true,
@@ -13,7 +13,7 @@ const recommendations = [
   {
     benefit: "Grow your follower count",
     product: "QR Social",
-    href: "/product/qrsocial",
+    href: "/products/qrsocial",
     icon: QrCode,
     color: "bg-cyan-500",
     available: true,

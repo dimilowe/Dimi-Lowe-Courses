@@ -19,10 +19,10 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const isFree = product.price_type === "free" || product.price === 0;
+  const isFree = product.price_type === "free";
   
   return (
-    <Link href={`/product/${product.slug}`}>
+    <Link href={`/products/${product.slug}`}>
       <Card className="h-full hover:shadow-xl transition-all duration-300 cursor-pointer bg-white border-gray-200 group">
         <CardHeader className="p-0">
           {product.thumbnail_url && (

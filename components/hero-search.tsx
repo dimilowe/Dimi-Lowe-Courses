@@ -108,8 +108,8 @@ const iconMap: Record<string, LucideIcon> = {
 const staticSuggestions = [
   { name: "VCM Answers", href: "/answers", icon: MessageCircleQuestion },
   { name: "Ideas Hub", href: "/ideas", icon: Rocket },
-  { name: "QR Social", href: "/product/qrsocial", icon: QrCode },
-  { name: "C-Score", href: "/product/cscorecals", icon: Flame },
+  { name: "QR Social", href: "/products/qrsocial", icon: QrCode },
+  { name: "C-Score", href: "/products/cscorecals", icon: Flame },
   { name: "APE", href: "https://ape.vcm.fyi", icon: Zap },
   { name: "Blog", href: "/blog", icon: Type },
   { name: "Store", href: "/store", icon: Palette },

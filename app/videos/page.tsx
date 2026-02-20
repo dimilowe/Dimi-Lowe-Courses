@@ -33,7 +33,7 @@ async function getVideos(): Promise<Product[]> {
   const result = await query(
     `SELECT id, slug, name, description, thumbnail_url, type, price_type, price 
      FROM products 
-     WHERE visibility = 'public' AND type = 'video'
+     WHERE visibility = 'public' AND type IN ('video', 'course')
      ORDER BY created_at DESC`
   );
   return result.rows;

@@ -37,7 +37,7 @@ const productDropdown: NavDropdown = {
     { label: "Apps", href: "/apps", description: "Premium applications for creators" },
     { label: "Downloads", href: "/downloads", description: "Digital downloads & assets" },
     { label: "Templates", href: "/funnels", description: "Conversion-focused templates" },
-    { label: "Videos", href: "/videos", description: "Video content & tutorials" },
+    { label: "Courses", href: "/courses", description: "Video courses & tutorials" },
     { label: "Freebies", href: "/freebies", description: "Free products & resources" },
   ]
 };
@@ -197,7 +197,7 @@ export function Navbar() {
   };
 
   return (
-    <nav data-global-navbar="true" className="bg-white border-b border-gray-100">
+    <nav data-global-navbar="true" className="relative z-[70] bg-white border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center space-x-8" ref={navRef}>
@@ -230,7 +230,7 @@ export function Navbar() {
                 </button>
                 
                 {openDropdown === "Products" && (
-                  <div className="absolute top-full left-0 pt-2 z-50">
+                  <div className="absolute top-full left-0 pt-2 z-[80]">
                     <div className="bg-white border border-gray-200 rounded-xl shadow-xl min-w-[280px] overflow-hidden">
                       <div className="py-2">
                         {productDropdown.items.map((item) => (
@@ -281,7 +281,7 @@ export function Navbar() {
                   {/* Resources Mega Menu Panel - Separate from trigger for proper hover */}
                   {openDropdown === "Resources" && (
                     <div 
-                      className="fixed left-0 right-0 top-[73px] z-50"
+                      className="fixed left-0 right-0 top-[73px] z-[80]"
                       onMouseEnter={() => handleDropdownEnter("Resources")}
                       onMouseLeave={handleDropdownLeave}
                     >
@@ -402,7 +402,7 @@ export function Navbar() {
               </Button>
               
               {isCartOpen && (
-                <div className="fixed md:absolute right-4 md:right-0 left-4 md:left-auto top-16 md:top-auto mt-2 md:w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                <div className="fixed md:absolute right-4 md:right-0 left-4 md:left-auto top-16 md:top-auto mt-2 md:w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-[80] overflow-hidden">
                   <div className="p-4 border-b border-gray-100">
                     <h3 className="font-semibold text-gray-900">Saved Items</h3>
                     <p className="text-sm text-gray-500">{itemCount} item{itemCount !== 1 ? 's' : ''}</p>
@@ -421,7 +421,7 @@ export function Navbar() {
                           <div key={item.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 border-b border-gray-50">
                             <div className="flex-1 min-w-0">
                               <Link 
-                                href={`/product/${item.slug}`}
+                                href={`/products/${item.slug}`}
                                 className="block text-sm font-medium text-gray-900 truncate hover:text-orange-500"
                                 onClick={() => setIsCartOpen(false)}
                               >

@@ -47,43 +47,8 @@ const nextConfig = {
         permanent: true,
       },
       {
-        source: '/products',
-        destination: '/pricing',
-        permanent: true,
-      },
-      {
         source: '/store/vcm-creation-cloud',
         destination: '/clouds/creation-cloud',
-        permanent: true,
-      },
-      {
-        source: '/product/:slug',
-        destination: '/pricing',
-        permanent: true,
-      },
-      {
-        source: '/products/nudge',
-        destination: '/pricing',
-        permanent: true,
-      },
-      {
-        source: '/products/qrsocial',
-        destination: '/pricing',
-        permanent: true,
-      },
-      {
-        source: '/products/stemly',
-        destination: '/pricing',
-        permanent: true,
-      },
-      {
-        source: '/products/ape',
-        destination: '/pricing',
-        permanent: true,
-      },
-      {
-        source: '/products/cscorecals',
-        destination: '/pricing',
         permanent: true,
       },
       {
