@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  FolderEdit,
-  Globe,
   LogOut,
   Package,
   FileText,
@@ -23,22 +21,22 @@ interface AdminLayoutProps {
 
 const NAV_ITEMS = [
   {
-    href: "/admin/content-manager",
-    label: "Content",
-    icon: FolderEdit,
-    description: "View, edit, and import content",
+    href: "/admin/products",
+    label: "Products",
+    icon: Package,
+    description: "Manage products and pricing",
   },
   {
-    href: "/admin/seo-control",
-    label: "SEO",
-    icon: Globe,
-    description: "Health, indexing, publishing",
+    href: "/admin/blog",
+    label: "Blog",
+    icon: FileText,
+    description: "Publish and edit blog posts",
   },
   {
     href: "/admin/feedback",
     label: "Feedback",
     icon: MessageSquare,
-    description: "Tool requests and user feedback",
+    description: "Issues, bugs, and user feedback",
   },
 ];
 
@@ -144,7 +142,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
-              <Link href="/admin" className="flex items-center gap-2 font-bold text-lg">
+              <Link href="/admin/products" className="flex items-center gap-2 font-bold text-lg">
                 <Package className="w-5 h-5 text-orange-500" />
                 <span className="hidden sm:inline">VCM Admin</span>
               </Link>
@@ -169,19 +167,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 })}
               </nav>
             </div>
-            <div className="flex items-center gap-2 md:gap-4">
-              <Link href="/admin/products" className="hidden sm:block">
-                <Button variant="outline" size="sm">
-                  <Package className="w-4 h-4 mr-2" />
-                  Products
-                </Button>
-              </Link>
-              <Link href="/admin/blog" className="hidden sm:block">
-                <Button variant="outline" size="sm">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Blog
-                </Button>
-              </Link>
+            <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 <LogOut className="w-4 h-4 md:mr-2" />
                 <span className="hidden md:inline">Logout</span>
@@ -215,23 +201,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   </Link>
                 );
               })}
-              <hr className="my-2" />
-              <Link
-                href="/admin/products"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
-              >
-                <Package className="w-5 h-5" />
-                Products
-              </Link>
-              <Link
-                href="/admin/blog"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
-              >
-                <FileText className="w-5 h-5" />
-                Blog
-              </Link>
             </div>
           </div>
         )}

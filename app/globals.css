@@ -23,6 +23,11 @@ body.audio-workstation-immersive [data-floating-tools-panel="true"] {
   display: none !important;
 }
 
+html.audio-workstation-immersive [data-feedback-trigger="true"],
+body.audio-workstation-immersive [data-feedback-trigger="true"] {
+  display: none !important;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

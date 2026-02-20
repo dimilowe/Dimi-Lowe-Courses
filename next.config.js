@@ -102,6 +102,66 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: '/admin/content-manager',
+        destination: '/admin/products',
+        permanent: false,
+      },
+      {
+        source: '/admin/content-factory',
+        destination: '/admin/products',
+        permanent: false,
+      },
+      {
+        source: '/admin/cms-import',
+        destination: '/admin/products',
+        permanent: false,
+      },
+      {
+        source: '/admin/seo-control',
+        destination: '/admin/products',
+        permanent: false,
+      },
+      {
+        source: '/admin/seo-health',
+        destination: '/admin/products',
+        permanent: false,
+      },
+      {
+        source: '/admin/indexing',
+        destination: '/admin/products',
+        permanent: false,
+      },
+      {
+        source: '/admin/ready-to-index',
+        destination: '/admin/products',
+        permanent: false,
+      },
+      {
+        source: '/admin/tools',
+        destination: '/admin/products',
+        permanent: false,
+      },
+      {
+        source: '/admin/engines',
+        destination: '/admin/products',
+        permanent: false,
+      },
+      {
+        source: '/admin/clusters/:path*',
+        destination: '/admin/products',
+        permanent: false,
+      },
+      {
+        source: '/admin/brand-access',
+        destination: '/admin/products',
+        permanent: false,
+      },
+      {
+        source: '/admin/articles/:path*',
+        destination: '/admin/products',
+        permanent: false,
+      },
+      {
         source: '/newsletter/qr-code-monkey-vs-qr-social-which-is-better-for-your-business',
         destination: '/newsletter',
         permanent: true,

@@ -31,6 +31,7 @@ const TYPE_OPTIONS = [
 ];
 
 function formatType(value: string) {
+  if (value === "tool_idea") return "Issues";
   return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
@@ -91,7 +92,7 @@ export default function AdminFeedbackPage() {
               Feedback Inbox
             </h1>
             <p className="text-gray-500 mt-1">
-              Review tool requests, bug reports, and feature feedback from users.
+              Review issues, bug reports, and feature feedback from users.
             </p>
           </div>
           <Button variant="outline" onClick={loadFeedback} disabled={isLoading}>

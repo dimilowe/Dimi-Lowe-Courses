@@ -7,6 +7,8 @@ import { CartProvider } from "@/contexts/CartContext";
 import { AppProvider } from "@/components/providers/AppProvider";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import FloatingToolsButton from "@/components/FloatingToolsButton";
+import SiteFooter from "@/components/SiteFooter";
+import { FeedbackLauncherButton } from "@/components/FeedbackLauncherButton";
 import { getSiteUrl } from "@/lib/site-url";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -95,10 +97,14 @@ export default function RootLayout({
         ) : (
           <CartProvider>
             <AppProvider>
-              <Navbar />
-              <main className="min-h-screen">
-                {children}
-              </main>
+              <div className="min-h-screen flex flex-col">
+                <Navbar />
+                <main className="flex-1">
+                  {children}
+                </main>
+                <SiteFooter />
+              </div>
+              <FeedbackLauncherButton />
               <FeedbackDialog hideTrigger />
               <FloatingToolsButton />
             </AppProvider>

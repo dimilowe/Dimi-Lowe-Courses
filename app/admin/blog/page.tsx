@@ -1,8 +1,9 @@
 import { query } from "@/lib/db";
+import { AdminLayout } from "@/components/admin/admin-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowLeft } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 import { BlogSearchList } from "@/components/BlogSearchList";
 
 export const dynamic = 'force-dynamic';
@@ -31,46 +32,42 @@ export default async function AdminBlogPage() {
   const posts = await getAllBlogPosts();
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6">
-        <Link href="/admin">
-          <Button variant="outline" size="sm">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Admin
-          </Button>
-        </Link>
-      </div>
-
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-4xl font-bold mb-2">Blog Management</h1>
-          <p className="text-muted-foreground">Create and manage your blog posts</p>
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <FileText className="w-6 h-6 text-orange-500" />
+              Blog
+            </h1>
+            <p className="text-gray-500 mt-1">Create and manage your blog posts</p>
+          </div>
+          <Link href="/admin/blog/new">
+            <Button className="bg-orange-500 hover:bg-orange-600 text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              New Post
+            </Button>
+          </Link>
         </div>
-        <Link href="/admin/blog/new">
-          <Button className="bg-orange-500 hover:bg-orange-600 text-black font-bold">
-            <Plus className="w-4 h-4 mr-2" />
-            New Post
-          </Button>
-        </Link>
-      </div>
 
-      {posts.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-lg text-muted-foreground mb-4">
-              No blog posts yet. Create your first post!
-            </p>
-            <Link href="/admin/blog/new">
-              <Button className="bg-orange-500 hover:bg-orange-600 text-black">
-                <Plus className="w-4 h-4 mr-2" />
-                Create First Post
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      ) : (
-        <BlogSearchList posts={posts} />
-      )}
-    </div>
+        {posts.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <p className="text-lg text-muted-foreground mb-4">
+                No blog posts yet. Create your first post!
+              </p>
+              <Link href="/admin/blog/new">
+                <Button className="bg-orange-500 hover:bg-orange-600 text-white">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create First Post
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <BlogSearchList posts={posts} />
+        )}
+      </div>
+    </AdminLayout>
   );
 }
