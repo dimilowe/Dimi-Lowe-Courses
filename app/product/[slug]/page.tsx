@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { query } from "@/lib/db";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ProductRecommendations } from "@/components/product-recommendations";
@@ -8,8 +7,8 @@ import { ClaimButton } from "@/components/claim-button";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import CreatorStack from "@/components/CreatorStack";
 import MonetizationBar from "@/components/MonetizationBar";
-import Link from "next/link";
 import ReactMarkdown from 'react-markdown';
+import { extractOrderBumpMeta } from "@/lib/products/orderBump";
 
 export const dynamic = 'force-dynamic';
 
@@ -26,10 +25,31 @@ interface Product {
   meta: any;
 }
 
+interface OrderBumpProduct {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  price_type: string;
+  price: number;
+  visibility: string;
+}
+
 async function getProduct(slug: string): Promise<Product | null> {
   const result = await query(
     `SELECT * FROM products WHERE slug = $1 AND visibility = 'public'`,
     [slug]
+  );
+  return result.rows[0] || null;
+}
+
+async function getOrderBumpProduct(productId: number): Promise<OrderBumpProduct | null> {
+  const result = await query(
+    `SELECT id, slug, name, description, price_type, price, visibility
+     FROM products
+     WHERE id = $1
+     LIMIT 1`,
+    [productId]
   );
   return result.rows[0] || null;
 }
@@ -43,6 +63,35 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   }
 
   const isFree = product.price_type === "free";
+  const orderBumpMeta = extractOrderBumpMeta(product.meta);
+  let orderBump: {
+    id: string;
+    name: string;
+    price: number;
+    headline?: string;
+    description?: string;
+    cta_label?: string;
+  } | null = null;
+
+  const productId = Number.parseInt(String(product.id), 10);
+  if (orderBumpMeta && Number.isFinite(productId) && orderBumpMeta.product_id !== productId) {
+    const bumpProduct = await getOrderBumpProduct(orderBumpMeta.product_id);
+    if (
+      bumpProduct &&
+      bumpProduct.visibility === "public" &&
+      bumpProduct.price_type !== "free" &&
+      Number(bumpProduct.price) > 0
+    ) {
+      orderBump = {
+        id: String(bumpProduct.id),
+        name: bumpProduct.name,
+        price: Number(bumpProduct.price),
+        headline: orderBumpMeta.headline,
+        description: orderBumpMeta.description || bumpProduct.description || undefined,
+        cta_label: orderBumpMeta.cta_label,
+      };
+    }
+  }
   
   // Convert plain text formatting to markdown
   const formatDescription = (text: string) => {
@@ -126,7 +175,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             </div>
             
             <div className="space-y-3">
-              <ClaimButton product={product} />
+              <ClaimButton product={product} orderBump={orderBump} />
               <AddToCartButton product={product} />
             </div>
           </Card>

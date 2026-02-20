@@ -16,6 +16,15 @@ function getStripeClient() {
   });
 }
 
+function extractPurchasedProductIds(metadata: Record<string, string | undefined>): number[] {
+  const raw = metadata.productIds || metadata.productId || "";
+  const ids = raw
+    .split(",")
+    .map((id) => Number.parseInt(id.trim(), 10))
+    .filter((id) => Number.isFinite(id) && id > 0);
+  return Array.from(new Set(ids));
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { sessionId } = await request.json();
@@ -28,9 +37,13 @@ export async function POST(request: NextRequest) {
     const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId);
     
     const customerEmail = checkoutSession.customer_email || checkoutSession.customer_details?.email;
-    const productId = checkoutSession.metadata?.productId;
+    const metadata = checkoutSession.metadata || {};
+    const purchasedProductIds = extractPurchasedProductIds(metadata);
     const checkoutType = checkoutSession.metadata?.type || checkoutSession.metadata?.checkout_type;
-    const paymentIntentId = checkoutSession.payment_intent;
+    const paymentIntentId =
+      typeof checkoutSession.payment_intent === "string"
+        ? checkoutSession.payment_intent
+        : checkoutSession.payment_intent?.id;
     const amount = checkoutSession.amount_total;
     const { query } = await import("@/lib/db");
     
@@ -59,32 +72,37 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (!productId || !paymentIntentId) {
+    if (purchasedProductIds.length === 0 || !paymentIntentId) {
       return NextResponse.json({ error: "Invalid purchase data" }, { status: 400 });
     }
 
-    // Record the purchase immediately (if not already recorded)
-    const existingPurchase = await query(
-      "SELECT id FROM purchases WHERE stripe_payment_intent_id = $1",
+    const existingPurchaseRows = await query(
+      "SELECT product_id FROM purchases WHERE stripe_payment_intent_id = $1",
       [paymentIntentId]
     );
+    const existingProductIds = new Set(
+      existingPurchaseRows.rows
+        .map((row: { product_id: unknown }) => Number.parseInt(String(row.product_id), 10))
+        .filter((id: number) => Number.isFinite(id))
+    );
 
-    if (existingPurchase.rows.length === 0) {
-      // Check if user exists
-      const userResult = await query(
-        "SELECT id FROM users WHERE email = $1",
-        [customerEmail.toLowerCase().trim()]
-      );
+    // Check if user exists
+    const userResult = await query(
+      "SELECT id FROM users WHERE email = $1",
+      [customerEmail.toLowerCase().trim()]
+    );
 
-      if (userResult.rows.length > 0) {
-        // User exists - record purchase with their ID and grant entitlement
-        const userId = userResult.rows[0].id;
+    if (userResult.rows.length > 0) {
+      const userId = userResult.rows[0].id;
 
-        await query(
-          `INSERT INTO purchases (user_id, product_id, stripe_payment_intent_id, amount, status) 
-           VALUES ($1, $2, $3, $4, $5)`,
-          [userId, productId, paymentIntentId, amount, "completed"]
-        );
+      for (const productId of purchasedProductIds) {
+        if (!existingProductIds.has(productId)) {
+          await query(
+            `INSERT INTO purchases (user_id, product_id, stripe_payment_intent_id, amount, status) 
+             VALUES ($1, $2, $3, $4, $5)`,
+            [userId, productId, paymentIntentId, amount, "completed"]
+          );
+        }
 
         await query(
           `INSERT INTO entitlements (user_id, product_id, source) 
@@ -93,16 +111,15 @@ export async function POST(request: NextRequest) {
           [userId, productId, "purchase"]
         );
 
-        const numericProductId = parseInt(productId, 10);
-        if (Number.isFinite(numericProductId)) {
-          try {
-            await ensureCourseWorkspaceEntryByProductId(userId, numericProductId);
-          } catch (error) {
-            console.error("Failed to create course workspace entry:", error);
-          }
+        try {
+          await ensureCourseWorkspaceEntryByProductId(userId, productId);
+        } catch (error) {
+          console.error("Failed to create course workspace entry:", error);
         }
-      } else {
-        // User doesn't exist - store pending purchase
+      }
+    } else {
+      for (const productId of purchasedProductIds) {
+        if (existingProductIds.has(productId)) continue;
         await query(
           `INSERT INTO purchases (user_id, product_id, stripe_payment_intent_id, amount, status) 
            VALUES ($1, $2, $3, $4, $5)`,

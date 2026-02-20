@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { InlineUploader } from "@/components/inline-uploader";
 import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Package, GripVertical } from "lucide-react";
 import { extractCourseResourceLinks, type CourseResourceLink } from "@/lib/products/courseResourceLinks";
+import { extractOrderBumpMeta } from "@/lib/products/orderBump";
 
 interface Product {
   id: string;
@@ -81,6 +82,12 @@ export default function AdminProductsPage() {
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [priceInput, setPriceInput] = useState("0.00");
   const [baseMeta, setBaseMeta] = useState<Record<string, any>>({});
+  const [orderBumpForm, setOrderBumpForm] = useState({
+    productId: "",
+    headline: "",
+    description: "",
+    ctaLabel: "",
+  });
   
   const [formData, setFormData] = useState({
     slug: "",
@@ -270,6 +277,24 @@ export default function AdminProductsPage() {
         .filter((resource) => resource.label && resource.url);
 
       const nextMeta = { ...baseMeta };
+
+      const orderBumpId = Number.parseInt(orderBumpForm.productId, 10);
+      if (Number.isFinite(orderBumpId) && orderBumpId > 0) {
+        if (editingProduct && Number.parseInt(String(editingProduct.id), 10) === orderBumpId) {
+          alert("Order bump product must be different from the main product.");
+          return;
+        }
+
+        nextMeta.order_bump = {
+          product_id: orderBumpId,
+          ...(orderBumpForm.headline.trim() ? { headline: orderBumpForm.headline.trim() } : {}),
+          ...(orderBumpForm.description.trim() ? { description: orderBumpForm.description.trim() } : {}),
+          ...(orderBumpForm.ctaLabel.trim() ? { cta_label: orderBumpForm.ctaLabel.trim() } : {}),
+        };
+      } else {
+        delete nextMeta.order_bump;
+      }
+
       if (formData.type === "course" || formData.type === "video") {
         if (cleanedResources.length > 0) {
           nextMeta.course_resources = cleanedResources;
@@ -307,6 +332,7 @@ export default function AdminProductsPage() {
 
   const handleEdit = (product: Product) => {
     const normalizedMeta = normalizeMeta(product.meta);
+    const orderBumpMeta = extractOrderBumpMeta(normalizedMeta);
     setEditingProduct(product);
     setFormData({
       slug: product.slug,
@@ -321,6 +347,12 @@ export default function AdminProductsPage() {
       visibility: product.visibility,
     });
     setBaseMeta(normalizedMeta);
+    setOrderBumpForm({
+      productId: orderBumpMeta ? String(orderBumpMeta.product_id) : "",
+      headline: orderBumpMeta?.headline || "",
+      description: orderBumpMeta?.description || "",
+      ctaLabel: orderBumpMeta?.cta_label || "",
+    });
     setCourseResources(extractCourseResourceLinks(normalizedMeta).map(toResourceDraft));
     setResourceUploadError(null);
     setSlugEditedManually(true);
@@ -358,6 +390,12 @@ export default function AdminProductsPage() {
       visibility: "public",
     });
     setBaseMeta({});
+    setOrderBumpForm({
+      productId: "",
+      headline: "",
+      description: "",
+      ctaLabel: "",
+    });
     setCourseResources([]);
     setResourceUploadError(null);
     setIsUploadingResourceFiles(false);
@@ -383,6 +421,18 @@ export default function AdminProductsPage() {
   const paginatedProducts = filteredProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   const isCourseType = formData.type === "course" || formData.type === "video";
   const showExternalUrlField = formData.type === "app" || isCourseType;
+  const currentEditingId = editingProduct ? Number.parseInt(String(editingProduct.id), 10) : null;
+  const orderBumpOptions = products
+    .filter((product) => {
+      const productId = Number.parseInt(String(product.id), 10);
+      if (!Number.isFinite(productId) || productId <= 0) return false;
+      if (currentEditingId && productId === currentEditingId) return false;
+      if (product.price_type === "free") return false;
+      if (Number(product.price) <= 0) return false;
+      if (product.visibility !== "public") return false;
+      return true;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <AdminLayout>
@@ -511,6 +561,51 @@ export default function AdminProductsPage() {
                       }}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Order Bump (Optional)</p>
+                    <p className="text-xs text-gray-600">
+                      Show a one-click add-on offer on this product sales page.
+                    </p>
+                  </div>
+                  <select
+                    className="w-full border rounded px-3 py-2"
+                    value={orderBumpForm.productId}
+                    onChange={(e) => setOrderBumpForm((prev) => ({ ...prev, productId: e.target.value }))}
+                  >
+                    <option value="">No order bump</option>
+                    {orderBumpOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name} - ${(Number(option.price) / 100).toFixed(2)}
+                      </option>
+                    ))}
+                  </select>
+                  {orderBumpOptions.length === 0 && (
+                    <p className="text-xs text-gray-500">
+                      Create at least one paid public product to use as an order bump.
+                    </p>
+                  )}
+
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <Input
+                      placeholder="Order bump headline (optional)"
+                      value={orderBumpForm.headline}
+                      onChange={(e) => setOrderBumpForm((prev) => ({ ...prev, headline: e.target.value }))}
+                    />
+                    <Input
+                      placeholder="Checkbox label (optional)"
+                      value={orderBumpForm.ctaLabel}
+                      onChange={(e) => setOrderBumpForm((prev) => ({ ...prev, ctaLabel: e.target.value }))}
+                    />
+                  </div>
+                  <Textarea
+                    placeholder="Order bump description (optional)"
+                    rows={2}
+                    value={orderBumpForm.description}
+                    onChange={(e) => setOrderBumpForm((prev) => ({ ...prev, description: e.target.value }))}
+                  />
                 </div>
 
                 <div className="space-y-2">

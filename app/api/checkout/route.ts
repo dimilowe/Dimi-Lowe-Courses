@@ -53,9 +53,29 @@ async function getCatalogProductById(productId: number): Promise<CatalogProduct 
   return result.rows[0] || null;
 }
 
+function toCheckoutLineItem(product: CatalogProduct, unitAmountCents: number) {
+  if (product.stripe_price_id && product.stripe_price_id.trim().length > 0) {
+    return {
+      price: product.stripe_price_id,
+      quantity: 1,
+    } as const;
+  }
+
+  return {
+    price_data: {
+      currency: "usd",
+      unit_amount: unitAmountCents,
+      product_data: {
+        name: product.name,
+      },
+    },
+    quantity: 1,
+  } as const;
+}
+
 async function handleCatalogProductCheckout(
   request: NextRequest,
-  body: { productId: string | number }
+  body: { productId: string | number; orderBumpProductId?: string | number | null }
 ) {
   const productIdNum = Number.parseInt(String(body.productId), 10);
   if (!Number.isFinite(productIdNum)) {
@@ -73,36 +93,47 @@ async function handleCatalogProductCheckout(
     return NextResponse.json({ error: "This product is free and does not require checkout." }, { status: 400 });
   }
 
+  const lineItems: Array<ReturnType<typeof toCheckoutLineItem>> = [toCheckoutLineItem(product, unitAmountCents)];
+  const purchasedProductIds = [product.id];
+
+  if (body.orderBumpProductId !== undefined && body.orderBumpProductId !== null && String(body.orderBumpProductId).trim() !== "") {
+    const orderBumpProductId = Number.parseInt(String(body.orderBumpProductId), 10);
+    if (!Number.isFinite(orderBumpProductId)) {
+      return NextResponse.json({ error: "Invalid order bump product ID" }, { status: 400 });
+    }
+
+    if (orderBumpProductId === product.id) {
+      return NextResponse.json({ error: "Order bump product must be different from the main product" }, { status: 400 });
+    }
+
+    const orderBumpProduct = await getCatalogProductById(orderBumpProductId);
+    if (!orderBumpProduct || orderBumpProduct.visibility !== "public") {
+      return NextResponse.json({ error: "Order bump product not found" }, { status: 404 });
+    }
+
+    const orderBumpAmountCents = Math.round(Number(orderBumpProduct.price || 0));
+    if (orderBumpProduct.price_type === "free" || orderBumpAmountCents <= 0) {
+      return NextResponse.json({ error: "Order bump product must be a paid product" }, { status: 400 });
+    }
+
+    lineItems.push(toCheckoutLineItem(orderBumpProduct, orderBumpAmountCents));
+    purchasedProductIds.push(orderBumpProduct.id);
+  }
+
   const stripe = getStripeClient();
   const baseUrl = getBaseUrl(request);
   const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);
   const customerEmail = session.isLoggedIn ? session.email || undefined : undefined;
 
-  const lineItem =
-    product.stripe_price_id && product.stripe_price_id.trim().length > 0
-      ? {
-          price: product.stripe_price_id,
-          quantity: 1,
-        }
-      : {
-          price_data: {
-            currency: "usd",
-            unit_amount: unitAmountCents,
-            product_data: {
-              name: product.name,
-            },
-          },
-          quantity: 1,
-        };
-
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "payment",
-    line_items: [lineItem],
+    line_items: lineItems,
     success_url: `${baseUrl}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}&product=${product.slug}`,
     cancel_url: `${baseUrl}/products/${product.slug}?canceled=true`,
     customer_email: customerEmail,
     metadata: {
       productId: String(product.id),
+      productIds: purchasedProductIds.join(","),
       productSlug: product.slug,
       checkout_type: "product",
     },
