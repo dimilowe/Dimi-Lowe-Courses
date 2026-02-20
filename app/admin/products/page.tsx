@@ -134,7 +134,6 @@ function generateSlug(value: string): string {
 
 function normalizeEditableProductType(type: string): string {
   if (type === "video") return "course";
-  if (type === "invisible") return "app";
   return type;
 }
 
@@ -883,6 +882,7 @@ export default function AdminProductsPage() {
                   >
                     <option value="app">App</option>
                     <option value="course">Course</option>
+                    <option value="invisible">Invisible</option>
                     <option value="download">Download</option>
                     <option value="funnel">Template</option>
                     <option value="freebie">Freebie</option>
