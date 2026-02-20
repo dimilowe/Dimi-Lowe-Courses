@@ -22,6 +22,26 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: '/tools',
+        destination: '/store',
+        permanent: true,
+      },
+      {
+        source: '/tools/:path*',
+        destination: '/store',
+        permanent: true,
+      },
+      {
+        source: '/clouds',
+        destination: '/store',
+        permanent: true,
+      },
+      {
+        source: '/clouds/:path*',
+        destination: '/store',
+        permanent: true,
+      },
+      {
         source: '/shopping/buylens',
         destination: '/tools/buylens',
         permanent: true,

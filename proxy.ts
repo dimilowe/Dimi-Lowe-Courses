@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { normalizePathname } from "@/lib/seo/urlNormalization";
 import { recordApiInvocation } from "@/lib/ops/metrics";
 
-const SUNSET_MODE = true;
+const SUNSET_MODE = false;
 const SUNSET_MESSAGE = "VCM Suite is now closed. Thank you for your support over the years.";
 
 const API_RATE_WINDOW_MS = 10 * 60 * 1000;

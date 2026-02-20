@@ -112,6 +112,8 @@ const resourceCategories: ResourceCategory[] = [
   }
 ];
 
+const SHOW_TOOLS_AND_CLOUDS = false;
+
 export function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -254,112 +256,109 @@ export function Navbar() {
                 )}
               </div>
 
-              {/* Resources Mega Menu */}
-              <div
-                className="relative"
-                onMouseEnter={() => handleDropdownEnter("Resources")}
-                onMouseLeave={handleDropdownLeave}
-              >
-                <button
-                  className={`flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
-                    openDropdown === "Resources" 
-                      ? 'text-orange-500 bg-orange-50' 
-                      : 'text-gray-700 hover:text-orange-500 hover:bg-gray-50'
-                  }`}
-                >
-                  Resources
-                  <ChevronDown className={`h-4 w-4 transition-transform ${
-                    openDropdown === "Resources" ? 'rotate-180' : ''
-                  }`} />
-                </button>
-              </div>
-              
-              {/* Resources Mega Menu Panel - Separate from trigger for proper hover */}
-              {openDropdown === "Resources" && (
-                <div 
-                  className="fixed left-0 right-0 top-[73px] z-50"
-                  onMouseEnter={() => handleDropdownEnter("Resources")}
-                  onMouseLeave={handleDropdownLeave}
-                >
-                  {/* Invisible bridge to connect button to dropdown */}
-                  <div className="absolute -top-4 left-0 right-0 h-4" />
-                  <div className="bg-white border-b border-gray-200 shadow-xl">
-                    <div className="max-w-7xl mx-auto px-6 py-6">
-                      <div className="flex gap-8">
-                        {/* Categories Sidebar */}
-                        <div className="w-48 flex-shrink-0 border-r border-gray-100 pr-6">
-                          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Categories</h3>
-                          <div className="space-y-1">
-                            {resourceCategories.map((category) => (
-                              <button
-                                key={category.name}
-                                className="block w-full text-left px-3 py-2 text-sm text-gray-600 hover:text-orange-500 hover:bg-gray-50 rounded-lg transition-colors"
-                                onClick={() => {
-                                  const element = document.getElementById(`category-${category.name.replace(/\s+/g, '-')}`);
-                                  element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                }}
-                              >
-                                {category.name}
-                              </button>
-                            ))}
-                          </div>
-                          <div className="mt-6 pt-4 border-t border-gray-100">
-                            <Link
-                              href="/tools"
-                              className="flex items-center gap-2 text-sm font-medium text-orange-500 hover:text-orange-600"
-                              onClick={() => setOpenDropdown(null)}
-                            >
-                              Explore All Tools
-                              <ArrowRight className="h-4 w-4" />
-                            </Link>
-                          </div>
-                        </div>
-                        
-                        {/* Tools Grid */}
-                        <div className="flex-1 max-h-[70vh] overflow-y-auto pr-2">
-                          {resourceCategories.map((category) => (
-                            <div key={category.name} id={`category-${category.name.replace(/\s+/g, '-')}`} className="mb-6 last:mb-0">
-                              <h3 className="text-sm font-semibold text-gray-900 mb-3 sticky top-0 bg-white py-1">{category.name}</h3>
-                              <div className="grid grid-cols-3 gap-3">
-                                {category.items.map((item) => {
-                                  const IconComponent = item.icon;
-                                  return (
-                                    <Link
-                                      key={item.href}
-                                      href={item.href}
-                                      className="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:border-orange-200 hover:bg-orange-50/50 transition-all"
-                                      onClick={() => setOpenDropdown(null)}
-                                    >
-                                      <div className={`${item.iconBg} w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0`}>
-                                        <IconComponent className="h-5 w-5 text-white" />
-                                      </div>
-                                      <div className="min-w-0">
-                                        <span className="block text-sm font-medium text-gray-900 group-hover:text-orange-600 transition-colors">
-                                          {item.label}
-                                        </span>
-                                        <span className="block text-xs text-gray-500 mt-0.5 line-clamp-2">
-                                          {item.description}
-                                        </span>
-                                      </div>
-                                    </Link>
-                                  );
-                                })}
+              {SHOW_TOOLS_AND_CLOUDS && (
+                <>
+                  {/* Resources Mega Menu */}
+                  <div
+                    className="relative"
+                    onMouseEnter={() => handleDropdownEnter("Resources")}
+                    onMouseLeave={handleDropdownLeave}
+                  >
+                    <button
+                      className={`flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
+                        openDropdown === "Resources" 
+                          ? 'text-orange-500 bg-orange-50' 
+                          : 'text-gray-700 hover:text-orange-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      Resources
+                      <ChevronDown className={`h-4 w-4 transition-transform ${
+                        openDropdown === "Resources" ? 'rotate-180' : ''
+                      }`} />
+                    </button>
+                  </div>
+                  
+                  {/* Resources Mega Menu Panel - Separate from trigger for proper hover */}
+                  {openDropdown === "Resources" && (
+                    <div 
+                      className="fixed left-0 right-0 top-[73px] z-50"
+                      onMouseEnter={() => handleDropdownEnter("Resources")}
+                      onMouseLeave={handleDropdownLeave}
+                    >
+                      {/* Invisible bridge to connect button to dropdown */}
+                      <div className="absolute -top-4 left-0 right-0 h-4" />
+                      <div className="bg-white border-b border-gray-200 shadow-xl">
+                        <div className="max-w-7xl mx-auto px-6 py-6">
+                          <div className="flex gap-8">
+                            {/* Categories Sidebar */}
+                            <div className="w-48 flex-shrink-0 border-r border-gray-100 pr-6">
+                              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Categories</h3>
+                              <div className="space-y-1">
+                                {resourceCategories.map((category) => (
+                                  <button
+                                    key={category.name}
+                                    className="block w-full text-left px-3 py-2 text-sm text-gray-600 hover:text-orange-500 hover:bg-gray-50 rounded-lg transition-colors"
+                                    onClick={() => {
+                                      const element = document.getElementById(`category-${category.name.replace(/\s+/g, '-')}`);
+                                      element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    }}
+                                  >
+                                    {category.name}
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="mt-6 pt-4 border-t border-gray-100">
+                                <Link
+                                  href="/tools"
+                                  className="flex items-center gap-2 text-sm font-medium text-orange-500 hover:text-orange-600"
+                                  onClick={() => setOpenDropdown(null)}
+                                >
+                                  Explore All Tools
+                                  <ArrowRight className="h-4 w-4" />
+                                </Link>
                               </div>
                             </div>
-                          ))}
+                            
+                            {/* Tools Grid */}
+                            <div className="flex-1 max-h-[70vh] overflow-y-auto pr-2">
+                              {resourceCategories.map((category) => (
+                                <div key={category.name} id={`category-${category.name.replace(/\s+/g, '-')}`} className="mb-6 last:mb-0">
+                                  <h3 className="text-sm font-semibold text-gray-900 mb-3 sticky top-0 bg-white py-1">{category.name}</h3>
+                                  <div className="grid grid-cols-3 gap-3">
+                                    {category.items.map((item) => {
+                                      const IconComponent = item.icon;
+                                      return (
+                                        <Link
+                                          key={item.href}
+                                          href={item.href}
+                                          className="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:border-orange-200 hover:bg-orange-50/50 transition-all"
+                                          onClick={() => setOpenDropdown(null)}
+                                        >
+                                          <div className={`${item.iconBg} w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                                            <IconComponent className="h-5 w-5 text-white" />
+                                          </div>
+                                          <div className="min-w-0">
+                                            <span className="block text-sm font-medium text-gray-900 group-hover:text-orange-600 transition-colors">
+                                              {item.label}
+                                            </span>
+                                            <span className="block text-xs text-gray-500 mt-0.5 line-clamp-2">
+                                              {item.description}
+                                            </span>
+                                          </div>
+                                        </Link>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
+                  )}
+                </>
               )}
-              
-              <Link 
-                href="/workstations" 
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-orange-500 hover:bg-gray-50 transition-colors rounded-lg"
-              >
-                Workstations
-              </Link>
               
               <Link 
                 href="/newsletter" 
@@ -371,15 +370,17 @@ export function Navbar() {
           </div>
           
           <div className="flex items-center space-x-3">
-            <div className="hidden md:inline-flex">
-              <Button
-                type="button"
-                className="bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg px-4"
-                onClick={handleRequestToolClick}
-              >
-                Request a Tool
-              </Button>
-            </div>
+            {SHOW_TOOLS_AND_CLOUDS && (
+              <div className="hidden md:inline-flex">
+                <Button
+                  type="button"
+                  className="bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg px-4"
+                  onClick={handleRequestToolClick}
+                >
+                  Request a Tool
+                </Button>
+              </div>
+            )}
 
             <div className="hidden sm:block">
               <GoogleTranslate />
@@ -602,77 +603,70 @@ export function Navbar() {
               )}
             </div>
 
-            {/* Resources Dropdown */}
-            <div>
-              <button
-                onClick={() => setMobileOpenDropdown(
-                  mobileOpenDropdown === "Resources" ? null : "Resources"
-                )}
-                className="flex items-center justify-between w-full text-sm font-medium py-3 text-gray-700"
-              >
-                Resources
-                <ChevronDown className={`h-4 w-4 transition-transform ${
-                  mobileOpenDropdown === "Resources" ? 'rotate-180' : ''
-                }`} />
-              </button>
-              
-              {mobileOpenDropdown === "Resources" && (
-                <div className="pl-2 pb-2 space-y-4 max-h-[60vh] overflow-y-auto">
-                  {resourceCategories.map((category) => (
-                    <div key={category.name}>
-                      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">{category.name}</h4>
-                      <div className="space-y-1">
-                        {category.items.map((item) => {
-                          const IconComponent = item.icon;
-                          return (
-                            <Link
-                              key={item.href}
-                              href={item.href}
-                              className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-50 transition-colors"
-                              onClick={() => {
-                                setIsMobileMenuOpen(false);
-                                setMobileOpenDropdown(null);
-                              }}
-                            >
-                              <div className={`${item.iconBg} w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0`}>
-                                <IconComponent className="h-4 w-4 text-white" />
-                              </div>
-                              <div>
-                                <span className="block text-sm font-medium text-gray-700">
-                                  {item.label}
-                                </span>
-                                <span className="block text-xs text-gray-400">
-                                  {item.description}
-                                </span>
-                              </div>
-                            </Link>
-                          );
-                        })}
+            {SHOW_TOOLS_AND_CLOUDS && (
+              <div>
+                <button
+                  onClick={() => setMobileOpenDropdown(
+                    mobileOpenDropdown === "Resources" ? null : "Resources"
+                  )}
+                  className="flex items-center justify-between w-full text-sm font-medium py-3 text-gray-700"
+                >
+                  Resources
+                  <ChevronDown className={`h-4 w-4 transition-transform ${
+                    mobileOpenDropdown === "Resources" ? 'rotate-180' : ''
+                  }`} />
+                </button>
+                
+                {mobileOpenDropdown === "Resources" && (
+                  <div className="pl-2 pb-2 space-y-4 max-h-[60vh] overflow-y-auto">
+                    {resourceCategories.map((category) => (
+                      <div key={category.name}>
+                        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">{category.name}</h4>
+                        <div className="space-y-1">
+                          {category.items.map((item) => {
+                            const IconComponent = item.icon;
+                            return (
+                              <Link
+                                key={item.href}
+                                href={item.href}
+                                className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-50 transition-colors"
+                                onClick={() => {
+                                  setIsMobileMenuOpen(false);
+                                  setMobileOpenDropdown(null);
+                                }}
+                              >
+                                <div className={`${item.iconBg} w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                                  <IconComponent className="h-4 w-4 text-white" />
+                                </div>
+                                <div>
+                                  <span className="block text-sm font-medium text-gray-700">
+                                    {item.label}
+                                  </span>
+                                  <span className="block text-xs text-gray-400">
+                                    {item.description}
+                                  </span>
+                                </div>
+                              </Link>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  <Link
-                    href="/tools"
-                    className="flex items-center gap-2 px-2 py-3 text-sm font-medium text-orange-500"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      setMobileOpenDropdown(null);
-                    }}
-                  >
-                    Explore All Tools
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </div>
-              )}
-            </div>
-            
-            <Link 
-              href="/workstations" 
-              className="block text-sm font-medium py-3 text-gray-700 hover:text-orange-500 transition-colors"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Workstations
-            </Link>
+                    ))}
+                    <Link
+                      href="/tools"
+                      className="flex items-center gap-2 px-2 py-3 text-sm font-medium text-orange-500"
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        setMobileOpenDropdown(null);
+                      }}
+                    >
+                      Explore All Tools
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
             
             <Link 
               href="/newsletter" 
@@ -682,13 +676,15 @@ export function Navbar() {
               Magazine
             </Link>
 
-            <button
-              type="button"
-              className="block text-sm font-medium py-3 text-orange-600 hover:text-orange-700 transition-colors"
-              onClick={handleRequestToolClick}
-            >
-              Request a Tool
-            </button>
+            {SHOW_TOOLS_AND_CLOUDS && (
+              <button
+                type="button"
+                className="block text-sm font-medium py-3 text-orange-600 hover:text-orange-700 transition-colors"
+                onClick={handleRequestToolClick}
+              >
+                Request a Tool
+              </button>
+            )}
           </div>
         </div>
       )}

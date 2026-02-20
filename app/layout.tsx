@@ -4,24 +4,24 @@ import Script from "next/script";
 import "./globals.css";
 import { Navbar } from "@/components/navbar";
 import { CartProvider } from "@/contexts/CartContext";
-import FloatingToolsButton from "@/components/FloatingToolsButton";
 import { AppProvider } from "@/components/providers/AppProvider";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
+import FloatingToolsButton from "@/components/FloatingToolsButton";
 import { getSiteUrl } from "@/lib/site-url";
 
 const inter = Inter({ subsets: ["latin"] });
-const SUNSET_MODE = true;
+const SUNSET_MODE = false;
 
 export const metadata: Metadata = {
-  title: "VCM Suite - Free Tools & Resources for Creators",
-  description: "Free tools and resources to help creators grow, engage, and monetize their creative business.",
+  title: "VCM Suite - Creator Store",
+  description: "Apps, downloads, templates, and creator resources from VCM Suite.",
   metadataBase: new URL(getSiteUrl()),
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "VCM Suite - Free Tools & Resources for Creators",
-    description: "Free tools and resources to help creators grow, engage, and monetize their creative business.",
+    title: "VCM Suite - Creator Store",
+    description: "Apps, downloads, templates, and creator resources from VCM Suite.",
     url: "/",
     siteName: "VCM Suite",
     type: "website",
