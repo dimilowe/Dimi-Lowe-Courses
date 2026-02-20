@@ -9,10 +9,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { InlineUploader } from "@/components/inline-uploader";
-import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Package, GripVertical } from "lucide-react";
+import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Package, GripVertical, Wand2 } from "lucide-react";
 import { extractCourseResourceLinks, type CourseResourceLink } from "@/lib/products/courseResourceLinks";
 import { extractOrderBumpMeta } from "@/lib/products/orderBump";
 import { extractPostPurchaseOffersMeta } from "@/lib/products/postPurchaseOffers";
+import {
+  extractSalesPageMeta,
+  type SalesPageFaqItem,
+  type SalesPagePainPoint,
+  type SalesPageStep,
+  type SalesPageTemplateId,
+} from "@/lib/products/salesPageTemplate";
 
 interface Product {
   id: string;
@@ -35,8 +42,65 @@ interface CourseResourceDraft {
   url: string;
 }
 
+interface SalesPageFormState {
+  templateId: SalesPageTemplateId;
+  heroHeadline: string;
+  heroSubheadline: string;
+  heroSupportingText: string;
+  heroImageUrl: string;
+  promisePointsText: string;
+  featureBulletsText: string;
+  faqText: string;
+  guaranteeText: string;
+  primaryColor: string;
+  accentColor: string;
+  surfaceColor: string;
+  textColor: string;
+  mutedTextColor: string;
+  painPointCards: SalesPagePainPoint[];
+  stepCards: SalesPageStep[];
+}
+
 function makeResourceId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function makeStepLabel(index: number): string {
+  if (index === 0) return "Step One";
+  if (index === 1) return "Step Two";
+  if (index === 2) return "Step Three";
+  return `Step ${index + 1}`;
+}
+
+function normalizePainPointCards(value: SalesPagePainPoint[] | undefined): SalesPagePainPoint[] {
+  const source = Array.isArray(value) ? value.slice(0, 3) : [];
+  const normalized = source.map((item) => ({
+    title: (item.title || "").trim(),
+    problem: (item.problem || "").trim(),
+    solution: (item.solution || "").trim() || undefined,
+  }));
+  while (normalized.length < 3) {
+    normalized.push({ title: "", problem: "", solution: "" });
+  }
+  return normalized;
+}
+
+function normalizeStepCards(value: SalesPageStep[] | undefined): SalesPageStep[] {
+  const source = Array.isArray(value) ? value.slice(0, 3) : [];
+  const normalized = source.map((item, idx) => ({
+    label: (item.label || makeStepLabel(idx)).trim(),
+    title: (item.title || "").trim(),
+    description: (item.description || "").trim(),
+  }));
+  while (normalized.length < 3) {
+    const nextIndex = normalized.length;
+    normalized.push({
+      label: makeStepLabel(nextIndex),
+      title: "",
+      description: "",
+    });
+  }
+  return normalized;
 }
 
 function normalizeMeta(meta: unknown): Record<string, any> {
@@ -88,6 +152,46 @@ function inferResourceLabelFromUrl(url: string): string {
   }
 }
 
+function toLineList(value: string): string[] {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function toLineText(value: string[] | undefined): string {
+  if (!value || value.length === 0) return "";
+  return value.join("\n");
+}
+
+function parseFaqText(value: string): SalesPageFaqItem[] {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [questionPart, ...answerParts] = line.split("|");
+      const question = questionPart?.trim() || "";
+      const answer = answerParts.join("|").trim();
+      if (!question || !answer) return null;
+      return { question, answer };
+    })
+    .filter((item): item is SalesPageFaqItem => Boolean(item));
+}
+
+function faqTextFromItems(items: SalesPageFaqItem[] | undefined): string {
+  if (!items || items.length === 0) return "";
+  return items.map((item) => `${item.question} | ${item.answer}`).join("\n");
+}
+
+const DEFAULT_SALES_PAGE_COLORS = {
+  primaryColor: "#f97316",
+  accentColor: "#7c2d12",
+  surfaceColor: "#fff7ed",
+  textColor: "#111827",
+  mutedTextColor: "#4b5563",
+};
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -120,7 +224,25 @@ export default function AdminProductsPage() {
     downsellDescription: "",
     downsellCtaLabel: "",
   });
-  
+  const [salesPageForm, setSalesPageForm] = useState<SalesPageFormState>({
+    templateId: "default",
+    heroHeadline: "",
+    heroSubheadline: "",
+    heroSupportingText: "",
+    heroImageUrl: "",
+    promisePointsText: "",
+    featureBulletsText: "",
+    faqText: "",
+    guaranteeText: "",
+    primaryColor: DEFAULT_SALES_PAGE_COLORS.primaryColor,
+    accentColor: DEFAULT_SALES_PAGE_COLORS.accentColor,
+    surfaceColor: DEFAULT_SALES_PAGE_COLORS.surfaceColor,
+    textColor: DEFAULT_SALES_PAGE_COLORS.textColor,
+    mutedTextColor: DEFAULT_SALES_PAGE_COLORS.mutedTextColor,
+    painPointCards: normalizePainPointCards(undefined),
+    stepCards: normalizeStepCards(undefined),
+  });
+
   const [formData, setFormData] = useState({
     slug: "",
     name: "",
@@ -371,6 +493,60 @@ export default function AdminProductsPage() {
         delete nextMeta.post_purchase_offers;
       }
 
+      if (salesPageForm.templateId === "longform_offer_v1") {
+        const promisePoints = toLineList(salesPageForm.promisePointsText);
+        const featureBullets = toLineList(salesPageForm.featureBulletsText);
+        const faqItems = parseFaqText(salesPageForm.faqText);
+        const painPoints = salesPageForm.painPointCards
+          .map((item) => ({
+            title: item.title.trim(),
+            problem: item.problem.trim(),
+            solution: (item.solution || "").trim(),
+          }))
+          .filter((item) => item.title && item.problem)
+          .map((item) => ({
+            title: item.title,
+            problem: item.problem,
+            ...(item.solution ? { solution: item.solution } : {}),
+          }));
+        const steps = salesPageForm.stepCards
+          .map((item, idx) => ({
+            label: (item.label || makeStepLabel(idx)).trim(),
+            title: item.title.trim(),
+            description: item.description.trim(),
+          }))
+          .filter((item) => item.title && item.description);
+
+        nextMeta.sales_page = {
+          template_id: "longform_offer_v1",
+          ...(salesPageForm.heroHeadline.trim() ? { hero_headline: salesPageForm.heroHeadline.trim() } : {}),
+          ...(salesPageForm.heroSubheadline.trim()
+            ? { hero_subheadline: salesPageForm.heroSubheadline.trim() }
+            : {}),
+          ...(salesPageForm.heroSupportingText.trim()
+            ? { hero_supporting_text: salesPageForm.heroSupportingText.trim() }
+            : {}),
+          ...(salesPageForm.heroImageUrl.trim() ? { hero_image_url: salesPageForm.heroImageUrl.trim() } : {}),
+          ...(promisePoints.length > 0 ? { promise_points: promisePoints } : {}),
+          ...(painPoints.length > 0 ? { pain_points: painPoints } : {}),
+          ...(steps.length > 0 ? { steps } : {}),
+          ...(featureBullets.length > 0 ? { feature_bullets: featureBullets } : {}),
+          ...(faqItems.length > 0 ? { faq: faqItems } : {}),
+          ...(salesPageForm.guaranteeText.trim()
+            ? { guarantee_text: salesPageForm.guaranteeText.trim() }
+            : {}),
+          theme: {
+            primary_color: salesPageForm.primaryColor,
+            accent_color: salesPageForm.accentColor,
+            surface_color: salesPageForm.surfaceColor,
+            text_color: salesPageForm.textColor,
+            muted_text_color: salesPageForm.mutedTextColor,
+          },
+        };
+      } else {
+        delete nextMeta.sales_page;
+      }
+
       if (cleanedResources.length > 0) {
         nextMeta.course_resources = cleanedResources;
       } else {
@@ -409,6 +585,7 @@ export default function AdminProductsPage() {
     const normalizedMeta = normalizeMeta(product.meta);
     const orderBumpMeta = extractOrderBumpMeta(normalizedMeta);
     const postPurchaseOffersMeta = extractPostPurchaseOffersMeta(normalizedMeta);
+    const salesPageMeta = extractSalesPageMeta(normalizedMeta);
     setEditingProduct(product);
     setFormData({
       slug: product.slug,
@@ -442,6 +619,24 @@ export default function AdminProductsPage() {
       downsellHeadline: postPurchaseOffersMeta?.downsell_headline || "",
       downsellDescription: postPurchaseOffersMeta?.downsell_description || "",
       downsellCtaLabel: postPurchaseOffersMeta?.downsell_cta_label || "",
+    });
+    setSalesPageForm({
+      templateId: salesPageMeta?.template_id || "default",
+      heroHeadline: salesPageMeta?.hero_headline || "",
+      heroSubheadline: salesPageMeta?.hero_subheadline || "",
+      heroSupportingText: salesPageMeta?.hero_supporting_text || "",
+      heroImageUrl: salesPageMeta?.hero_image_url || "",
+      promisePointsText: toLineText(salesPageMeta?.promise_points),
+      featureBulletsText: toLineText(salesPageMeta?.feature_bullets),
+      faqText: faqTextFromItems(salesPageMeta?.faq),
+      guaranteeText: salesPageMeta?.guarantee_text || "",
+      primaryColor: salesPageMeta?.theme?.primary_color || DEFAULT_SALES_PAGE_COLORS.primaryColor,
+      accentColor: salesPageMeta?.theme?.accent_color || DEFAULT_SALES_PAGE_COLORS.accentColor,
+      surfaceColor: salesPageMeta?.theme?.surface_color || DEFAULT_SALES_PAGE_COLORS.surfaceColor,
+      textColor: salesPageMeta?.theme?.text_color || DEFAULT_SALES_PAGE_COLORS.textColor,
+      mutedTextColor: salesPageMeta?.theme?.muted_text_color || DEFAULT_SALES_PAGE_COLORS.mutedTextColor,
+      painPointCards: normalizePainPointCards(salesPageMeta?.pain_points),
+      stepCards: normalizeStepCards(salesPageMeta?.steps),
     });
     const extractedResources = extractCourseResourceLinks(normalizedMeta).map(toResourceDraft);
     if (extractedResources.length === 0 && product.download_url) {
@@ -503,6 +698,24 @@ export default function AdminProductsPage() {
       downsellHeadline: "",
       downsellDescription: "",
       downsellCtaLabel: "",
+    });
+    setSalesPageForm({
+      templateId: "default",
+      heroHeadline: "",
+      heroSubheadline: "",
+      heroSupportingText: "",
+      heroImageUrl: "",
+      promisePointsText: "",
+      featureBulletsText: "",
+      faqText: "",
+      guaranteeText: "",
+      primaryColor: DEFAULT_SALES_PAGE_COLORS.primaryColor,
+      accentColor: DEFAULT_SALES_PAGE_COLORS.accentColor,
+      surfaceColor: DEFAULT_SALES_PAGE_COLORS.surfaceColor,
+      textColor: DEFAULT_SALES_PAGE_COLORS.textColor,
+      mutedTextColor: DEFAULT_SALES_PAGE_COLORS.mutedTextColor,
+      painPointCards: normalizePainPointCards(undefined),
+      stepCards: normalizeStepCards(undefined),
     });
     setCourseResources([]);
     setResourceUploadError(null);
@@ -619,6 +832,48 @@ export default function AdminProductsPage() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
                 />
+
+                <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Sales Page Template</p>
+                    <p className="text-xs text-gray-600">
+                      Choose how the product sales page is rendered.
+                    </p>
+                  </div>
+                  <select
+                    className="w-full border rounded px-3 py-2"
+                    value={salesPageForm.templateId}
+                    onChange={(e) => {
+                      const nextTemplate = (e.target.value as SalesPageTemplateId) || "default";
+                      setSalesPageForm((prev) => ({
+                        ...prev,
+                        templateId: nextTemplate,
+                      }));
+                    }}
+                  >
+                    <option value="default">Default (Simple)</option>
+                    <option value="longform_offer_v1">Long-form Offer v1</option>
+                  </select>
+
+                  {salesPageForm.templateId === "longform_offer_v1" && (
+                    <div className="rounded-md border border-gray-200 bg-white p-3">
+                      <p className="text-sm text-gray-700">
+                        Live visual editing is now in the dedicated builder.
+                      </p>
+                      {editingProduct ? (
+                        <Button type="button" variant="outline" className="mt-2" asChild>
+                          <Link href={`/admin/products/${editingProduct.id}/builder`}>
+                            Open Sales Builder
+                          </Link>
+                        </Button>
+                      ) : (
+                        <p className="mt-2 text-xs text-gray-500">
+                          Create this product first, then open its builder from the product card.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 <div className="grid md:grid-cols-3 gap-4">
                   <select
@@ -1002,6 +1257,11 @@ export default function AdminProductsPage() {
                 <div className="flex gap-2">
                   <Button onClick={() => handleEdit(product)} variant="outline" size="sm">
                     <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/admin/products/${product.id}/builder`}>
+                      <Wand2 className="h-4 w-4" />
+                    </Link>
                   </Button>
                   <Button onClick={() => handleDelete(product.id)} variant="destructive" size="sm">
                     <Trash2 className="h-4 w-4" />
