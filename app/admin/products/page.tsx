@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, type DragEvent } from "react";
+import Link from "next/link";
 import { AdminLayout } from "@/components/admin/admin-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +66,26 @@ function generateSlug(value: string): string {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function normalizeEditableProductType(type: string): string {
+  if (type === "video") return "course";
+  if (type === "invisible") return "app";
+  return type;
+}
+
+function inferResourceLabelFromUrl(url: string): string {
+  if (!url) return "Download file";
+  try {
+    const parsed = new URL(url, "http://localhost");
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const fileName = parts[parts.length - 1];
+    if (!fileName) return "Download file";
+    const normalized = decodeURIComponent(fileName).replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ").trim();
+    return normalized || "Download file";
+  } catch {
+    return "Download file";
+  }
 }
 
 export default function AdminProductsPage() {
@@ -350,19 +371,18 @@ export default function AdminProductsPage() {
         delete nextMeta.post_purchase_offers;
       }
 
-      if (formData.type === "course" || formData.type === "video") {
-        if (cleanedResources.length > 0) {
-          nextMeta.course_resources = cleanedResources;
-        } else {
-          delete nextMeta.course_resources;
-        }
+      if (cleanedResources.length > 0) {
+        nextMeta.course_resources = cleanedResources;
       } else {
         delete nextMeta.course_resources;
       }
 
+      const primaryDownloadUrl = cleanedResources[0]?.url || "";
+
       const payload = {
         ...formData,
         price: formData.price_type === "free" ? 0 : formData.price,
+        download_url: primaryDownloadUrl || null,
         meta: Object.keys(nextMeta).length > 0 ? nextMeta : null,
       };
 
@@ -394,7 +414,7 @@ export default function AdminProductsPage() {
       slug: product.slug,
       name: product.name,
       description: product.description,
-      type: product.type,
+      type: normalizeEditableProductType(product.type),
       price_type: product.price_type,
       price: Math.round(parseFloat(product.price as any)),
       thumbnail_url: product.thumbnail_url || "",
@@ -423,7 +443,15 @@ export default function AdminProductsPage() {
       downsellDescription: postPurchaseOffersMeta?.downsell_description || "",
       downsellCtaLabel: postPurchaseOffersMeta?.downsell_cta_label || "",
     });
-    setCourseResources(extractCourseResourceLinks(normalizedMeta).map(toResourceDraft));
+    const extractedResources = extractCourseResourceLinks(normalizedMeta).map(toResourceDraft);
+    if (extractedResources.length === 0 && product.download_url) {
+      extractedResources.push({
+        id: makeResourceId(),
+        label: inferResourceLabelFromUrl(product.download_url),
+        url: product.download_url,
+      });
+    }
+    setCourseResources(extractedResources);
     setResourceUploadError(null);
     setSlugEditedManually(true);
     setPriceInput((product.price / 100).toFixed(2));
@@ -600,11 +628,9 @@ export default function AdminProductsPage() {
                   >
                     <option value="app">App</option>
                     <option value="course">Course</option>
-                    <option value="video">Video (Legacy)</option>
                     <option value="download">Download</option>
                     <option value="funnel">Template</option>
                     <option value="freebie">Freebie</option>
-                    <option value="invisible">Invisible</option>
                   </select>
 
                   <select
@@ -829,122 +855,102 @@ export default function AdminProductsPage() {
                   </div>
                 )}
 
-                {!isCourseType && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Download File</label>
-                    <InlineUploader
-                      onUpload={async (file) => {
-                        const url = await handleFileUpload(file);
-                        setFormData({ ...formData, download_url: url });
-                        return url;
-                      }}
-                      maxSize={524288000}
-                      currentUrl={formData.download_url}
-                      onRemove={() => setFormData({ ...formData, download_url: "" })}
-                      placeholder="Drop your file here or click to browse"
-                      showPreview={false}
-                    />
+                <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Product Files (Multi-file)</p>
+                      <p className="text-xs text-gray-600">
+                        Add multiple downloadable files/links, then drag to reorder. The first file is used as the main download button.
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        ref={resourceFilesInputRef}
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => void handleCourseResourceFilesUpload(e.target.files)}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => resourceFilesInputRef.current?.click()}
+                        disabled={isUploadingResourceFiles}
+                      >
+                        {isUploadingResourceFiles ? "Uploading..." : "Upload Files"}
+                      </Button>
+                      <Button type="button" variant="outline" onClick={addEmptyCourseResource}>
+                        Add Link
+                      </Button>
+                    </div>
                   </div>
-                )}
 
-                {isCourseType && (
-                  <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">Course Resources (Multi-file)</p>
-                        <p className="text-xs text-gray-600">
-                          Add multiple downloadable files/links, then drag to reorder. This order appears on the student course page.
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          ref={resourceFilesInputRef}
-                          type="file"
-                          multiple
-                          className="hidden"
-                          onChange={(e) => void handleCourseResourceFilesUpload(e.target.files)}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => resourceFilesInputRef.current?.click()}
-                          disabled={isUploadingResourceFiles}
+                  <div
+                    onDragOver={handleResourceFilesDragOver}
+                    onDragLeave={handleResourceFilesDragLeave}
+                    onDrop={handleResourceFilesDrop}
+                    onClick={() => resourceFilesInputRef.current?.click()}
+                    className={`rounded-md border-2 border-dashed px-4 py-6 text-center cursor-pointer transition-colors ${
+                      isResourceDropActive
+                        ? "border-orange-500 bg-orange-100/70"
+                        : "border-orange-300 bg-white hover:bg-orange-50"
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-gray-800">
+                      Drag and drop multiple files here
+                    </p>
+                    <p className="mt-1 text-xs text-gray-600">
+                      or click to browse and select multiple files
+                    </p>
+                  </div>
+
+                  {resourceUploadError && (
+                    <p className="text-xs text-red-600">{resourceUploadError}</p>
+                  )}
+
+                  {courseResources.length === 0 ? (
+                    <p className="text-xs text-gray-500">
+                      No files yet. Upload files or add direct links.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {courseResources.map((resource) => (
+                        <div
+                          key={resource.id}
+                          className={`grid gap-2 md:grid-cols-[auto_1fr_2fr_auto] ${
+                            draggingResourceId === resource.id ? "opacity-60" : ""
+                          }`}
+                          onDragOver={handleResourceDragOver}
+                          onDrop={(event) => handleResourceDrop(event, resource.id)}
                         >
-                          {isUploadingResourceFiles ? "Uploading..." : "Upload Files"}
-                        </Button>
-                        <Button type="button" variant="outline" onClick={addEmptyCourseResource}>
-                          Add Link
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div
-                      onDragOver={handleResourceFilesDragOver}
-                      onDragLeave={handleResourceFilesDragLeave}
-                      onDrop={handleResourceFilesDrop}
-                      onClick={() => resourceFilesInputRef.current?.click()}
-                      className={`rounded-md border-2 border-dashed px-4 py-6 text-center cursor-pointer transition-colors ${
-                        isResourceDropActive
-                          ? "border-orange-500 bg-orange-100/70"
-                          : "border-orange-300 bg-white hover:bg-orange-50"
-                      }`}
-                    >
-                      <p className="text-sm font-medium text-gray-800">
-                        Drag and drop multiple files here
-                      </p>
-                      <p className="mt-1 text-xs text-gray-600">
-                        or click to browse and select multiple files
-                      </p>
-                    </div>
-
-                    {resourceUploadError && (
-                      <p className="text-xs text-red-600">{resourceUploadError}</p>
-                    )}
-
-                    {courseResources.length === 0 ? (
-                      <p className="text-xs text-gray-500">
-                        No extra resource files yet. Upload files or add direct links.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {courseResources.map((resource) => (
-                          <div
-                            key={resource.id}
-                            className={`grid gap-2 md:grid-cols-[auto_1fr_2fr_auto] ${
-                              draggingResourceId === resource.id ? "opacity-60" : ""
-                            }`}
-                            onDragOver={handleResourceDragOver}
-                            onDrop={(event) => handleResourceDrop(event, resource.id)}
+                          <button
+                            type="button"
+                            draggable
+                            onDragStart={(event) => handleResourceDragStart(event, resource.id)}
+                            onDragEnd={handleResourceDragEnd}
+                            className="flex items-center justify-center rounded border border-gray-200 bg-white px-2 text-gray-500 cursor-grab active:cursor-grabbing"
+                            title="Drag to reorder"
                           >
-                            <button
-                              type="button"
-                              draggable
-                              onDragStart={(event) => handleResourceDragStart(event, resource.id)}
-                              onDragEnd={handleResourceDragEnd}
-                              className="flex items-center justify-center rounded border border-gray-200 bg-white px-2 text-gray-500 cursor-grab active:cursor-grabbing"
-                              title="Drag to reorder"
-                            >
-                              <GripVertical className="h-4 w-4" />
-                            </button>
-                            <Input
-                              placeholder="Resource name"
-                              value={resource.label}
-                              onChange={(e) => upsertCourseResource(resource.id, "label", e.target.value)}
-                            />
-                            <Input
-                              placeholder="https://...resource-file.zip"
-                              value={resource.url}
-                              onChange={(e) => upsertCourseResource(resource.id, "url", e.target.value)}
-                            />
-                            <Button type="button" variant="ghost" onClick={() => removeCourseResource(resource.id)}>
-                              Remove
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                            <GripVertical className="h-4 w-4" />
+                          </button>
+                          <Input
+                            placeholder="Resource name"
+                            value={resource.label}
+                            onChange={(e) => upsertCourseResource(resource.id, "label", e.target.value)}
+                          />
+                          <Input
+                            placeholder="https://...resource-file.zip or /api/files/..."
+                            value={resource.url}
+                            onChange={(e) => upsertCourseResource(resource.id, "url", e.target.value)}
+                          />
+                          <Button type="button" variant="ghost" onClick={() => removeCourseResource(resource.id)}>
+                            Remove
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex gap-2">
                   <Button type="submit" className="bg-orange-500 hover:bg-orange-600">
@@ -972,7 +978,16 @@ export default function AdminProductsPage() {
                     />
                   </div>
                 )}
-                <CardTitle className="text-lg">{product.name}</CardTitle>
+                <CardTitle className="text-lg">
+                  <Link
+                    href={`/products/${product.slug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:text-orange-600 hover:underline"
+                  >
+                    {product.name}
+                  </Link>
+                </CardTitle>
                 <div className="flex gap-2 mt-2">
                   <Badge variant="outline">{product.type}</Badge>
                   <Badge variant="secondary">

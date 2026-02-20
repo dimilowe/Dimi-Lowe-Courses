@@ -11,7 +11,9 @@ function toCleanString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function isHttpUrl(value: string): boolean {
+function isValidResourceUrl(value: string): boolean {
+  if (value.startsWith("/")) return true;
+
   try {
     const parsed = new URL(value);
     return parsed.protocol === "http:" || parsed.protocol === "https:";
@@ -40,7 +42,7 @@ export function extractCourseResourceLinks(meta: unknown): CourseResourceLink[] 
     if (!isRecord(item)) continue;
     const label = toCleanString(item.label);
     const url = toCleanString(item.url);
-    if (!label || !url || !isHttpUrl(url)) continue;
+    if (!label || !url || !isValidResourceUrl(url)) continue;
     resources.push({ label, url });
   }
 
