@@ -115,7 +115,16 @@ export default async function CoursePage({
     redirect("/store");
   }
 
-  const courseWorkspaceItemId = await ensureCourseWorkspaceEntryBySlug(session.userId, course.slug);
+  let courseWorkspaceItemId: string | null = null;
+  try {
+    courseWorkspaceItemId = await ensureCourseWorkspaceEntryBySlug(session.userId, course.slug);
+  } catch (error) {
+    console.error("[courses] Failed to ensure course workspace entry", {
+      slug: course.slug,
+      userId: session.userId,
+      error,
+    });
+  }
   const workspaceHref = courseWorkspaceItemId
     ? `/workspace/${courseWorkspaceItemId}`
     : `/workspace?q=${encodeURIComponent(course.slug)}`;
