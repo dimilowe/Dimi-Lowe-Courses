@@ -2,6 +2,7 @@ import { query } from "@/lib/db";
 import { ProductCard } from "@/components/product-card";
 import { EmailCapture } from "@/components/email-capture";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
@@ -55,6 +56,24 @@ export default async function StorePage() {
 
   return (
     <div className="container mx-auto px-4 py-12">
+      <div className="mb-8 rounded-xl border border-orange-300 bg-orange-50 p-5 shadow-sm">
+        <p className="text-sm font-semibold uppercase tracking-wide text-orange-800">
+          Important update
+        </p>
+        <p className="mt-2 text-base font-medium text-orange-950 md:text-lg">
+          Looking for our audio tools? They moved to{" "}
+          <Link
+            href="https://audiosauce.io"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-2 underline-offset-4 hover:text-orange-700"
+          >
+            audiosauce.io
+          </Link>
+          .
+        </p>
+      </div>
+
       <div className="mb-12">
         <h1 className="text-4xl font-bold mb-4">Store</h1>
         <p className="text-xl text-muted-foreground">
