@@ -43,7 +43,7 @@ const nextConfig = {
       },
       {
         source: '/shopping/buylens',
-        destination: '/tools/buylens',
+        destination: '/store',
         permanent: true,
       },
       {
@@ -133,82 +133,17 @@ const nextConfig = {
       },
       {
         source: '/articles/maintenance-vs-deficit-vs-surplus',
-        destination: '/tools/calorie-counter-maintenance',
+        destination: '/store',
         permanent: true,
       },
       {
         source: '/articles/what-are-maintenance-calories',
-        destination: '/tools/calorie-counter-maintenance',
+        destination: '/store',
         permanent: true,
       },
       {
         source: '/articles/walking-for-fat-loss',
-        destination: '/tools/calorie-counter-walking',
-        permanent: true,
-      },
-      {
-        source: '/tools/instagram-story-size',
-        destination: '/tools/instagram-story-resizer',
-        permanent: true,
-      },
-      {
-        source: '/tools/youtube-thumbnail-size',
-        destination: '/tools/youtube-thumbnail-resizer',
-        permanent: true,
-      },
-      {
-        source: '/tools/tdee-calculator',
-        destination: '/tools/calorie-counter-maintenance',
-        permanent: true,
-      },
-      {
-        source: '/tools/linkedin-banner-size',
-        destination: '/tools/linkedin-banner-resizer',
-        permanent: true,
-      },
-      {
-        source: '/tools/maintenance-calorie-calculator',
-        destination: '/tools/calorie-counter-maintenance',
-        permanent: true,
-      },
-      {
-        source: '/tools/walking-calories-burned',
-        destination: '/tools/calorie-counter-walking',
-        permanent: true,
-      },
-      {
-        source: '/tools/steps-to-calories',
-        destination: '/tools/calorie-counter-steps',
-        permanent: true,
-      },
-      {
-        source: '/tools/youtube-resizer',
-        destination: '/tools/youtube-thumbnail-resizer',
-        permanent: true,
-      },
-      {
-        source: '/tools/tiktok-resizer',
-        destination: '/tools/tiktok-video-resizer',
-        permanent: true,
-      },
-      {
-        source: '/tools/instagram-resizer',
-        destination: '/tools/instagram-post-resizer',
-        permanent: true,
-      },
-      {
-        source: '/tools/twitter-resizer',
-        destination: '/tools/twitter-header-resizer',
-        permanent: true,
-      },
-      {
-        source: '/tools/linkedin-resizer',
-        destination: '/tools/linkedin-banner-resizer',
-        permanent: true,
-      },
-      {
-        source: '/tools/thumbnail-analyzer',
-        destination: '/tools/youtube-thumbnail-analyzer',
+        destination: '/store',
         permanent: true,
       },
     ]

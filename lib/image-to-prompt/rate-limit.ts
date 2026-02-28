@@ -5,6 +5,20 @@ const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_REQUESTS = 30;
+const CLEANUP_INTERVAL_MS = 60 * 1000;
+
+let nextCleanupAt = 0;
+
+function cleanupExpiredEntries(now: number): void {
+  if (now < nextCleanupAt) return;
+  nextCleanupAt = now + CLEANUP_INTERVAL_MS;
+
+  for (const [key, record] of rateLimitMap.entries()) {
+    if (now > record.resetTime) {
+      rateLimitMap.delete(key);
+    }
+  }
+}
 
 export async function getClientIP(): Promise<string> {
   const headersList = await headers();
@@ -27,6 +41,7 @@ export async function getClientIP(): Promise<string> {
 export function checkRateLimit(ip: string): { allowed: boolean; remaining: number; resetIn: number } {
   recordApiInvocation('/api/image-to-prompt');
   const now = Date.now();
+  cleanupExpiredEntries(now);
   const record = rateLimitMap.get(ip);
 
   if (!record || now > record.resetTime) {
@@ -40,15 +55,4 @@ export function checkRateLimit(ip: string): { allowed: boolean; remaining: numbe
 
   record.count += 1;
   return { allowed: true, remaining: MAX_REQUESTS - record.count, resetIn: record.resetTime - now };
-}
-
-if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [ip, record] of rateLimitMap.entries()) {
-      if (now > record.resetTime) {
-        rateLimitMap.delete(ip);
-      }
-    }
-  }, 60 * 1000);
 }

@@ -5,6 +5,8 @@ import { recordApiInvocation } from "@/lib/ops/metrics";
 
 const SUNSET_MODE = false;
 const SUNSET_MESSAGE = "VCM Suite is now closed. Thank you for your support over the years.";
+const TOOLS_PUBLIC_DISABLED = true;
+const TOOLS_API_DISABLED = true;
 
 const API_RATE_WINDOW_MS = 10 * 60 * 1000;
 const API_DEFAULT_LIMIT = 120;
@@ -183,6 +185,33 @@ export default function proxy(request: NextRequest) {
   if (RETIRED_PUBLIC_PATHS.has(pathname)) {
     return new NextResponse(
       "<!doctype html><html><head><title>410 Gone</title></head><body><h1>410 Gone</h1><p>This tool has been discontinued.</p></body></html>",
+      {
+        status: 410,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=300",
+          "X-Robots-Tag": "noindex, nofollow, noarchive",
+        },
+      }
+    );
+  }
+
+  if (TOOLS_API_DISABLED && pathname.startsWith("/api/tools/")) {
+    return NextResponse.json(
+      { error: "Tool APIs have been retired." },
+      {
+        status: 410,
+        headers: {
+          "Cache-Control": "private, no-store, max-age=0",
+          "X-Robots-Tag": "noindex, nofollow, noarchive",
+        },
+      }
+    );
+  }
+
+  if (TOOLS_PUBLIC_DISABLED && (pathname === "/tools" || pathname.startsWith("/tools/"))) {
+    return new NextResponse(
+      "<!doctype html><html><head><title>410 Gone</title></head><body><h1>410 Gone</h1><p>VCM tools have been retired.</p></body></html>",
       {
         status: 410,
         headers: {

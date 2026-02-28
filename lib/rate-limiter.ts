@@ -3,6 +3,7 @@ import { recordApiInvocation } from "@/lib/ops/metrics";
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 const WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
 interface RateLimitConfig {
   maxRequests: number;
@@ -18,6 +19,19 @@ const TOOL_LIMITS: Record<string, RateLimitConfig> = {
   'music-video-parser': { maxRequests: 5 },
 };
 
+let nextCleanupAt = 0;
+
+function cleanupExpiredEntries(now: number): void {
+  if (now < nextCleanupAt) return;
+  nextCleanupAt = now + CLEANUP_INTERVAL_MS;
+
+  for (const [key, record] of rateLimitMap.entries()) {
+    if (now > record.resetTime) {
+      rateLimitMap.delete(key);
+    }
+  }
+}
+
 export function checkRateLimit(
   ip: string, 
   tool: string = 'default'
@@ -29,6 +43,7 @@ export function checkRateLimit(
   
   const key = `${tool}:${ip}`;
   const now = Date.now();
+  cleanupExpiredEntries(now);
   const record = rateLimitMap.get(key);
   
   if (!record || now > record.resetTime) {
@@ -51,13 +66,3 @@ export function checkRateLimit(
     resetIn: record.resetTime - now 
   };
 }
-
-// Clean up old entries every 10 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, record] of rateLimitMap.entries()) {
-    if (now > record.resetTime) {
-      rateLimitMap.delete(ip);
-    }
-  }
-}, 10 * 60 * 1000);
