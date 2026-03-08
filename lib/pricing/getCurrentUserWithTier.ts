@@ -11,6 +11,42 @@ export interface UserWithTier {
   isAdmin: boolean;
 }
 
+type UsersSchemaSupport = {
+  hasIsAdmin: boolean;
+  hasSubscriptionTier: boolean;
+};
+
+let usersSchemaSupportPromise: Promise<UsersSchemaSupport> | null = null;
+
+async function getUsersSchemaSupport(): Promise<UsersSchemaSupport> {
+  if (!usersSchemaSupportPromise) {
+    usersSchemaSupportPromise = query(
+      `SELECT column_name
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'users'
+         AND column_name IN ('is_admin', 'subscription_tier')`
+    )
+      .then((result) => {
+        const columns = new Set(
+          result.rows
+            .map((row: { column_name?: string }) => String(row.column_name || "").toLowerCase())
+            .filter(Boolean)
+        );
+        return {
+          hasIsAdmin: columns.has("is_admin"),
+          hasSubscriptionTier: columns.has("subscription_tier"),
+        };
+      })
+      .catch((error) => {
+        usersSchemaSupportPromise = null;
+        throw error;
+      });
+  }
+
+  return usersSchemaSupportPromise;
+}
+
 export async function getCurrentUserWithTier(): Promise<UserWithTier | null> {
   try {
     const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);
@@ -19,8 +55,16 @@ export async function getCurrentUserWithTier(): Promise<UserWithTier | null> {
       return null;
     }
 
+    const userSchema = await getUsersSchemaSupport();
+    const selectedColumns = [
+      "id",
+      "email",
+      ...(userSchema.hasSubscriptionTier ? ["subscription_tier"] : []),
+      ...(userSchema.hasIsAdmin ? ["is_admin"] : []),
+    ].join(", ");
+
     const result = await query(
-      'SELECT id, email, subscription_tier, is_admin FROM users WHERE id = $1',
+      `SELECT ${selectedColumns} FROM users WHERE id = $1`,
       [session.userId]
     );
 
@@ -32,8 +76,10 @@ export async function getCurrentUserWithTier(): Promise<UserWithTier | null> {
     return {
       id: user.id,
       email: user.email,
-      subscription_tier: (user.subscription_tier as UserTier) || 'free',
-      isAdmin: user.is_admin || false,
+      subscription_tier: userSchema.hasSubscriptionTier
+        ? ((user.subscription_tier as UserTier | undefined) || "free")
+        : "free",
+      isAdmin: userSchema.hasIsAdmin ? Boolean(user.is_admin) : false,
     };
   } catch (error) {
     console.error('Error getting current user:', error);

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { InlineUploader } from "@/components/inline-uploader";
 import { Plus, Edit, Trash2, Search, ChevronLeft, ChevronRight, Package, GripVertical, Wand2 } from "lucide-react";
+import { extractBundleMeta } from "@/lib/products/bundleMeta";
 import { extractCourseResourceLinks, type CourseResourceLink } from "@/lib/products/courseResourceLinks";
 import { extractOrderBumpMeta } from "@/lib/products/orderBump";
 import { extractPostPurchaseOffersMeta } from "@/lib/products/postPurchaseOffers";
@@ -207,6 +208,7 @@ export default function AdminProductsPage() {
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [priceInput, setPriceInput] = useState("0.00");
   const [baseMeta, setBaseMeta] = useState<Record<string, any>>({});
+  const [bundleProductIds, setBundleProductIds] = useState<string[]>([]);
   const [orderBumpForm, setOrderBumpForm] = useState({
     productId: "",
     headline: "",
@@ -430,6 +432,29 @@ export default function AdminProductsPage() {
         .filter((resource) => resource.label && resource.url);
 
       const nextMeta = { ...baseMeta };
+      const selectedBundleProductIds = Array.from(
+        new Set(
+          bundleProductIds
+            .map((value) => Number.parseInt(value, 10))
+            .filter((value) => Number.isFinite(value) && value > 0)
+        )
+      );
+
+      if (editingProduct) {
+        const editingId = Number.parseInt(String(editingProduct.id), 10);
+        if (selectedBundleProductIds.includes(editingId)) {
+          alert("A bundle cannot include itself.");
+          return;
+        }
+      }
+
+      if (selectedBundleProductIds.length > 0) {
+        nextMeta.bundle = {
+          included_product_ids: selectedBundleProductIds,
+        };
+      } else {
+        delete nextMeta.bundle;
+      }
 
       const orderBumpId = Number.parseInt(orderBumpForm.productId, 10);
       if (Number.isFinite(orderBumpId) && orderBumpId > 0) {
@@ -582,6 +607,7 @@ export default function AdminProductsPage() {
 
   const handleEdit = (product: Product) => {
     const normalizedMeta = normalizeMeta(product.meta);
+    const bundleMeta = extractBundleMeta(normalizedMeta);
     const orderBumpMeta = extractOrderBumpMeta(normalizedMeta);
     const postPurchaseOffersMeta = extractPostPurchaseOffersMeta(normalizedMeta);
     const salesPageMeta = extractSalesPageMeta(normalizedMeta);
@@ -599,6 +625,7 @@ export default function AdminProductsPage() {
       visibility: product.visibility,
     });
     setBaseMeta(normalizedMeta);
+    setBundleProductIds(bundleMeta?.included_product_ids.map((id) => String(id)) || []);
     setOrderBumpForm({
       productId: orderBumpMeta ? String(orderBumpMeta.product_id) : "",
       headline: orderBumpMeta?.headline || "",
@@ -682,6 +709,7 @@ export default function AdminProductsPage() {
       visibility: "public",
     });
     setBaseMeta({});
+    setBundleProductIds([]);
     setOrderBumpForm({
       productId: "",
       headline: "",
@@ -754,6 +782,14 @@ export default function AdminProductsPage() {
     })
     .sort((a, b) => a.name.localeCompare(b.name));
   const postPurchaseOfferOptions = orderBumpOptions;
+  const bundleOptions = products
+    .filter((product) => {
+      const productId = Number.parseInt(String(product.id), 10);
+      if (!Number.isFinite(productId) || productId <= 0) return false;
+      if (currentEditingId && productId === currentEditingId) return false;
+      return true;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <AdminLayout>
@@ -923,6 +959,66 @@ export default function AdminProductsPage() {
                       }}
                     />
                   </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Bundle Access (Optional)</p>
+                    <p className="text-xs text-gray-600">
+                      Buying this product can unlock multiple child products. Use this for multi-module bundles.
+                    </p>
+                  </div>
+                  {bundleOptions.length === 0 ? (
+                    <p className="text-xs text-gray-500">
+                      Create additional products first, then select which ones this bundle unlocks.
+                    </p>
+                  ) : (
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {bundleOptions.map((option) => {
+                        const checked = bundleProductIds.includes(String(option.id));
+                        return (
+                          <label
+                            key={`bundle-${option.id}`}
+                            className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
+                              checked
+                                ? "border-orange-300 bg-white"
+                                : "border-orange-100 bg-white/70 hover:border-orange-200"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                setBundleProductIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (e.target.checked) {
+                                    next.add(String(option.id));
+                                  } else {
+                                    next.delete(String(option.id));
+                                  }
+                                  return Array.from(next);
+                                });
+                              }}
+                              className="mt-1 h-4 w-4 accent-orange-500"
+                            />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-900">{option.name}</p>
+                              <p className="text-xs text-gray-600">
+                                {option.type} · {option.slug} · {option.price_type === "free"
+                                  ? "Free"
+                                  : `$${(Number(option.price) / 100).toFixed(2)}`}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {bundleProductIds.length > 0 && (
+                    <p className="text-xs text-gray-600">
+                      This purchase will grant access to {bundleProductIds.length} product{bundleProductIds.length === 1 ? "" : "s"}.
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-4">
@@ -1221,55 +1317,64 @@ export default function AdminProductsPage() {
         )}
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {paginatedProducts.map((product) => (
-            <Card key={product.id}>
-              <CardHeader>
-                {product.thumbnail_url && (
-                  <div className="w-full h-40 bg-gray-100 rounded mb-4 relative overflow-hidden flex items-center justify-center">
-                    <img
-                      src={product.thumbnail_url}
-                      alt={product.name}
-                      className="max-w-full max-h-full object-contain rounded"
-                    />
-                  </div>
-                )}
-                <CardTitle className="text-lg">
-                  <Link
-                    href={`/products/${product.slug}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-orange-600 hover:underline"
-                  >
-                    {product.name}
-                  </Link>
-                </CardTitle>
-                <div className="flex gap-2 mt-2">
-                  <Badge variant="outline">{product.type}</Badge>
-                  <Badge variant="secondary">
-                    {product.price_type === "free" ? "Free" : `$${(product.price / 100).toFixed(2)}`}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                  {product.description}
-                </p>
-                <div className="flex gap-2">
-                  <Button onClick={() => handleEdit(product)} variant="outline" size="sm">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/admin/products/${product.id}/builder`}>
-                      <Wand2 className="h-4 w-4" />
+          {paginatedProducts.map((product) => {
+            const bundleMeta = extractBundleMeta(normalizeMeta(product.meta));
+
+            return (
+              <Card key={product.id}>
+                <CardHeader>
+                  {product.thumbnail_url && (
+                    <div className="w-full h-40 bg-gray-100 rounded mb-4 relative overflow-hidden flex items-center justify-center">
+                      <img
+                        src={product.thumbnail_url}
+                        alt={product.name}
+                        className="max-w-full max-h-full object-contain rounded"
+                      />
+                    </div>
+                  )}
+                  <CardTitle className="text-lg">
+                    <Link
+                      href={`/products/${product.slug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="hover:text-orange-600 hover:underline"
+                    >
+                      {product.name}
                     </Link>
-                  </Button>
-                  <Button onClick={() => handleDelete(product.id)} variant="destructive" size="sm">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  </CardTitle>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Badge variant="outline">{product.type}</Badge>
+                    <Badge variant="secondary">
+                      {product.price_type === "free" ? "Free" : `$${(product.price / 100).toFixed(2)}`}
+                    </Badge>
+                    {bundleMeta && (
+                      <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
+                        Bundle · {bundleMeta.included_product_ids.length}
+                      </Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                    {product.description}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button onClick={() => handleEdit(product)} variant="outline" size="sm">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/admin/products/${product.id}/builder`}>
+                        <Wand2 className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button onClick={() => handleDelete(product.id)} variant="destructive" size="sm">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {filteredProducts.length === 0 && (

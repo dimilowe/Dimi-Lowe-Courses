@@ -8,6 +8,10 @@ import { ClaimButton } from "@/components/claim-button";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import CreatorStack from "@/components/CreatorStack";
 import MonetizationBar from "@/components/MonetizationBar";
+import {
+  getBundleIncludedProducts,
+  type BundleIncludedProductSummary,
+} from "@/lib/products/bundleAccess";
 import { extractOrderBumpMeta } from "@/lib/products/orderBump";
 import { extractSalesPageMeta } from "@/lib/products/salesPageTemplate";
 import { LongformOfferTemplate } from "@/components/sales-templates/LongformOfferTemplate";
@@ -110,9 +114,11 @@ function extractMetaFeatures(meta: unknown): string[] {
 function DefaultProductTemplate({
   product,
   orderBump,
+  includedBundleProducts,
 }: {
   product: Product;
   orderBump: ResolvedOrderBump | null;
+  includedBundleProducts: BundleIncludedProductSummary[];
 }) {
   const isFree = product.price_type === "free";
   const featureList = extractMetaFeatures(product.meta);
@@ -191,6 +197,33 @@ function DefaultProductTemplate({
               </ul>
             </div>
           )}
+
+          {includedBundleProducts.length > 0 && (
+            <div className="mb-6">
+              <h3 className="mb-3 font-semibold">Included Modules</h3>
+              <div className="space-y-2">
+                {includedBundleProducts.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900">{item.name}</p>
+                      <p className="text-sm capitalize text-gray-500">{item.type}</p>
+                    </div>
+                    {item.visibility === "public" && (
+                      <a
+                        href={`/products/${item.slug}`}
+                        className="text-sm font-medium text-orange-600 hover:text-orange-700"
+                      >
+                        View
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -213,6 +246,9 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   let orderBump: ResolvedOrderBump | null = null;
 
   const productId = Number.parseInt(String(product.id), 10);
+  const includedBundleProducts = Number.isFinite(productId)
+    ? await getBundleIncludedProducts(productId)
+    : [];
   if (orderBumpMeta && Number.isFinite(productId) && orderBumpMeta.product_id !== productId) {
     const bumpProduct = await getOrderBumpProduct(orderBumpMeta.product_id);
     if (
@@ -234,8 +270,20 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
   const salesPageMeta = extractSalesPageMeta(product.meta);
   if (salesPageMeta?.template_id === "longform_offer_v1") {
-    return <LongformOfferTemplate product={product} orderBump={orderBump} />;
+    return (
+      <LongformOfferTemplate
+        product={product}
+        orderBump={orderBump}
+        includedBundleProducts={includedBundleProducts}
+      />
+    );
   }
 
-  return <DefaultProductTemplate product={product} orderBump={orderBump} />;
+  return (
+    <DefaultProductTemplate
+      product={product}
+      orderBump={orderBump}
+      includedBundleProducts={includedBundleProducts}
+    />
+  );
 }

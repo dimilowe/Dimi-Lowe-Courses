@@ -33,9 +33,18 @@ interface TemplateOrderBump {
   cta_label?: string;
 }
 
+interface IncludedBundleProduct {
+  id: number;
+  slug: string;
+  name: string;
+  type: string;
+  visibility: string | null;
+}
+
 interface LongformOfferTemplateProps {
   product: TemplateProduct;
   orderBump: TemplateOrderBump | null;
+  includedBundleProducts?: IncludedBundleProduct[];
 }
 
 function defaultPromisePoints(productName: string) {
@@ -132,7 +141,11 @@ function toMetaFeatures(meta: unknown): string[] {
     .filter((item) => item.length > 0);
 }
 
-export function LongformOfferTemplate({ product, orderBump }: LongformOfferTemplateProps) {
+export function LongformOfferTemplate({
+  product,
+  orderBump,
+  includedBundleProducts = [],
+}: LongformOfferTemplateProps) {
   const salesMeta = extractSalesPageMeta(product.meta);
   const isFree = product.price_type === "free";
   const theme = {
@@ -303,6 +316,24 @@ export function LongformOfferTemplate({ product, orderBump }: LongformOfferTempl
             ))}
           </div>
         </section>
+
+        {includedBundleProducts.length > 0 && (
+          <section className="mt-16 rounded-2xl border border-gray-200 bg-white p-6 md:p-10">
+            <h2 className="text-center text-4xl font-bold tracking-tight md:text-5xl">
+              Included Modules
+            </h2>
+            <div className="mt-8 grid gap-3 md:grid-cols-2">
+              {includedBundleProducts.map((item) => (
+                <div key={item.id} className="rounded-lg border border-gray-100 p-4">
+                  <p className="text-lg font-semibold">{item.name}</p>
+                  <p className="mt-1 text-sm capitalize" style={{ color: theme.mutedText }}>
+                    {item.type}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="mt-16">
           <h2 className="text-center text-4xl font-bold tracking-tight md:text-5xl">FAQ</h2>

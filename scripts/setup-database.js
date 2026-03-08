@@ -19,6 +19,8 @@ async function setupDatabase() {
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash TEXT,
+        is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+        subscription_tier TEXT NOT NULL DEFAULT 'free',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);

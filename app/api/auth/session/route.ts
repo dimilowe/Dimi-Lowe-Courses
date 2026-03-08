@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
-import { findOrCreateUserByEmail } from "@/lib/auth";
+import {
+  extractGrantedProductIdsFromCheckoutMetadata,
+  extractPurchasedProductIdsFromCheckoutMetadata,
+  resolveGrantedProductIdsForPurchaseProductIds,
+} from "@/lib/products/bundleAccess";
 import { ensureCourseWorkspaceEntryByProductId } from "@/lib/workspace/courseResources";
 import Stripe from "stripe";
 
@@ -14,15 +18,6 @@ function getStripeClient() {
   return new Stripe(apiKey, {
     apiVersion: "2025-10-29.clover",
   });
-}
-
-function extractPurchasedProductIds(metadata: Record<string, string | undefined>): number[] {
-  const raw = metadata.productIds || metadata.productId || "";
-  const ids = raw
-    .split(",")
-    .map((id) => Number.parseInt(id.trim(), 10))
-    .filter((id) => Number.isFinite(id) && id > 0);
-  return Array.from(new Set(ids));
 }
 
 export async function POST(request: NextRequest) {
@@ -38,7 +33,12 @@ export async function POST(request: NextRequest) {
     
     const customerEmail = checkoutSession.customer_email || checkoutSession.customer_details?.email;
     const metadata = checkoutSession.metadata || {};
-    const purchasedProductIds = extractPurchasedProductIds(metadata);
+    const purchasedProductIds = extractPurchasedProductIdsFromCheckoutMetadata(metadata);
+    const grantedProductIdsFromMetadata = extractGrantedProductIdsFromCheckoutMetadata(metadata);
+    const grantedProductIds =
+      grantedProductIdsFromMetadata.length > 0
+        ? grantedProductIdsFromMetadata
+        : await resolveGrantedProductIdsForPurchaseProductIds(purchasedProductIds);
     const checkoutType = checkoutSession.metadata?.type || checkoutSession.metadata?.checkout_type;
     const paymentIntentId =
       typeof checkoutSession.payment_intent === "string"
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (purchasedProductIds.length === 0 || !paymentIntentId) {
+    if (purchasedProductIds.length === 0 || grantedProductIds.length === 0 || !paymentIntentId) {
       return NextResponse.json({ error: "Invalid purchase data" }, { status: 400 });
     }
 
@@ -104,6 +104,9 @@ export async function POST(request: NextRequest) {
           );
         }
 
+      }
+
+      for (const productId of grantedProductIds) {
         await query(
           `INSERT INTO entitlements (user_id, product_id, source) 
            VALUES ($1, $2, $3)

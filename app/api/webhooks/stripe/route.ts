@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import {
+  extractGrantedProductIdsFromCheckoutMetadata,
+  extractPurchasedProductIdsFromCheckoutMetadata,
+  resolveGrantedProductIdsForPurchaseProductIds,
+} from "@/lib/products/bundleAccess";
 import { grantAccessForOffer, storePendingPurchase } from "@/lib/offers";
 import {
   storePendingGlobalSubscription,
@@ -337,31 +342,28 @@ async function handleCmsCheckoutCompleted(session: Stripe.Checkout.Session) {
   }
 }
 
-function extractProductIdsFromMetadata(metadata: Record<string, string | undefined>): number[] {
-  const raw = metadata.productIds || metadata.productId || "";
-  const ids = raw
-    .split(",")
-    .map((id) => Number.parseInt(id.trim(), 10))
-    .filter((id) => Number.isFinite(id) && id > 0);
-  return Array.from(new Set(ids));
-}
-
 async function handleProductCheckoutCompleted(session: Stripe.Checkout.Session) {
   const customerEmail = session.customer_email || session.customer_details?.email;
   const paymentIntentId =
     typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
-  const productIds = extractProductIdsFromMetadata(session.metadata || {});
+  const purchasedProductIds = extractPurchasedProductIdsFromCheckoutMetadata(session.metadata || {});
+  const grantedProductIdsFromMetadata = extractGrantedProductIdsFromCheckoutMetadata(session.metadata || {});
+  const grantedProductIds =
+    grantedProductIdsFromMetadata.length > 0
+      ? grantedProductIdsFromMetadata
+      : await resolveGrantedProductIdsForPurchaseProductIds(purchasedProductIds);
 
   if (!customerEmail) {
     console.error("[Webhook] Missing customer email for product checkout:", session.id);
     return;
   }
 
-  if (!paymentIntentId || productIds.length === 0) {
+  if (!paymentIntentId || purchasedProductIds.length === 0 || grantedProductIds.length === 0) {
     console.error("[Webhook] Invalid product checkout metadata:", {
       sessionId: session.id,
       paymentIntentId,
-      productIds,
+      purchasedProductIds,
+      grantedProductIds,
     });
     return;
   }
@@ -377,7 +379,7 @@ async function handleProductCheckoutCompleted(session: Stripe.Checkout.Session) 
       .filter((id: number) => Number.isFinite(id))
   );
 
-  for (const productId of productIds) {
+  for (const productId of purchasedProductIds) {
     if (!existingProductIds.has(productId)) {
       await query(
         `INSERT INTO purchases (user_id, product_id, stripe_payment_intent_id, amount, status)
@@ -385,9 +387,11 @@ async function handleProductCheckoutCompleted(session: Stripe.Checkout.Session) 
         [user?.id || null, productId, paymentIntentId, session.amount_total, user ? "completed" : "pending"]
       );
     }
+  }
 
-    if (!user) continue;
+  if (!user) return;
 
+  for (const productId of grantedProductIds) {
     await query(
       `INSERT INTO entitlements (user_id, product_id, source)
        VALUES ($1, $2, $3)

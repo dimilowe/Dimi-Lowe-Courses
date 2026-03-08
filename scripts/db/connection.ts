@@ -1,4 +1,7 @@
 import { Pool } from "pg";
+import { loadEnvConfig } from "@next/env";
+
+loadEnvConfig(process.cwd());
 
 type Target = "dev" | "prod";
 
@@ -37,4 +40,3 @@ export function createDbPool(target = getDbTarget()): Pool {
     ssl: connectionString.includes("localhost") ? false : { rejectUnauthorized: false },
   });
 }
-

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { resolveGrantedProductIdsForPurchaseProductIds } from "@/lib/products/bundleAccess";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
@@ -120,6 +121,14 @@ async function handleCatalogProductCheckout(
     purchasedProductIds.push(orderBumpProduct.id);
   }
 
+  const grantedProductIds = await resolveGrantedProductIdsForPurchaseProductIds(purchasedProductIds);
+  if (grantedProductIds.length === 0) {
+    return NextResponse.json(
+      { error: "This bundle is missing valid included products. Update the bundle before selling it." },
+      { status: 400 }
+    );
+  }
+
   const stripe = getStripeClient();
   const baseUrl = getBaseUrl(request);
   const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);
@@ -134,6 +143,8 @@ async function handleCatalogProductCheckout(
     metadata: {
       productId: String(product.id),
       productIds: purchasedProductIds.join(","),
+      purchasedProductIds: purchasedProductIds.join(","),
+      grantedProductIds: grantedProductIds.join(","),
       productSlug: product.slug,
       checkout_type: "product",
     },

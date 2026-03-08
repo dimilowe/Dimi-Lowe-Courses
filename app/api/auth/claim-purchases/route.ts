@@ -3,6 +3,7 @@ import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import { query } from "@/lib/db";
+import { resolveGrantedProductIdsForPurchaseProductId } from "@/lib/products/bundleAccess";
 import { ensureCourseWorkspaceEntryByProductId } from "@/lib/workspace/courseResources";
 import Stripe from "stripe";
 
@@ -74,20 +75,23 @@ export async function POST(request: NextRequest) {
             [session.userId, purchase.id]
           );
 
-          // Grant entitlement
-          await query(
-            `INSERT INTO entitlements (user_id, product_id, source)
-             VALUES ($1, $2, 'purchase')
-             ON CONFLICT (user_id, product_id) DO NOTHING`,
-            [session.userId, purchase.product_id]
-          );
-
           const numericProductId = Number(purchase.product_id);
           if (Number.isFinite(numericProductId)) {
-            try {
-              await ensureCourseWorkspaceEntryByProductId(session.userId, numericProductId);
-            } catch (error) {
-              console.error("Failed to create course workspace entry:", error);
+            const grantedProductIds = await resolveGrantedProductIdsForPurchaseProductId(numericProductId);
+
+            for (const grantedProductId of grantedProductIds) {
+              await query(
+                `INSERT INTO entitlements (user_id, product_id, source)
+                 VALUES ($1, $2, 'purchase')
+                 ON CONFLICT (user_id, product_id) DO NOTHING`,
+                [session.userId, grantedProductId]
+              );
+
+              try {
+                await ensureCourseWorkspaceEntryByProductId(session.userId, grantedProductId);
+              } catch (error) {
+                console.error("Failed to create course workspace entry:", error);
+              }
             }
           }
 

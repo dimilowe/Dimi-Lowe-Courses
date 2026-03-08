@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { resolveGrantedProductIdsForPurchaseProductId } from "@/lib/products/bundleAccess";
+import { ensureCourseWorkspaceEntryByProductId } from "@/lib/workspace/courseResources";
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,12 +30,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Only free products can be claimed." }, { status: 400 });
     }
 
-    await query(
-      `INSERT INTO entitlements (user_id, product_id, source) 
-       VALUES ($1, $2, $3)
-       ON CONFLICT (user_id, product_id) DO NOTHING`,
-      [userId, productId, "free_claim"]
-    );
+    const grantedProductIds = await resolveGrantedProductIdsForPurchaseProductId(Number(productId));
+    if (grantedProductIds.length === 0) {
+      return NextResponse.json({ error: "This bundle is missing valid included products." }, { status: 400 });
+    }
+
+    for (const grantedProductId of grantedProductIds) {
+      await query(
+        `INSERT INTO entitlements (user_id, product_id, source) 
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, product_id) DO NOTHING`,
+        [userId, grantedProductId, "free_claim"]
+      );
+
+      try {
+        await ensureCourseWorkspaceEntryByProductId(userId, grantedProductId);
+      } catch (workspaceError) {
+        console.error("Failed to create course workspace entry for free claim:", workspaceError);
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
