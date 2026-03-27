@@ -19,8 +19,13 @@ interface PageProps {
 export const revalidate = 3600;
 
 export async function generateStaticParams() {
-  const tools = await getAllCmsTools({ includeDrafts: false });
-  return tools.map((tool) => ({ slug: tool.slug }));
+  try {
+    const tools = await getAllCmsTools({ includeDrafts: false });
+    return tools.map((tool) => ({ slug: tool.slug }));
+  } catch (err) {
+    console.warn('[generateStaticParams] Could not fetch CMS tools (database may not be ready):', err);
+    return [];
+  }
 }
 
 function inferToolType(slug: string): string {
