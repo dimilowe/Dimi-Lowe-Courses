@@ -3,9 +3,9 @@ import { Client } from "@replit/object-storage";
 import { readFile } from "fs/promises";
 import path from "path";
 import { Buffer } from "buffer";
-import { isObjectStorageSidecarReachable } from "@/lib/objectStorage/sidecar";
 
 const LOCAL_WORKSPACE_UPLOAD_DIR = path.join(process.cwd(), "tmp", "workspace-uploads");
+const ALLOW_LOCAL_FILE_FALLBACK = process.env.NODE_ENV !== "production";
 
 export async function GET(
   request: NextRequest,
@@ -17,14 +17,11 @@ export async function GET(
     
     let result: Awaited<ReturnType<Client["downloadAsBytes"]>> | null = null;
     let downloadThrown: unknown = null;
-    const sidecarReachable = await isObjectStorageSidecarReachable();
-    if (sidecarReachable) {
-      const storage = new Client();
-      try {
-        result = await storage.downloadAsBytes(filename);
-      } catch (err) {
-        downloadThrown = err;
-      }
+    const storage = new Client();
+    try {
+      result = await storage.downloadAsBytes(filename);
+    } catch (err) {
+      downloadThrown = err;
     }
     
     let responseBuffer: Buffer | null = null;
@@ -32,20 +29,24 @@ export async function GET(
       const bufferData = result.value;
       const buffer = Array.isArray(bufferData) ? bufferData[0] : bufferData;
       responseBuffer = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer as ArrayBuffer);
-    } else {
-      // Local dev fallback: read file previously saved by workspace upload route.
+    } else if (ALLOW_LOCAL_FILE_FALLBACK) {
+      // Local dev fallback: read file previously saved by upload routes.
       try {
         const localPath = path.join(LOCAL_WORKSPACE_UPLOAD_DIR, filename);
         responseBuffer = await readFile(localPath);
       } catch {
-        if (sidecarReachable) {
-          console.error("File download error:", result?.error ?? downloadThrown);
-        }
+        console.error("File download error:", result?.error ?? downloadThrown);
         return NextResponse.json(
           { error: "File not found" },
           { status: 404 }
         );
       }
+    } else {
+      console.error("File download error:", result?.error ?? downloadThrown);
+      return NextResponse.json(
+        { error: "File not found" },
+        { status: 404 }
+      );
     }
     
     const ext = filename.split('.').pop()?.toLowerCase();

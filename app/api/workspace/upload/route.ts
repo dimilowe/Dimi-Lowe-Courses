@@ -7,9 +7,9 @@ import { assertCanonicalCloudId } from '@/lib/cloud/normalizeCloudId';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { getReplitStorageClient } from '@/lib/objectStorage/replitClient';
-import { isObjectStorageSidecarReachable } from '@/lib/objectStorage/sidecar';
 
 const LOCAL_WORKSPACE_UPLOAD_DIR = path.join(process.cwd(), 'tmp', 'workspace-uploads');
+const ALLOW_LOCAL_FILE_FALLBACK = process.env.NODE_ENV !== 'production';
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -66,29 +66,32 @@ export async function POST(request: NextRequest) {
 
     let storedInObjectStorage = false;
     let storageError: unknown = null;
-    const sidecarReachable = await isObjectStorageSidecarReachable();
-    if (sidecarReachable) {
-      try {
-        const uploadResult = await getReplitStorageClient().uploadFromBytes(fileName, buffer);
-        if (uploadResult.ok) {
-          storedInObjectStorage = true;
-        } else {
-          storageError = uploadResult.error;
-        }
-      } catch (err) {
-        storageError = err;
+    try {
+      const uploadResult = await getReplitStorageClient().uploadFromBytes(fileName, buffer);
+      if (uploadResult.ok) {
+        storedInObjectStorage = true;
+      } else {
+        storageError = uploadResult.error;
       }
+    } catch (err) {
+      storageError = err;
     }
 
     if (!storedInObjectStorage) {
+      if (!ALLOW_LOCAL_FILE_FALLBACK) {
+        console.error('Storage upload error:', storageError);
+        return NextResponse.json(
+          { error: 'Failed to store file' },
+          { status: 500 }
+        );
+      }
+
       // Local dev fallback: persist file on disk when object storage is unavailable.
       try {
         await mkdir(LOCAL_WORKSPACE_UPLOAD_DIR, { recursive: true });
         await writeFile(path.join(LOCAL_WORKSPACE_UPLOAD_DIR, fileName), buffer);
       } catch (localErr) {
-        if (sidecarReachable) {
-          console.error('Storage upload error:', storageError);
-        }
+        console.error('Storage upload error:', storageError);
         console.error('Local fallback write error:', localErr);
         return NextResponse.json(
           { error: 'Failed to store file' },

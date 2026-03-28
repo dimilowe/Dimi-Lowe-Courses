@@ -6,7 +6,6 @@ import { Client } from "@replit/object-storage";
 import { randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
-import { isObjectStorageSidecarReachable } from "@/lib/objectStorage/sidecar";
 
 // Allowed file extensions for uploads
 const ALLOWED_EXTENSIONS = [
@@ -17,6 +16,7 @@ const ALLOWED_EXTENSIONS = [
 ];
 const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024; // 500MB
 const LOCAL_WORKSPACE_UPLOAD_DIR = path.join(process.cwd(), "tmp", "workspace-uploads");
+const ALLOW_LOCAL_FILE_FALLBACK = process.env.NODE_ENV !== "production";
 
 export async function POST(request: NextRequest) {
   const session = await getIronSession<AdminSessionData>(await cookies(), sessionOptions);
@@ -55,30 +55,32 @@ export async function POST(request: NextRequest) {
     const storage = new Client();
     let storedInObjectStorage = false;
     let storageError: unknown = null;
-    const sidecarReachable = await isObjectStorageSidecarReachable();
-
-    if (sidecarReachable) {
-      try {
-        const uploadResult = await storage.uploadFromBytes(filename, buffer);
-        if (uploadResult.ok) {
-          storedInObjectStorage = true;
-        } else {
-          storageError = uploadResult.error;
-        }
-      } catch (err) {
-        storageError = err;
+    try {
+      const uploadResult = await storage.uploadFromBytes(filename, buffer);
+      if (uploadResult.ok) {
+        storedInObjectStorage = true;
+      } else {
+        storageError = uploadResult.error;
       }
+    } catch (err) {
+      storageError = err;
     }
 
     if (!storedInObjectStorage) {
+      if (!ALLOW_LOCAL_FILE_FALLBACK) {
+        console.error("Storage upload error:", storageError);
+        return NextResponse.json(
+          { error: "Failed to store file" },
+          { status: 500 }
+        );
+      }
+
       try {
         // Local dev fallback when object storage sidecar is unavailable.
         await mkdir(LOCAL_WORKSPACE_UPLOAD_DIR, { recursive: true });
         await writeFile(path.join(LOCAL_WORKSPACE_UPLOAD_DIR, filename), buffer);
       } catch (localErr) {
-        if (sidecarReachable) {
-          console.error("Storage upload error:", storageError);
-        }
+        console.error("Storage upload error:", storageError);
         console.error("Local fallback write error:", localErr);
         return NextResponse.json(
           { error: "Failed to store file" },

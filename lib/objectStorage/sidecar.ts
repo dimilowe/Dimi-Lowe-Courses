@@ -1,6 +1,6 @@
 const SIDECAR_URL = 'http://127.0.0.1:1106/';
 const CHECK_TTL_MS = 30_000;
-const CHECK_TIMEOUT_MS = 250;
+const CHECK_TIMEOUT_MS = 2_000;
 
 let cachedReachability: { ok: boolean; checkedAt: number } | null = null;
 
