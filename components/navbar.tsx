@@ -205,7 +205,7 @@ export function Navbar() {
               <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-purple-600 rounded-lg flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
-              <span className="text-xl font-bold text-gray-900">Dimi Lowe Store</span>
+              <span className="text-xl font-bold text-gray-900">Dimi Lowe Courses</span>
             </Link>
             
             <div className="hidden md:flex items-center space-x-1">
@@ -363,7 +363,7 @@ export function Navbar() {
                 href="/newsletter" 
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-orange-500 hover:bg-gray-50 transition-colors rounded-lg"
               >
-                Magazine
+                Articles
               </Link>
             </div>
           </div>
@@ -672,7 +672,7 @@ export function Navbar() {
               className="block text-sm font-medium py-3 text-gray-700 hover:text-orange-500 transition-colors"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Magazine
+              Articles
             </Link>
 
             {SHOW_TOOLS_AND_CLOUDS && (

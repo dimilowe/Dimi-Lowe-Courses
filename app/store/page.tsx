@@ -5,14 +5,14 @@ import type { Metadata } from "next";
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
-  title: "Store | VCM Suite",
-  description: "Shop VCM Suite apps, downloads, templates, and creator resources.",
+  title: "Dimi Lowe Courses",
+  description: "Shop Dimi Lowe courses, apps, downloads, templates, and creator resources.",
   alternates: {
     canonical: "/store",
   },
   openGraph: {
-    title: "Store | VCM Suite",
-    description: "Apps, downloads, templates, and creator resources from VCM Suite.",
+    title: "Dimi Lowe Courses",
+    description: "Courses, apps, downloads, templates, and creator resources from Dimi Lowe.",
     url: "/store",
     type: "website",
   },
