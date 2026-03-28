@@ -1,6 +1,6 @@
-import { query } from "@/lib/db";
 import { ProductCard } from "@/components/product-card";
 import { EmailCapture } from "@/components/email-capture";
+import { queryPublicCatalogProducts, type PublicCatalogProduct } from "@/lib/products/publicCatalog";
 import type { Metadata } from "next";
 
 export const dynamic = 'force-dynamic';
@@ -18,25 +18,13 @@ export const metadata: Metadata = {
   },
 };
 
-interface Product {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  thumbnail_url: string;
-  type: string;
-  price_type: string;
-  price: number;
-}
-
-async function getFunnels(): Promise<Product[]> {
-  const result = await query(
+async function getFunnels(): Promise<PublicCatalogProduct[]> {
+  return queryPublicCatalogProducts(
     `SELECT id, slug, name, description, thumbnail_url, type, price_type, price 
      FROM products 
      WHERE visibility = 'public' AND type = 'funnel'
      ORDER BY created_at DESC`
   );
-  return result.rows;
 }
 
 export default async function FunnelsPage() {

@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { gateToolForRequest } from "@/lib/entitlements/withToolGate";
 import { TOOL_SLUG, STORAGE_PREFIX } from "@/lib/verticalBlurFill/constants";
-import { Client } from "@replit/object-storage";
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 import { v4 as uuidv4 } from "uuid";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
-
-const storageClient = new Client();
 
 export async function POST(req: NextRequest) {
   const gateResult = await gateToolForRequest(TOOL_SLUG);
@@ -39,7 +37,7 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    await storageClient.uploadFromBytes(storageKey, buffer);
+    await getReplitStorageClient().uploadFromBytes(storageKey, buffer);
 
     return NextResponse.json({
       ok: true,

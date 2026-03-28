@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { gateToolForRequest } from "@/lib/entitlements/withToolGate";
 import { TOOL_SLUG, STORAGE_PREFIX } from "@/lib/identityAnchor/types";
 import { createManifest, loadManifest, updateManifestStatus } from "@/lib/identityAnchor/manifest";
-import { Client } from "@replit/object-storage";
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 import { v4 as uuidv4 } from "uuid";
 import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
-const storageClient = new Client();
 const openai = new OpenAI();
 
 function getJobPath(jobId: string): string {
@@ -103,7 +102,7 @@ export async function POST(req: NextRequest) {
     };
 
     const imageKey = `${getJobPath(jobId)}/concept/concept.png`;
-    await storageClient.uploadFromBytes(imageKey, buffer);
+    await getReplitStorageClient().uploadFromBytes(imageKey, buffer);
 
     if (existing) {
       await updateManifestStatus(jobId, "completed", {

@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
-import { Client } from "@replit/object-storage";
-
-const client = new Client();
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -21,7 +19,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete the file from object storage
-    const deleteResult = await client.delete(filename);
+    const deleteResult = await getReplitStorageClient().delete(filename);
 
     if (!deleteResult.ok) {
       console.error("Storage delete error:", deleteResult.error);

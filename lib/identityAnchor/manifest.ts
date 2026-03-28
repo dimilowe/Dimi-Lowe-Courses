@@ -1,7 +1,5 @@
-import { Client } from "@replit/object-storage";
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 import { JobManifest, STORAGE_PREFIX } from "./types";
-
-const client = new Client();
 
 export function getJobPath(jobId: string): string {
   return `${STORAGE_PREFIX}/${jobId}`;
@@ -10,7 +8,7 @@ export function getJobPath(jobId: string): string {
 export async function loadManifest(jobId: string): Promise<JobManifest | null> {
   try {
     const path = `${getJobPath(jobId)}/manifest.json`;
-    const result = await client.downloadAsText(path);
+    const result = await getReplitStorageClient().downloadAsText(path);
     if (!result.ok) return null;
     return JSON.parse(result.value) as JobManifest;
   } catch {
@@ -21,7 +19,7 @@ export async function loadManifest(jobId: string): Promise<JobManifest | null> {
 export async function saveManifest(jobId: string, manifest: JobManifest): Promise<void> {
   const path = `${getJobPath(jobId)}/manifest.json`;
   manifest.updated_at = new Date().toISOString();
-  await client.uploadFromText(path, JSON.stringify(manifest, null, 2));
+  await getReplitStorageClient().uploadFromText(path, JSON.stringify(manifest, null, 2));
 }
 
 export async function createManifest(

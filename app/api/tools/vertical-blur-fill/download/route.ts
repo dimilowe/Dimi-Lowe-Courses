@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { gateToolForRequest } from "@/lib/entitlements/withToolGate";
 import { getJob } from "@/lib/toolJobs/toolJobs";
 import { TOOL_SLUG } from "@/lib/verticalBlurFill/constants";
-import { Client } from "@replit/object-storage";
-
-const storageClient = new Client();
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 
 export async function GET(req: NextRequest) {
   const gateResult = await gateToolForRequest(TOOL_SLUG);
@@ -31,7 +29,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const result = await storageClient.downloadAsBytes(job.output_key);
+    const result = await getReplitStorageClient().downloadAsBytes(job.output_key);
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: "Failed to download output" }, { status: 500 });
     }

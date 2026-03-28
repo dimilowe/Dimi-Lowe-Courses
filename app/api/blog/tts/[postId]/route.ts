@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getReplitStorageClient } from '@/lib/objectStorage/replitClient';
 import { stripHtmlForTTS, generateContentHash } from '@/lib/textToSpeech';
-import { Client } from '@replit/object-storage';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-const storage = new Client();
 
 interface BlogPost {
   id: number;
@@ -49,7 +47,7 @@ export async function GET(
     
     // Check if audio already exists in object storage
     try {
-      const existingFile = await storage.downloadAsBytes(cacheKey);
+      const existingFile = await getReplitStorageClient().downloadAsBytes(cacheKey);
       if (existingFile.ok) {
         console.log(`Cache hit for blog post ${postId}`);
         return NextResponse.json({ 
@@ -106,7 +104,7 @@ export async function GET(
     const buffer = Buffer.from(arrayBuffer);
     
     // Save to Replit Object Storage
-    const uploadResult = await storage.uploadFromBytes(cacheKey, buffer);
+    const uploadResult = await getReplitStorageClient().uploadFromBytes(cacheKey, buffer);
     
     if (!uploadResult.ok) {
       console.error('Storage upload error:', uploadResult.error);

@@ -4,6 +4,9 @@ import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
 
 type Target = "dev" | "prod";
+type PoolConnectClient = {
+  query: (text: string) => Promise<unknown>;
+};
 
 function parseTarget(value: string | undefined): Target {
   if (value === "prod") return "prod";
@@ -34,9 +37,15 @@ export function createDbPool(target = getDbTarget()): Pool {
     );
   }
 
-  return new Pool({
+  const pool = new Pool({
     connectionString,
     connectionTimeoutMillis: 30000,
     ssl: connectionString.includes("localhost") ? false : { rejectUnauthorized: false },
   });
+
+  pool.on("connect", async (client: PoolConnectClient) => {
+    await client.query("SET search_path TO public");
+  });
+
+  return pool;
 }

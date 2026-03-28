@@ -1,4 +1,4 @@
-import { query } from "../db";
+import { query, shouldSuppressDatabaseErrorDuringBuild } from "../db";
 import { unstable_cache } from "next/cache";
 import { recordCacheMiss, recordCacheRequest } from "../ops/metrics";
 
@@ -21,15 +21,23 @@ type PillarRow = {
 const fetchPillarBySlugCached = unstable_cache(
   async (slug: string): Promise<PillarRow | null> => {
     recordCacheMiss("pillar-by-slug");
-    const result = await query(
-      `SELECT slug, data->>'title' as title, data->>'description' as description, 
-              COALESCE((data->>'is_indexed')::boolean, false) as is_indexed
-       FROM cms_objects 
-       WHERE type = 'pillar' AND slug = $1
-       LIMIT 1`,
-      [slug]
-    );
-    return (result.rows[0] as PillarRow | undefined) || null;
+    try {
+      const result = await query(
+        `SELECT slug, data->>'title' as title, data->>'description' as description, 
+                COALESCE((data->>'is_indexed')::boolean, false) as is_indexed
+         FROM cms_objects 
+         WHERE type = 'pillar' AND slug = $1
+         LIMIT 1`,
+        [slug]
+      );
+      return (result.rows[0] as PillarRow | undefined) || null;
+    } catch (error) {
+      if (shouldSuppressDatabaseErrorDuringBuild(error)) {
+        console.warn("[pillars] Suppressing build-time pillar lookup failure:", error);
+        return null;
+      }
+      throw error;
+    }
   },
   ["pillar-by-slug-v1"],
   { revalidate: CMS_PILLARS_REVALIDATE_SECONDS }
@@ -38,14 +46,22 @@ const fetchPillarBySlugCached = unstable_cache(
 const fetchAllIndexedPillarsCached = unstable_cache(
   async (): Promise<PillarRow[]> => {
     recordCacheMiss("pillars-indexed");
-    const result = await query(
-      `SELECT slug, data->>'title' as title, data->>'description' as description,
-              COALESCE((data->>'is_indexed')::boolean, false) as is_indexed
-       FROM cms_objects 
-       WHERE type = 'pillar' AND COALESCE((data->>'is_indexed')::boolean, false) = true
-       ORDER BY data->>'title' ASC`
-    );
-    return result.rows as PillarRow[];
+    try {
+      const result = await query(
+        `SELECT slug, data->>'title' as title, data->>'description' as description,
+                COALESCE((data->>'is_indexed')::boolean, false) as is_indexed
+         FROM cms_objects 
+         WHERE type = 'pillar' AND COALESCE((data->>'is_indexed')::boolean, false) = true
+         ORDER BY data->>'title' ASC`
+      );
+      return result.rows as PillarRow[];
+    } catch (error) {
+      if (shouldSuppressDatabaseErrorDuringBuild(error)) {
+        console.warn("[pillars] Suppressing build-time indexed pillars query failure:", error);
+        return [];
+      }
+      throw error;
+    }
   },
   ["pillars-indexed-v1"],
   { revalidate: CMS_PILLARS_REVALIDATE_SECONDS }
@@ -54,17 +70,25 @@ const fetchAllIndexedPillarsCached = unstable_cache(
 const fetchRelatedPillarsCached = unstable_cache(
   async (currentSlug: string): Promise<PillarRow[]> => {
     recordCacheMiss("pillars-related");
-    const result = await query(
-      `SELECT slug, data->>'title' as title, data->>'description' as description,
-              COALESCE((data->>'is_indexed')::boolean, false) as is_indexed
-       FROM cms_objects 
-       WHERE type = 'pillar' 
-         AND slug != $1 
-         AND COALESCE((data->>'is_indexed')::boolean, false) = true
-       ORDER BY data->>'title' ASC`,
-      [currentSlug]
-    );
-    return result.rows as PillarRow[];
+    try {
+      const result = await query(
+        `SELECT slug, data->>'title' as title, data->>'description' as description,
+                COALESCE((data->>'is_indexed')::boolean, false) as is_indexed
+         FROM cms_objects 
+         WHERE type = 'pillar' 
+           AND slug != $1 
+           AND COALESCE((data->>'is_indexed')::boolean, false) = true
+         ORDER BY data->>'title' ASC`,
+        [currentSlug]
+      );
+      return result.rows as PillarRow[];
+    } catch (error) {
+      if (shouldSuppressDatabaseErrorDuringBuild(error)) {
+        console.warn("[pillars] Suppressing build-time related pillars query failure:", error);
+        return [];
+      }
+      throw error;
+    }
   },
   ["pillars-related-v1"],
   { revalidate: CMS_PILLARS_REVALIDATE_SECONDS }

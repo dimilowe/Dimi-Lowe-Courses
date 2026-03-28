@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
-import { Client } from "@replit/object-storage";
-
-const client = new Client();
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 
 function extractTimestamp(filename: string): number {
   const patterns = [
@@ -39,7 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Not authorized" }, { status: 401 });
     }
 
-    const filesResult = await client.list();
+    const filesResult = await getReplitStorageClient().list();
     
     if (!filesResult.ok) {
       console.error("Storage list error:", filesResult.error);

@@ -3,13 +3,12 @@ import { promisify } from "util";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-import { Client } from "@replit/object-storage";
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 import { CompilerManifest, Beat } from "./types";
 import { loadManifest, saveManifest, appendLog, getOutputPath, getBeatPath } from "./manifest";
 import { STORAGE_PREFIX } from "./constants";
 
 const execAsync = promisify(exec);
-const client = new Client();
 
 export interface StitchResult {
   success: boolean;
@@ -74,7 +73,7 @@ export async function stitchBeats(jobId: string): Promise<StitchResult> {
       }
       
       const localClipPath = path.join(tmpDir, `${beat.id}.mp4`);
-      const clipResult = await client.downloadAsBytes(beat.clip_path);
+      const clipResult = await getReplitStorageClient().downloadAsBytes(beat.clip_path);
       
       if (!clipResult.ok) {
         await appendLog(jobId, "error", "render", "Failed to download clip", { beatId: beat.id });
@@ -100,7 +99,7 @@ export async function stitchBeats(jobId: string): Promise<StitchResult> {
     const outputBuffer = await fs.readFile(outputLocalPath);
     const outputStoragePath = `${getOutputPath(jobId)}/final.mp4`;
     
-    await client.uploadFromBytes(outputStoragePath, outputBuffer);
+    await getReplitStorageClient().uploadFromBytes(outputStoragePath, outputBuffer);
     
     const { stdout: durationOut } = await execAsync(
       `ffprobe -v error -show_entries format=duration -of csv=p=0 "${outputLocalPath}"`
@@ -141,7 +140,7 @@ export async function downloadFinalVideo(jobId: string): Promise<Buffer | null> 
   if (!manifest?.final_output?.path) return null;
   
   try {
-    const result = await client.downloadAsBytes(manifest.final_output.path);
+    const result = await getReplitStorageClient().downloadAsBytes(manifest.final_output.path);
     if (!result.ok) return null;
     return Buffer.from(result.value as any);
   } catch {

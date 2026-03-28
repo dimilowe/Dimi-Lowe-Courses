@@ -1,4 +1,4 @@
-import { query } from "@/lib/db";
+import { query, shouldSuppressDatabaseErrorDuringBuild } from "@/lib/db";
 import { unstable_cache } from "next/cache";
 import type { CloudId, EntitlementTier } from "@/lib/types/cloudEntitlements";
 import type { ToolCategory, ToolTag, EngineType, InputType, OutputType, SearchIntent } from "@/data/toolsRegistry";
@@ -103,8 +103,16 @@ const ALL_ADMIN_TOOLS_SQL = `
 const fetchDirectoryToolRowsCached = unstable_cache(
   async (): Promise<ToolRow[]> => {
     recordCacheMiss("directory-tool-rows");
-    const result = await query(DIRECTORY_TOOLS_SQL);
-    return result.rows as ToolRow[];
+    try {
+      const result = await query(DIRECTORY_TOOLS_SQL);
+      return result.rows as ToolRow[];
+    } catch (error) {
+      if (shouldSuppressDatabaseErrorDuringBuild(error)) {
+        console.warn("[directory-tools] Suppressing build-time tools query failure:", error);
+        return [];
+      }
+      throw error;
+    }
   },
   ["directory-tool-rows-v1"],
   { revalidate: TOOLS_DIRECTORY_REVALIDATE_SECONDS }
@@ -124,30 +132,38 @@ const fetchClusterToolRowsCached = unstable_cache(
       params.push(normalizedToolSlugs);
     }
 
-    const result = await query(
-      `
-      SELECT
-        id, slug, name, description, category, 
-        COALESCE(required_clouds, '{}') as required_clouds,
-        COALESCE(required_tier, 'free') as required_tier,
-        tags, icon, icon_bg, priority,
-        is_new, is_trending, is_mbb,
-        engine, input_type, output_type,
-        related_tools, related_articles,
-        primary_keyword, secondary_keywords, search_intent,
-        pillar_slug, cluster,
-        recommended_tools, recommended_articles
-      FROM tools
-      WHERE (cluster = $1 OR pillar_slug = $1 ${slugCondition})
-        AND in_directory = true
-        AND deleted_at IS NULL
-        AND (status IS NULL OR status <> 'draft')
-      ORDER BY priority ASC NULLS LAST, name ASC
-      `,
-      params
-    );
+    try {
+      const result = await query(
+        `
+        SELECT
+          id, slug, name, description, category, 
+          COALESCE(required_clouds, '{}') as required_clouds,
+          COALESCE(required_tier, 'free') as required_tier,
+          tags, icon, icon_bg, priority,
+          is_new, is_trending, is_mbb,
+          engine, input_type, output_type,
+          related_tools, related_articles,
+          primary_keyword, secondary_keywords, search_intent,
+          pillar_slug, cluster,
+          recommended_tools, recommended_articles
+        FROM tools
+        WHERE (cluster = $1 OR pillar_slug = $1 ${slugCondition})
+          AND in_directory = true
+          AND deleted_at IS NULL
+          AND (status IS NULL OR status <> 'draft')
+        ORDER BY priority ASC NULLS LAST, name ASC
+        `,
+        params
+      );
 
-    return result.rows as ToolRow[];
+      return result.rows as ToolRow[];
+    } catch (error) {
+      if (shouldSuppressDatabaseErrorDuringBuild(error)) {
+        console.warn("[cluster-tools] Suppressing build-time tools query failure:", error);
+        return [];
+      }
+      throw error;
+    }
   },
   ["cluster-tool-rows-v1"],
   { revalidate: TOOLS_DIRECTORY_REVALIDATE_SECONDS }

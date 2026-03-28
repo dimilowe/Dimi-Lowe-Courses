@@ -1,4 +1,4 @@
-import { Client } from "@replit/object-storage";
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 import { 
   BoundaryState, 
   ValidationReport, 
@@ -8,8 +8,6 @@ import {
 } from "./types";
 import { appendLog, getBeatPath, loadManifest, updateBeat, saveManifest } from "./manifest";
 import { loadBoundaryState } from "./boundary";
-
-const client = new Client();
 
 export async function validateBeatBoundary(
   jobId: string,
@@ -172,7 +170,7 @@ export async function saveValidationReport(
 ): Promise<void> {
   const beatPath = getBeatPath(jobId, beatId);
   const reportPath = `${beatPath}/validate.report.json`;
-  await client.uploadFromText(reportPath, JSON.stringify(report, null, 2));
+  await getReplitStorageClient().uploadFromText(reportPath, JSON.stringify(report, null, 2));
 }
 
 export async function handleValidationResult(

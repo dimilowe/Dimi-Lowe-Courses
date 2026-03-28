@@ -1,10 +1,9 @@
 import OpenAI from "openai";
-import { Client } from "@replit/object-storage";
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 import { IdentitySpec, StylePreset, STORAGE_PREFIX } from "./types";
 import { loadManifest, saveManifest } from "./manifest";
 
 const openai = new OpenAI();
-const storageClient = new Client();
 
 function getStylePromptModifier(preset: StylePreset): string {
   switch (preset) {
@@ -82,7 +81,7 @@ export async function generateConceptImage(
     const imageBuffer = await fetchImageFromUrl(imageData.url);
     const imageBase64 = imageBuffer.toString("base64");
     const imageKey = `${getJobPath(jobId)}/concept/concept.png`;
-    await storageClient.uploadFromBytes(imageKey, imageBuffer);
+    await getReplitStorageClient().uploadFromBytes(imageKey, imageBuffer);
 
     manifest.status = "completed";
     manifest.concept_image_key = imageKey;
@@ -133,7 +132,7 @@ export async function generateAnchorImages(
       const imageBuffer = await fetchImageFromUrl(imageData.url);
       const imageBase64 = imageBuffer.toString("base64");
       const imageKey = `${getJobPath(jobId)}/anchors/${pose}.png`;
-      await storageClient.uploadFromBytes(imageKey, imageBuffer);
+      await getReplitStorageClient().uploadFromBytes(imageKey, imageBuffer);
       keys[pose] = imageKey;
       base64s[pose] = imageBase64;
     }

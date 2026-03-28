@@ -2,17 +2,16 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { Client } from "@replit/object-storage";
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 import { BlurFillConfig, VideoMeta, ProcessResult } from "./types";
 import { STORAGE_PREFIX, TMP_BASE, DEFAULT_CONFIG } from "./constants";
 import { probeVideo } from "./ffprobe";
 import { updateJob, ToolJobStage } from "@/lib/toolJobs/toolJobs";
 
 const execAsync = promisify(exec);
-const storageClient = new Client();
 
 async function downloadFromStorage(key: string, destPath: string): Promise<void> {
-  const result = await storageClient.downloadAsBytes(key);
+  const result = await getReplitStorageClient().downloadAsBytes(key);
   if (!result.ok) {
     throw new Error(`Failed to download ${key}: ${result.error}`);
   }
@@ -21,7 +20,7 @@ async function downloadFromStorage(key: string, destPath: string): Promise<void>
 
 async function uploadToStorage(srcPath: string, key: string): Promise<void> {
   const buffer = await fs.readFile(srcPath);
-  await storageClient.uploadFromBytes(key, buffer);
+  await getReplitStorageClient().uploadFromBytes(key, buffer);
 }
 
 function buildFFmpegCommand(

@@ -3,13 +3,12 @@ import { query } from '@/lib/db';
 import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
 import { UserSessionData, userSessionOptions } from '@/lib/user-session';
-import { Client } from '@replit/object-storage';
 import { assertCanonicalCloudId } from '@/lib/cloud/normalizeCloudId';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
+import { getReplitStorageClient } from '@/lib/objectStorage/replitClient';
 import { isObjectStorageSidecarReachable } from '@/lib/objectStorage/sidecar';
 
-const client = new Client();
 const LOCAL_WORKSPACE_UPLOAD_DIR = path.join(process.cwd(), 'tmp', 'workspace-uploads');
 
 function formatBytes(bytes: number): string {
@@ -70,7 +69,7 @@ export async function POST(request: NextRequest) {
     const sidecarReachable = await isObjectStorageSidecarReachable();
     if (sidecarReachable) {
       try {
-        const uploadResult = await client.uploadFromBytes(fileName, buffer);
+        const uploadResult = await getReplitStorageClient().uploadFromBytes(fileName, buffer);
         if (uploadResult.ok) {
           storedInObjectStorage = true;
         } else {

@@ -15,6 +15,10 @@ type RuntimeDbMeta = {
   sslmode: string;
 };
 
+type PoolConnectClient = {
+  query: (text: string) => Promise<unknown>;
+};
+
 function parseRuntimeTarget(): RuntimeTarget {
   const explicit = (process.env.DB_TARGET_RUNTIME || process.env.DB_TARGET || "").toLowerCase();
   if (explicit === "prod" || explicit === "production") return "prod";
@@ -85,6 +89,10 @@ export const pool = new Pool({
   allowExitOnIdle: true,
 });
 
+pool.on("connect", async (client: PoolConnectClient) => {
+  await client.query("SET search_path TO public");
+});
+
 const fingerprint = safeDbFingerprint(runtimeDb.url);
 const runtimeDbMeta: RuntimeDbMeta = {
   target: runtimeDb.target,
@@ -111,6 +119,19 @@ if (fingerprint) {
 
 export function getRuntimeDbMeta(): RuntimeDbMeta {
   return runtimeDbMeta;
+}
+
+type DbErrorWithCode = {
+  code?: string;
+};
+
+export function shouldSuppressDatabaseErrorDuringBuild(error: unknown): boolean {
+  if (process.env.NEXT_PHASE !== "phase-production-build") {
+    return false;
+  }
+
+  const code = (error as DbErrorWithCode | null | undefined)?.code;
+  return code === "42P01" || code === "3F000";
 }
 
 export async function query(text: string, params?: any[]) {

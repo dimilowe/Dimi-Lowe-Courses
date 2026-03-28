@@ -1,4 +1,4 @@
-import { Client } from "@replit/object-storage";
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 import { 
   CompilerManifest, 
   Beat, 
@@ -15,8 +15,6 @@ import {
   DEFAULT_MAX_ATTEMPTS,
   DEFAULT_HOLD_DURATION
 } from "./constants";
-
-const client = new Client();
 
 export function getManifestPath(jobId: string): string {
   return `${STORAGE_PREFIX}/${jobId}/manifest.json`;
@@ -88,13 +86,13 @@ export async function createManifest(
 export async function saveManifest(jobId: string, manifest: CompilerManifest): Promise<void> {
   manifest.updated_at = new Date().toISOString();
   const path = getManifestPath(jobId);
-  await client.uploadFromText(path, JSON.stringify(manifest, null, 2));
+  await getReplitStorageClient().uploadFromText(path, JSON.stringify(manifest, null, 2));
 }
 
 export async function loadManifest(jobId: string): Promise<CompilerManifest | null> {
   try {
     const path = getManifestPath(jobId);
-    const result = await client.downloadAsText(path);
+    const result = await getReplitStorageClient().downloadAsText(path);
     if (!result.ok) return null;
     return JSON.parse(result.value) as CompilerManifest;
   } catch {
@@ -156,7 +154,7 @@ export async function advanceToBeat(
 export async function initializeLog(jobId: string): Promise<void> {
   const log: CompileLog = { entries: [] };
   const path = getLogPath(jobId);
-  await client.uploadFromText(path, JSON.stringify(log, null, 2));
+  await getReplitStorageClient().uploadFromText(path, JSON.stringify(log, null, 2));
 }
 
 export async function appendLog(
@@ -168,7 +166,7 @@ export async function appendLog(
 ): Promise<void> {
   try {
     const path = getLogPath(jobId);
-    const result = await client.downloadAsText(path);
+    const result = await getReplitStorageClient().downloadAsText(path);
     const log: CompileLog = result.ok ? JSON.parse(result.value) : { entries: [] };
     
     log.entries.push({
@@ -179,7 +177,7 @@ export async function appendLog(
       data,
     });
 
-    await client.uploadFromText(path, JSON.stringify(log, null, 2));
+    await getReplitStorageClient().uploadFromText(path, JSON.stringify(log, null, 2));
   } catch (err) {
     console.error("[motion-compiler] Failed to append log:", err);
   }
@@ -188,7 +186,7 @@ export async function appendLog(
 export async function loadLog(jobId: string): Promise<CompileLog | null> {
   try {
     const path = getLogPath(jobId);
-    const result = await client.downloadAsText(path);
+    const result = await getReplitStorageClient().downloadAsText(path);
     if (!result.ok) return null;
     return JSON.parse(result.value) as CompileLog;
   } catch {

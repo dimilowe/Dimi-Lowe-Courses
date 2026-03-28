@@ -3,13 +3,12 @@ import { promisify } from "util";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-import { Client } from "@replit/object-storage";
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 import { BoundaryState } from "./types";
 import { FRAME_EXTRACTION_FALLBACKS, STORAGE_PREFIX } from "./constants";
 import { appendLog, getBeatPath } from "./manifest";
 
 const execAsync = promisify(exec);
-const client = new Client();
 
 export interface BoundaryExtractionResult {
   success: boolean;
@@ -113,8 +112,8 @@ export async function extractBoundaryFrames(
     const startBuffer = await fs.readFile(startFramePath);
     const endBuffer = await fs.readFile(endFramePath);
     
-    await client.uploadFromBytes(startStoragePath, startBuffer);
-    await client.uploadFromBytes(endStoragePath, endBuffer);
+    await getReplitStorageClient().uploadFromBytes(startStoragePath, startBuffer);
+    await getReplitStorageClient().uploadFromBytes(endStoragePath, endBuffer);
     
     const startState = await deriveStateFromFrame(startFramePath);
     const endState = await deriveStateFromFrame(endFramePath);
@@ -122,8 +121,8 @@ export async function extractBoundaryFrames(
     const startStatePath = `${beatPath}/boundary_start.state.json`;
     const endStatePath = `${beatPath}/boundary_end.state.json`;
     
-    await client.uploadFromText(startStatePath, JSON.stringify(startState, null, 2));
-    await client.uploadFromText(endStatePath, JSON.stringify(endState, null, 2));
+    await getReplitStorageClient().uploadFromText(startStatePath, JSON.stringify(startState, null, 2));
+    await getReplitStorageClient().uploadFromText(endStatePath, JSON.stringify(endState, null, 2));
     
     await appendLog(jobId, "info", "boundary", "Boundary frames extracted successfully", {
       beatId,
@@ -173,7 +172,7 @@ export async function loadBoundaryState(
   try {
     const beatPath = getBeatPath(jobId, beatId);
     const statePath = `${beatPath}/boundary_${boundary}.state.json`;
-    const result = await client.downloadAsText(statePath);
+    const result = await getReplitStorageClient().downloadAsText(statePath);
     if (!result.ok) return null;
     return JSON.parse(result.value) as BoundaryState;
   } catch {
@@ -190,7 +189,7 @@ export async function getBoundaryFrameUrl(
   const framePath = `${beatPath}/boundary_${boundary}.frame.png`;
   
   try {
-    const result = await client.downloadAsBytes(framePath);
+    const result = await getReplitStorageClient().downloadAsBytes(framePath);
     if (!result.ok) return null;
     return framePath;
   } catch {

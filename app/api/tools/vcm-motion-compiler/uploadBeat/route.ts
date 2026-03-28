@@ -12,12 +12,10 @@ import {
 import { extractBoundaryFrames } from "@/lib/motionCompiler/boundary";
 import { validateBeatBoundary, saveValidationReport, handleValidationResult } from "@/lib/motionCompiler/validation";
 import { generateRenderPacket } from "@/lib/motionCompiler/packet";
-import { Client } from "@replit/object-storage";
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
-
-const client = new Client();
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -122,7 +120,7 @@ export async function POST(req: NextRequest) {
 
       const beatPath = getBeatPath(jobId, beat.id);
       const clipStoragePath = `${beatPath}/clip.mp4`;
-      await client.uploadFromBytes(clipStoragePath, clipBuffer);
+      await getReplitStorageClient().uploadFromBytes(clipStoragePath, clipBuffer);
 
       await updateBeat(jobId, beatIndex, {
         clip_path: clipStoragePath,

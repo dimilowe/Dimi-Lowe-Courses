@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { gateToolForRequest } from "@/lib/entitlements/withToolGate";
 import { TOOL_SLUG } from "@/lib/identityAnchor/types";
 import { loadManifest } from "@/lib/identityAnchor/manifest";
-import { Client } from "@replit/object-storage";
-
-const client = new Client();
+import { getReplitStorageClient } from "@/lib/objectStorage/replitClient";
 
 export const runtime = "nodejs";
 
@@ -64,7 +62,7 @@ export async function GET(req: NextRequest) {
       }, { status: 404 });
     }
 
-    const result = await client.downloadAsBytes(imageKey);
+    const result = await getReplitStorageClient().downloadAsBytes(imageKey);
     if (!result.ok) {
       return NextResponse.json({
         ok: false,
