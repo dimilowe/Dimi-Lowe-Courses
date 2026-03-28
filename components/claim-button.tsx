@@ -30,6 +30,15 @@ interface ClaimButtonProps {
   orderBump?: OrderBumpOffer | null;
 }
 
+function parseCheckoutResponse(raw: string): { error?: string; url?: string } {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as { error?: string; url?: string };
+  } catch {
+    return { error: raw.trim() || "Unexpected checkout response" };
+  }
+}
+
 export function ClaimButton({ product, orderBump = null }: ClaimButtonProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -66,8 +75,8 @@ export function ClaimButton({ product, orderBump = null }: ClaimButtonProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-
-        const data = await response.json();
+        const raw = await response.text();
+        const data = parseCheckoutResponse(raw);
 
         if (!response.ok) {
           throw new Error(data?.error || "Failed to start checkout");

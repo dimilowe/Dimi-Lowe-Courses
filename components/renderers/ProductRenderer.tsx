@@ -12,6 +12,15 @@ interface ProductRendererProps {
   cmsObject: CMSObject;
 }
 
+function parseCheckoutResponse(raw: string): { error?: string; url?: string } {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as { error?: string; url?: string };
+  } catch {
+    return { error: raw.trim() || 'Unexpected checkout response' };
+  }
+}
+
 export function ProductRenderer({ cmsObject }: ProductRendererProps) {
   const { data } = cmsObject;
   const productData = data.product_data;
@@ -37,7 +46,8 @@ export function ProductRenderer({ cmsObject }: ProductRendererProps) {
           ...(overrideOfferKey && { offerKey: overrideOfferKey }),
         }),
       });
-      const result = await response.json();
+      const raw = await response.text();
+      const result = parseCheckoutResponse(raw);
       if (result.error) {
         console.error('Checkout error:', result.error);
         alert('Checkout error: ' + result.error);
