@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     const mbbs = result.rows.map(row => ({
       ...row,
       cluster_title: row.cluster_slug ? CLUSTER_REGISTRY[row.cluster_slug as string]?.pillarTitle || row.cluster_slug : null,
-      health: row.health || (row.word_count >= 1200 ? 'strong' : row.word_count >= 600 ? 'ok' : 'thin')
+      health: row.health || ((row.word_count as number) >= 1200 ? 'strong' : (row.word_count as number) >= 600 ? 'ok' : 'thin')
     }));
 
     return NextResponse.json({ mbbs });
