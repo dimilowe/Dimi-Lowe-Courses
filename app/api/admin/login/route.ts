@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
+import { sealData } from "iron-session";
 import { AdminSessionData, sessionOptions } from "@/lib/admin-session";
 import bcrypt from "bcryptjs";
 
@@ -18,7 +17,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if admin auth is configured
     if (!ADMIN_PASSWORD_HASH && !ADMIN_PASSWORD) {
       return NextResponse.json(
         { error: "Admin not configured. Please set ADMIN_PASSWORD_HASH or ADMIN_PASSWORD" },
@@ -26,7 +24,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify password (plain password takes precedence for local/dev simplicity)
     const isValid = ADMIN_PASSWORD
       ? password === ADMIN_PASSWORD
       : await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
@@ -38,15 +35,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Set session
-    const session = await getIronSession<AdminSessionData>(await cookies(), sessionOptions);
-    session.isAdmin = true;
-    await session.save();
+    const sessionData: AdminSessionData = { isAdmin: true };
+    const sealed = await sealData(sessionData, {
+      password: sessionOptions.password as string,
+    });
 
-    console.log("Login successful - Session saved with isAdmin:", session.isAdmin);
+    console.log("Login successful - Session saved with isAdmin: true");
 
     const response = NextResponse.json({ success: true });
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    const opts = sessionOptions.cookieOptions as {
+      secure?: boolean;
+      httpOnly?: boolean;
+      sameSite?: "lax" | "strict" | "none";
+      maxAge?: number;
+      path?: string;
+    };
+    response.cookies.set(sessionOptions.cookieName as string, sealed, {
+      secure: opts.secure ?? (process.env.NODE_ENV === "production"),
+      httpOnly: opts.httpOnly ?? true,
+      sameSite: opts.sameSite ?? "lax",
+      maxAge: opts.maxAge ?? 60 * 60 * 24 * 7,
+      path: opts.path ?? "/",
+    });
+
     return response;
   } catch (error) {
     console.error("Login error:", error);
