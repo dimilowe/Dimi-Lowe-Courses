@@ -45,7 +45,7 @@ async function getUserByEmail(email: string): Promise<{ id: number } | null> {
     "SELECT id FROM users WHERE email = $1",
     [email.toLowerCase().trim()]
   );
-  return result.rows[0] || null;
+  return (result.rows[0] as unknown as { id: number }) || null;
 }
 
 async function upsertCloudEntitlementGrant(params: {

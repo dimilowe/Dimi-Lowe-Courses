@@ -35,7 +35,7 @@ async function getCourseProduct(slug: string): Promise<CourseProduct | null> {
      LIMIT 1`,
     [slug]
   );
-  return result.rows[0] || null;
+  return (result.rows[0] as unknown as CourseProduct) || null;
 }
 
 function extractYoutubeEmbedUrl(rawUrl: string | null): string | null {

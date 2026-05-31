@@ -55,7 +55,7 @@ export async function getAllIndexedUrls(): Promise<
        WHERE is_indexed = true 
        ORDER BY url ASC`
     );
-    return result.rows;
+    return result.rows as unknown as Array<{ url: string; canonical?: string; updated_at: Date }>;
   } catch (error) {
     console.error("Error fetching indexed URLs:", error);
     return [];

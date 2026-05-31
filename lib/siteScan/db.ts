@@ -183,7 +183,7 @@ export async function getQueuedUrls(scanId: string): Promise<{ url: string; dept
      LIMIT 100`,
     [scanId]
   );
-  return result.rows;
+  return result.rows as unknown as { url: string; depth: number }[];
 }
 
 export async function getBrokenTargets(scanId: string): Promise<BrokenTarget[]> {

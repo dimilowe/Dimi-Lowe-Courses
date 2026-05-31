@@ -49,7 +49,7 @@ async function getRecommendedCourses(): Promise<RecommendedCourse[]> {
      ORDER BY created_at DESC
      LIMIT 3`
   );
-  return result.rows;
+  return result.rows as unknown as RecommendedCourse[];
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

@@ -43,7 +43,7 @@ async function getNewestQuestions(): Promise<Question[]> {
        ORDER BY created_at DESC
        LIMIT 10`
     );
-    return result.rows;
+    return result.rows as unknown as Question[];
   } catch {
     return [];
   }
@@ -57,7 +57,7 @@ async function getTrendingQuestions(): Promise<Question[]> {
        ORDER BY upvote_count DESC, view_count DESC
        LIMIT 10`
     );
-    return result.rows;
+    return result.rows as unknown as Question[];
   } catch {
     return [];
   }
@@ -125,7 +125,7 @@ async function searchQuestions(searchTerm: string): Promise<Question[]> {
        LIMIT 20`,
       [`%${searchTerm}%`]
     );
-    return result.rows;
+    return result.rows as unknown as Question[];
   } catch {
     return [];
   }

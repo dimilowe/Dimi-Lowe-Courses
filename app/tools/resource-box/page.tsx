@@ -31,7 +31,7 @@ async function getInternalResources(): Promise<InternalResource[]> {
        FROM internal_resources 
        ORDER BY category, name`
     );
-    return result.rows;
+    return result.rows as unknown as InternalResource[];
   } catch {
     return [];
   }

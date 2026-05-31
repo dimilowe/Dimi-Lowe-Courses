@@ -25,7 +25,7 @@ async function getAllBlogPosts(): Promise<BlogPost[]> {
      ORDER BY created_at DESC`,
     []
   );
-  return result.rows;
+  return result.rows as unknown as BlogPost[];
 }
 
 export default async function AdminBlogPage() {

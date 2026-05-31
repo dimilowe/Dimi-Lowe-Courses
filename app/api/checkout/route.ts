@@ -51,7 +51,7 @@ async function getCatalogProductById(productId: number): Promise<CatalogProduct 
      LIMIT 1`,
     [productId]
   );
-  return result.rows[0] || null;
+  return (result.rows[0] as unknown as CatalogProduct) || null;
 }
 
 function toCheckoutLineItem(product: CatalogProduct, unitAmountCents: number) {

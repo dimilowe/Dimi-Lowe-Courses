@@ -31,7 +31,7 @@ async function getCourseProductBySlug(slug: string): Promise<CourseProduct | nul
      LIMIT 1`,
     [slug]
   );
-  return result.rows[0] || null;
+  return (result.rows[0] as unknown as CourseProduct) || null;
 }
 
 async function getCourseProductById(productId: number): Promise<CourseProduct | null> {
@@ -43,7 +43,7 @@ async function getCourseProductById(productId: number): Promise<CourseProduct | 
      LIMIT 1`,
     [productId]
   );
-  return result.rows[0] || null;
+  return (result.rows[0] as unknown as CourseProduct) || null;
 }
 
 async function getExistingWorkspaceEntryId(userId: number, productSlug: string): Promise<string | null> {

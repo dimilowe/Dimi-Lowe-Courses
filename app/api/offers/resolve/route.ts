@@ -40,7 +40,7 @@ async function getProductById(productId: number, includeMeta = false): Promise<P
         [productId]
       );
 
-  return result.rows[0] || null;
+  return (result.rows[0] as unknown as ProductRow) || null;
 }
 
 function toPositiveInt(value: unknown): number | null {

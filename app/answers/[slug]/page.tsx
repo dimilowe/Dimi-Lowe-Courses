@@ -60,7 +60,7 @@ async function getQuestion(slug: string): Promise<Question | null> {
        FROM questions WHERE slug = $1`,
       [slug]
     );
-    return result.rows[0] || null;
+    return (result.rows[0] as unknown as Question) || null;
   } catch {
     return null;
   }

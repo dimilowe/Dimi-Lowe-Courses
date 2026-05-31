@@ -18,7 +18,7 @@ export async function getIndexedUrls(): Promise<GlobalUrl[]> {
      WHERE is_indexed = true 
      ORDER BY url ASC`
   );
-  return result.rows;
+  return result.rows as unknown as GlobalUrl[];
 }
 
 export async function getAllPublicUrls(): Promise<GlobalUrl[]> {
@@ -31,7 +31,7 @@ export async function getAllPublicUrls(): Promise<GlobalUrl[]> {
        AND url NOT LIKE '/dashboard%'
      ORDER BY url ASC`
   );
-  return result.rows;
+  return result.rows as unknown as GlobalUrl[];
 }
 
 export async function scanPage(urlData: GlobalUrl): Promise<ScanResult> {

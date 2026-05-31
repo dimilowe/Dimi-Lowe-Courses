@@ -128,7 +128,7 @@ async function getRelatedArticles(clusterSlug: string, currentSlug: string): Pro
   );
   
   if (cmsResult.rows.length > 0) {
-    return cmsResult.rows;
+    return cmsResult.rows as unknown as ClusterArticle[];
   }
   
   // Fallback to cluster_articles
@@ -140,7 +140,7 @@ async function getRelatedArticles(clusterSlug: string, currentSlug: string): Pro
      LIMIT 3`,
     [clusterSlug, currentSlug]
   );
-  return result.rows;
+  return result.rows as unknown as ClusterArticle[];
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
