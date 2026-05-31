@@ -15,7 +15,7 @@ export async function hasGlobalSubscription(userId: number): Promise<boolean> {
      FROM cloud_entitlements
      WHERE user_id = $1
        AND stripe_subscription_id IS NOT NULL
-       AND status IN ('active', 'trial', 'past_due')
+       AND status IN ('active', 'trial')
        AND tier = 'pro'
        AND (current_period_end IS NULL OR current_period_end >= NOW())
      GROUP BY stripe_subscription_id

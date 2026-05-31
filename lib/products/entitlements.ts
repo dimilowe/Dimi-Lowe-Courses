@@ -48,8 +48,10 @@ async function getEntitlementMode(): Promise<EntitlementMode> {
 
 export async function getEntitledProductsForUser(userId: string): Promise<EntitledProduct[]> {
   const numericUserId = Number.parseInt(userId, 10);
+  const productsById = new Map<string, EntitledProduct>();
+
   if (Number.isFinite(numericUserId) && await hasGlobalSubscription(numericUserId)) {
-    const result = await query(
+    const membershipResult = await query(
       `SELECT
         p.id::text AS product_id,
         p.name AS product_name,
@@ -65,12 +67,14 @@ export async function getEntitledProductsForUser(userId: string): Promise<Entitl
          AND p.price_type IN ('membership', 'free')
        ORDER BY p.created_at DESC`
     );
-    return result.rows as unknown as EntitledProduct[];
+    for (const product of membershipResult.rows as unknown as EntitledProduct[]) {
+      productsById.set(product.product_id, product);
+    }
   }
 
   const mode = await getEntitlementMode();
 
-  if (mode === "none") return [];
+  if (mode === "none") return Array.from(productsById.values());
 
   if (mode === "both") {
     const result = await query(
@@ -90,7 +94,10 @@ export async function getEntitledProductsForUser(userId: string): Promise<Entitl
        ORDER BY p.id, e.created_at DESC`,
       [userId]
     );
-    return result.rows as unknown as EntitledProduct[];
+    for (const product of result.rows as unknown as EntitledProduct[]) {
+      productsById.set(product.product_id, product);
+    }
+    return Array.from(productsById.values());
   }
 
   if (mode === "product_id") {
@@ -110,7 +117,10 @@ export async function getEntitledProductsForUser(userId: string): Promise<Entitl
        ORDER BY e.created_at DESC`,
       [userId]
     );
-    return result.rows as unknown as EntitledProduct[];
+    for (const product of result.rows as unknown as EntitledProduct[]) {
+      productsById.set(product.product_id, product);
+    }
+    return Array.from(productsById.values());
   }
 
   const result = await query(
@@ -129,7 +139,10 @@ export async function getEntitledProductsForUser(userId: string): Promise<Entitl
      ORDER BY e.created_at DESC`,
     [userId]
   );
-  return result.rows as unknown as EntitledProduct[];
+  for (const product of result.rows as unknown as EntitledProduct[]) {
+    productsById.set(product.product_id, product);
+  }
+  return Array.from(productsById.values());
 }
 
 export async function userHasProductEntitlement(
