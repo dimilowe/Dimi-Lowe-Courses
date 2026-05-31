@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const userEmail = userResult.rows[0].email;
+    const userEmail = userResult.rows[0].email as string;
     const stripe = getStripeClient();
 
     // Find pending purchases (with NULL user_id)
@@ -55,11 +55,11 @@ export async function POST(request: NextRequest) {
         if (!purchase.stripe_payment_intent_id) continue;
 
         // Get the payment intent to find the associated checkout session
-        const paymentIntent = await stripe.paymentIntents.retrieve(purchase.stripe_payment_intent_id);
+        const paymentIntent = await stripe.paymentIntents.retrieve(purchase.stripe_payment_intent_id as string);
         
         // Get checkout sessions for this payment intent
         const sessions = await stripe.checkout.sessions.list({
-          payment_intent: purchase.stripe_payment_intent_id,
+          payment_intent: purchase.stripe_payment_intent_id as string,
           limit: 1
         });
 
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
           );
 
           if (productResult.rows.length > 0 && productResult.rows[0].download_url) {
-            downloadUrls.push(productResult.rows[0].download_url);
+            downloadUrls.push(productResult.rows[0].download_url as string);
           }
 
           claimed++;

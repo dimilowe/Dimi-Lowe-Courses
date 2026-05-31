@@ -105,7 +105,7 @@ const fetchDirectoryToolRowsCached = unstable_cache(
     recordCacheMiss("directory-tool-rows");
     try {
       const result = await query(DIRECTORY_TOOLS_SQL);
-      return result.rows as ToolRow[];
+      return result.rows as unknown as ToolRow[];
     } catch (error) {
       if (shouldSuppressDatabaseErrorDuringBuild(error)) {
         console.warn("[directory-tools] Suppressing build-time tools query failure:", error);
@@ -156,7 +156,7 @@ const fetchClusterToolRowsCached = unstable_cache(
         params
       );
 
-      return result.rows as ToolRow[];
+      return result.rows as unknown as ToolRow[];
     } catch (error) {
       if (shouldSuppressDatabaseErrorDuringBuild(error)) {
         console.warn("[cluster-tools] Suppressing build-time tools query failure:", error);
@@ -223,7 +223,7 @@ export async function getToolsByTag(tag: ToolTag): Promise<DirectoryTool[]> {
 export async function getAllToolsForAdmin(): Promise<DirectoryTool[]> {
   const result = await query(ALL_ADMIN_TOOLS_SQL);
 
-  return result.rows.map(mapRowToDirectoryTool);
+  return (result.rows as unknown as Parameters<typeof mapRowToDirectoryTool>[0][]).map(mapRowToDirectoryTool);
 }
 
 export async function getToolsForCluster(clusterSlug: string, toolSlugs?: string[]): Promise<DirectoryTool[]> {

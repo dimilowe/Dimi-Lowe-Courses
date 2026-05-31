@@ -26,8 +26,8 @@ export async function GET(
       return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     }
 
-    const source = sourceResult.rows[0];
-    const versionGroupId = source.payload_json?.version_group_id || source.id;
+    const source = sourceResult.rows[0] as Record<string, unknown>;
+    const versionGroupId = (source.payload_json as Record<string, unknown>)?.version_group_id || source.id;
 
     const versionsResult = await query(
       `SELECT id, title, type, updated_at, created_at, last_opened_at,

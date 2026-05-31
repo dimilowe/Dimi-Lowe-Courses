@@ -98,7 +98,7 @@ export async function claimPendingGlobalSubscriptions(params: {
   if (pending.rows.length === 0) return 0;
 
   for (const subscription of pending.rows) {
-    const effectiveStatus = normalizeEntitlementStatus(subscription.status);
+    const effectiveStatus = normalizeEntitlementStatus(subscription.status as "active" | "past_due" | "canceled" | "trial");
 
     for (const cloudId of PUBLIC_CLOUD_IDS) {
       await query(

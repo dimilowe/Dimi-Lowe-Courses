@@ -39,7 +39,7 @@ export async function GET(
       return NextResponse.json({ error: 'Blog post not found' }, { status: 404 });
     }
     
-    const post: BlogPost = result.rows[0];
+    const post = result.rows[0] as unknown as BlogPost;
     
     // Generate cache key based on title + content hash + voice
     const contentHash = generateContentHash(post.title, post.content, voice);

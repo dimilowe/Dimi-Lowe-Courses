@@ -10,7 +10,7 @@ async function getAccessToken(userId: number): Promise<string | null> {
 
   if (result.rows.length === 0) return null;
 
-  const user = result.rows[0];
+  const user = result.rows[0] as { token_expiry: number | null; access_token: string | null; refresh_token: string | null };
   const now = Date.now();
 
   if (user.token_expiry && user.token_expiry > now) {

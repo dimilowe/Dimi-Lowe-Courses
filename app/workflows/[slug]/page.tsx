@@ -46,7 +46,7 @@ async function getToolsInfo(): Promise<Map<string, { name: string; available: bo
   try {
     const result = await query("SELECT slug, name, in_directory FROM tools");
     const toolsMap = new Map<string, { name: string; available: boolean }>();
-    result.rows.forEach((row: { slug: string; name: string; in_directory: boolean }) => {
+    (result.rows as { slug: string; name: string; in_directory: boolean }[]).forEach((row) => {
       toolsMap.set(row.slug, { name: row.name, available: row.in_directory });
     });
     return toolsMap;

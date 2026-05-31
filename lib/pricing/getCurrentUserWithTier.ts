@@ -29,8 +29,8 @@ async function getUsersSchemaSupport(): Promise<UsersSchemaSupport> {
     )
       .then((result) => {
         const columns = new Set(
-          result.rows
-            .map((row: { column_name?: string }) => String(row.column_name || "").toLowerCase())
+          (result.rows as { column_name?: string }[])
+            .map((row) => String(row.column_name || "").toLowerCase())
             .filter(Boolean)
         );
         return {
@@ -72,12 +72,12 @@ export async function getCurrentUserWithTier(): Promise<UserWithTier | null> {
       return null;
     }
 
-    const user = result.rows[0];
+    const user = result.rows[0] as { id: string; email: string; subscription_tier?: UserTier; is_admin?: boolean };
     return {
       id: user.id,
       email: user.email,
       subscription_tier: userSchema.hasSubscriptionTier
-        ? ((user.subscription_tier as UserTier | undefined) || "free")
+        ? (user.subscription_tier || "free")
         : "free",
       isAdmin: userSchema.hasIsAdmin ? Boolean(user.is_admin) : false,
     };

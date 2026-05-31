@@ -31,7 +31,7 @@ export async function getCmsCloudBySlug(slug: string): Promise<CloudForRenderer 
     return null;
   }
 
-  const row = result.rows[0];
+  const row = result.rows[0] as { slug: string; title: string | null; description: string | null; seo_title: string | null; seo_description: string | null; engine: string | null; engine_config: Record<string, unknown> | null };
   return {
     slug: row.slug,
     title: row.title || "Cloud Dashboard",

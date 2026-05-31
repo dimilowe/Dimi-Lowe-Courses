@@ -54,12 +54,12 @@ export async function GET() {
          WHERE co.type = 'tool'`
       );
     }
-    const cmsToolSlugs = new Set(cmsResult.rows.map((r: { slug: string }) => r.slug));
+    const cmsToolSlugs = new Set((cmsResult.rows as { slug: string }[]).map(r => r.slug));
     
     // Combine all tool slugs for index status lookup
     const allToolSlugs = [
       ...dbTools.map((t: ToolRecord) => `/tools/${t.slug}`),
-      ...cmsResult.rows.map((r: { slug: string }) => `/tools/${r.slug}`)
+      ...(cmsResult.rows as { slug: string }[]).map(r => `/tools/${r.slug}`)
     ];
     
     const indexStatusResult = await query(
@@ -68,7 +68,7 @@ export async function GET() {
     );
     const indexStatusMap = new Map<string, boolean>();
     for (const row of indexStatusResult.rows) {
-      indexStatusMap.set(row.url, row.is_indexed);
+      indexStatusMap.set(row.url as string, row.is_indexed as boolean);
     }
     
     // Map legacy tools (exclude any that exist in cms_objects)
@@ -114,7 +114,7 @@ export async function GET() {
       });
     
     // Map CMS tools
-    const cmsTools = cmsResult.rows.map((row: { slug: string; cluster_slug: string | null; pillar_slug: string | null; cloud_tags: string[]; data: CmsToolData; featured?: boolean; required_clouds: string[]; required_tier: string }) => {
+    const cmsTools = (cmsResult.rows as { slug: string; cluster_slug: string | null; pillar_slug: string | null; cloud_tags: string[]; data: CmsToolData; featured?: boolean; required_clouds: string[]; required_tier: string }[]).map((row) => {
       const data = row.data;
       const toolUrl = `/tools/${row.slug}`;
       const isIndexed = indexStatusMap.get(toolUrl) ?? data.isIndexed ?? false;

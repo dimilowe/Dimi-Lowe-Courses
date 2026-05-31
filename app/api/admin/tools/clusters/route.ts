@@ -20,8 +20,8 @@ export async function GET() {
   );
   const indexStatusMap = new Map<string, boolean>();
   for (const row of indexStatusResult.rows) {
-    const slug = row.url.replace('/tools/', '');
-    indexStatusMap.set(slug, row.is_indexed);
+    const slug = (row.url as string).replace('/tools/', '');
+    indexStatusMap.set(slug, row.is_indexed as boolean);
   }
 
   const legacyBySlug = new Map<string, typeof toolsRegistry[0]>();

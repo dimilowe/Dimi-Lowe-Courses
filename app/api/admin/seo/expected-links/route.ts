@@ -40,9 +40,9 @@ export async function GET() {
 
     const legacyTools: string[] = [];
     for (const row of toolUrlsResult.rows) {
-      const slug = row.url.replace('/tools/', '');
-      if (!cmsToolSlugs.has(slug) && !registryExpected[row.url]) {
-        legacyTools.push(row.url);
+      const slug = (row.url as string).replace('/tools/', '');
+      if (!cmsToolSlugs.has(slug) && !registryExpected[row.url as string]) {
+        legacyTools.push(row.url as string);
       }
     }
 

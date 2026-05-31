@@ -58,7 +58,7 @@ export async function getJob(jobId: string): Promise<ToolJob | null> {
     `SELECT * FROM tool_jobs WHERE id = $1`,
     [jobId]
   );
-  return rows[0] || null;
+  return (rows[0] as unknown as ToolJob) || null;
 }
 
 export async function updateJob(

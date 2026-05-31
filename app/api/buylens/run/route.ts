@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       [userId, todayStart.toISOString()]
     );
     
-    if (parseInt(dailyRuns[0]?.count || "0", 10) >= HARD_CAPS.maxRunsPerDay) {
+    if (parseInt((dailyRuns[0]?.count as string) || "0", 10) >= HARD_CAPS.maxRunsPerDay) {
       return NextResponse.json(
         { 
           error: "RATE_LIMIT", 

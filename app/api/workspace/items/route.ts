@@ -181,7 +181,7 @@ export async function GET(request: NextRequest) {
           tags: Array.isArray(tags_json) ? tags_json : [],
         };
       }),
-      total: parseInt(countResult.rows[0]?.total || '0'),
+      total: parseInt((countResult.rows[0]?.total as string) || '0'),
       facets: {
         folders: facetsResult.rows[0]?.folders || [],
         tags: facetsResult.rows[0]?.tags || [],

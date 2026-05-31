@@ -174,7 +174,7 @@ async function handleCmsProductCheckout(
     );
   }
 
-  const productData = cmsObject.data?.product_data;
+  const productData = (cmsObject as Record<string, Record<string, unknown>>).data?.product_data as Record<string, unknown> | undefined;
   if (!productData) {
     return NextResponse.json(
       { error: "Product has no product_data configured" },
@@ -189,9 +189,9 @@ async function handleCmsProductCheckout(
     );
   }
 
-  const priceId = overridePriceId || productData.primary_price_id;
-  const mode = overrideMode || productData.mode || 'payment';
-  const offerKey = overrideOfferKey || productData.offer_key;
+  const priceId = (overridePriceId || productData.primary_price_id) as string;
+  const mode = (overrideMode || productData.mode || 'payment') as string;
+  const offerKey = (overrideOfferKey || productData.offer_key) as string;
 
   if (!priceId) {
     return NextResponse.json(
@@ -211,11 +211,11 @@ async function handleCmsProductCheckout(
   const baseUrl = getBaseUrl(request);
 
   const successUrl = productData.success_path
-    ? `${baseUrl}${productData.success_path}`
+    ? `${baseUrl}${productData.success_path as string}`
     : `${baseUrl}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}&product=${slug}`;
 
   const cancelUrl = productData.cancel_path
-    ? `${baseUrl}${productData.cancel_path}`
+    ? `${baseUrl}${productData.cancel_path as string}`
     : `${baseUrl}/products/${slug}?canceled=true`;
 
   const checkoutMode = mode === 'subscription' ? 'subscription' : 'payment';

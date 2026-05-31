@@ -174,20 +174,21 @@ export function shouldSuppressDatabaseErrorDuringBuild(error: unknown): boolean 
   return code === "42P01" || code === "3F000";
 }
 
-export async function query(text: string, params?: any[]) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function query<T = Record<string, unknown>>(text: string, params?: any[]): Promise<{ rows: T[]; rowCount: number | null }> {
   const start = Date.now();
   try {
     const res = await pool.query(text, params);
     const duration = Date.now() - start;
     recordDbQuery(duration);
     console.log('executed query', { text, duration, rows: res.rowCount });
-    return res;
+    return res as { rows: T[]; rowCount: number | null };
   } catch (error) {
     if (shouldSuppressDatabaseErrorDuringBuild(error)) {
       const duration = Date.now() - start;
       console.warn('[db] suppressing build-time query error (table may not exist yet):', (error as Error).message);
       recordDbQuery(duration);
-      return { rows: [], rowCount: 0, command: '' as const, oid: 0, fields: [] };
+      return { rows: [] as T[], rowCount: 0 };
     }
     throw error;
   }
@@ -201,19 +202,20 @@ export async function withTransaction<T>(
     await client.query('BEGIN');
     const clientQuery = async (text: string, params?: any[]) => {
       const start = Date.now();
-      const res = await client.query(text, params);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res: any = await client.query(text, params);
       const duration = Date.now() - start;
       recordDbQuery(duration);
       console.log('executed query (tx)', { text, duration, rows: res.rowCount });
       return res;
     };
-    const result = await callback({ query: clientQuery });
+    const result = await callback({ query: clientQuery as typeof query });
     await client.query('COMMIT');
     return result;
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
   } finally {
-    client.release();
+    client.release?.();
   }
 }

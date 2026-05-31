@@ -32,8 +32,8 @@ async function getExistingProductIds(productIds: number[]): Promise<number[]> {
   );
 
   const existing = new Set(
-    result.rows
-      .map((row: { id: unknown }) => Number.parseInt(String(row.id), 10))
+    (result.rows as { id: unknown }[])
+      .map((row) => Number.parseInt(String(row.id), 10))
       .filter((value: number) => Number.isFinite(value) && value > 0)
   );
 

@@ -51,7 +51,7 @@ export async function listEntries(
        LIMIT $${paramIndex}`,
       values
     );
-    return rows as BrandAccessEntry[];
+    return rows as unknown as BrandAccessEntry[];
   } else {
     const previewLimit = Math.min(safeLimit, 10);
     values[values.length - 1] = previewLimit;
@@ -78,7 +78,7 @@ export async function getTotalCount(): Promise<number> {
     `SELECT COUNT(*) as count FROM brand_access_entries WHERE is_active = true`,
     []
   );
-  return parseInt(rows[0]?.count || '0', 10);
+  return parseInt((rows[0]?.count as string) || '0', 10);
 }
 
 export async function createRequest(params: CreateRequestParams): Promise<BrandAccessRequest> {
@@ -113,7 +113,7 @@ export async function createRequest(params: CreateRequestParams): Promise<BrandA
     ]
   );
 
-  return rows[0] as BrandAccessRequest;
+  return rows[0] as unknown as BrandAccessRequest;
 }
 
 export async function listRequests(status?: string): Promise<BrandAccessRequest[]> {
@@ -128,7 +128,7 @@ export async function listRequests(status?: string): Promise<BrandAccessRequest[
   sql += ` ORDER BY created_at DESC LIMIT 100`;
   
   const { rows } = await query(sql, values);
-  return rows as BrandAccessRequest[];
+  return rows as unknown as BrandAccessRequest[];
 }
 
 export async function getRequestById(id: string): Promise<BrandAccessRequest | null> {
@@ -136,7 +136,7 @@ export async function getRequestById(id: string): Promise<BrandAccessRequest | n
     `SELECT * FROM brand_access_requests WHERE id = $1`,
     [id]
   );
-  return rows[0] as BrandAccessRequest || null;
+  return (rows[0] as unknown as BrandAccessRequest) || null;
 }
 
 export async function updateRequestStatus(
@@ -167,5 +167,5 @@ export async function publishEntry(
      RETURNING id`,
     [brandName, websiteUrl, contactUrl, notes]
   );
-  return rows[0].id;
+  return rows[0].id as string;
 }

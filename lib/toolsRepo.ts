@@ -421,7 +421,7 @@ export async function getToolCount(filters: ToolFilters = {}): Promise<number> {
   }
 
   const result = await query(sql, params);
-  return parseInt(result.rows[0].count, 10);
+  return parseInt(result.rows[0].count as string, 10);
 }
 
 export async function getToolsByCluster(clusterSlug: string): Promise<ToolRecord[]> {

@@ -81,8 +81,8 @@ export async function POST(request: NextRequest) {
       [paymentIntentId]
     );
     const existingProductIds = new Set(
-      existingPurchaseRows.rows
-        .map((row: { product_id: unknown }) => Number.parseInt(String(row.product_id), 10))
+      (existingPurchaseRows.rows as { product_id: unknown }[])
+        .map((row) => Number.parseInt(String(row.product_id), 10))
         .filter((id: number) => Number.isFinite(id))
     );
 
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (userResult.rows.length > 0) {
-      const userId = userResult.rows[0].id;
+      const userId = userResult.rows[0].id as string | number;
 
       for (const productId of purchasedProductIds) {
         if (!existingProductIds.has(productId)) {

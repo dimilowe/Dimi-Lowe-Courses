@@ -79,7 +79,7 @@ export async function expandBlueprint(blueprint: EngineBlueprint): Promise<Expan
       `SELECT slug FROM tools WHERE slug = ANY($1)`,
       [slugs]
     );
-    const existingSlugs = new Set(existingResult.rows.map(r => r.slug));
+    const existingSlugs = new Set((existingResult.rows as { slug: string }[]).map(r => r.slug));
     
     const toInsert: GeneratedShell[] = [];
     for (const shell of shells) {
@@ -127,7 +127,7 @@ export async function expandBlueprint(blueprint: EngineBlueprint): Promise<Expan
           `SELECT slug FROM cluster_articles WHERE slug = ANY($1)`,
           [generatedArticleSlugs]
         );
-        const existingArticleSlugs = new Set(existingArticles.rows.map((r: { slug: string }) => r.slug));
+        const existingArticleSlugs = new Set((existingArticles.rows as { slug: string }[]).map((r) => r.slug));
         
         for (const articleSlug of generatedArticleSlugs) {
           if (!existingArticleSlugs.has(articleSlug)) {
@@ -338,24 +338,24 @@ export async function getExpansionStats(): Promise<{
     const byEngine: Record<string, number> = {};
     for (const row of engineResult.rows) {
       if (row.engine) {
-        byEngine[row.engine] = parseInt(row.count);
+        byEngine[row.engine as string] = parseInt(row.count as string);
       }
     }
     
     const byStatus: Record<string, number> = {};
     for (const row of statusResult.rows) {
-      byStatus[row.status || 'unknown'] = parseInt(row.count);
+      byStatus[(row.status as string) || 'unknown'] = parseInt(row.count as string);
     }
     
     const byCluster: Record<string, number> = {};
     for (const row of clusterResult.rows) {
       if (row.cluster) {
-        byCluster[row.cluster] = parseInt(row.count);
+        byCluster[row.cluster as string] = parseInt(row.count as string);
       }
     }
     
     return {
-      totalShells: parseInt(totalResult.rows[0]?.count || '0'),
+      totalShells: parseInt((totalResult.rows[0]?.count as string) || '0'),
       byEngine,
       byStatus,
       byCluster,

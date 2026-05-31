@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
-  const idea = result.rows[0];
+  const idea = result.rows[0] as { title: string; one_liner: string; problem: string; tags: string | null; slug: string };
   const description = `${idea.one_liner} ${idea.problem}`.slice(0, 155);
   const keywords = idea.tags 
     ? `${idea.tags}, startup ideas, business ideas, app ideas`
@@ -82,14 +82,14 @@ export default async function IdeaDetailPage({ params }: { params: Promise<{ slu
     notFound();
   }
 
-  const idea: Idea = ideaResult.rows[0];
+  const idea: Idea = ideaResult.rows[0] as unknown as Idea;
 
   const commentsResult = await query(
     'SELECT id, author_name, body, created_at FROM idea_comments WHERE idea_id = $1 ORDER BY created_at DESC',
     [idea.id]
   );
 
-  const comments: Comment[] = commentsResult.rows;
+  const comments: Comment[] = commentsResult.rows as unknown as Comment[];
 
   const cookieStore = await cookies();
   const sessionId = cookieStore.get('vcm_session')?.value;

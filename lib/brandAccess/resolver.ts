@@ -153,12 +153,12 @@ async function checkCache(domain: string): Promise<ResolverResult | null> {
   );
   
   if (result.rows.length > 0) {
-    const row = result.rows[0];
+    const row = result.rows[0] as { website_url: string; contact_url: string | null; confidence: ResolveConfidence; method: ResolverMethod };
     return {
       website_url: row.website_url,
       contact_url: row.contact_url,
-      confidence: row.confidence as ResolveConfidence,
-      method: row.method as ResolverMethod
+      confidence: row.confidence,
+      method: row.method
     };
   }
   return null;

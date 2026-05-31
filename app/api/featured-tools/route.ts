@@ -10,7 +10,7 @@ export async function GET() {
        ORDER BY priority ASC, name ASC`
     );
 
-    const tools = result.rows.map((row: { slug: string; name: string; engine: string }) => ({
+    const tools = (result.rows as { slug: string; name: string; engine: string }[]).map((row) => ({
       slug: row.slug,
       title: row.name || row.slug,
       engine: row.engine || "unknown",

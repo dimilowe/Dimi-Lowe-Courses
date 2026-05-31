@@ -57,7 +57,7 @@ async function getArticle(slug: string, allowUnpublished: boolean = false): Prom
   );
   
   if (cmsResult.rows.length > 0) {
-    const row = cmsResult.rows[0];
+    const row = cmsResult.rows[0] as { id: number; title: string | null; slug: string; content: string | null; excerpt: string | null; meta_description: string | null; cluster_slug: string; is_indexed: boolean; created_at: Date };
     return {
       id: row.id,
       title: row.title || row.slug,
@@ -91,7 +91,7 @@ async function getArticle(slug: string, allowUnpublished: boolean = false): Prom
     return null;
   }
   
-  return { ...result.rows[0], source: 'cluster_articles' };
+  return { ...(result.rows[0] as Record<string, unknown>), source: 'cluster_articles' } as unknown as ClusterArticle;
 }
 
 async function isAdmin(): Promise<boolean> {

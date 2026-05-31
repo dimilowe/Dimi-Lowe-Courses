@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       priority: priority || 'medium',
       authorName: author_name || null,
       authorBio: author_bio || null,
-      createdAt: inserted?.created_at ?? null,
+      createdAt: (inserted?.created_at as string | Date | null | undefined) ?? null,
     });
 
     return NextResponse.json({ success: true, id: inserted?.id ?? null }, { status: 201 });

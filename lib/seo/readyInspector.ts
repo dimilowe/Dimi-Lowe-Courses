@@ -250,7 +250,7 @@ export async function runReadyInspector(): Promise<{
   let noSnapshotCount = 0;
   let errors = 0;
 
-  for (const url of unindexedUrls.rows as UrlRecord[]) {
+  for (const url of unindexedUrls.rows as unknown as UrlRecord[]) {
     try {
       const snapshotResult = await query(
         `SELECT overall_score, status_code, word_count, has_title, has_h1, 
@@ -262,7 +262,7 @@ export async function runReadyInspector(): Promise<{
         [url.url]
       );
 
-      const snapshot = snapshotResult.rows[0] as SnapshotRecord | undefined;
+      const snapshot = snapshotResult.rows[0] as unknown as SnapshotRecord | undefined;
       
       const classification = await classifyUrl(
         url.url,
@@ -393,7 +393,7 @@ export async function toggleManualReview(
     return { isReadyToIndex: false, status: 'Needs Review' };
   }
 
-  const url = urlResult.rows[0] as UrlRecord;
+  const url = urlResult.rows[0] as unknown as UrlRecord;
   
   const snapshotResult = await query(
     `SELECT overall_score, status_code, word_count, has_title, has_h1, 
@@ -405,7 +405,7 @@ export async function toggleManualReview(
     [url.url]
   );
 
-  const snapshot = snapshotResult.rows[0] as SnapshotRecord | undefined;
+  const snapshot = snapshotResult.rows[0] as unknown as SnapshotRecord | undefined;
   
   const classification = await classifyUrl(
     url.url,

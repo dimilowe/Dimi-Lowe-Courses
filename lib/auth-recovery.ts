@@ -70,5 +70,5 @@ export async function consumePasswordResetToken(token: string): Promise<{ email:
   );
 
   if (result.rows.length === 0) return null;
-  return { email: result.rows[0].email };
+  return { email: result.rows[0].email as string };
 }

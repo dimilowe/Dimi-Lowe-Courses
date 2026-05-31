@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     let userId: number;
 
     if (existingUser.rows.length > 0) {
-      userId = existingUser.rows[0].id;
+      userId = existingUser.rows[0].id as number;
       await query(
         `UPDATE youtube_users 
          SET email = $1, channel_id = $2, channel_title = $3, access_token = $4, refresh_token = $5, token_expiry = $6, updated_at = CURRENT_TIMESTAMP
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
          RETURNING id`,
         [userInfo.id, userInfo.email, channelId, channelTitle, access_token, refresh_token, tokenExpiry]
       );
-      userId = insertResult.rows[0].id;
+      userId = insertResult.rows[0].id as number;
     }
 
     const cookieStore = await cookies();

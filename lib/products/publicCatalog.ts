@@ -25,7 +25,7 @@ export async function queryPublicCatalogProducts(
 ): Promise<PublicCatalogProduct[]> {
   try {
     const result = await query(sql, params as any[]);
-    return result.rows as PublicCatalogProduct[];
+    return result.rows as unknown as PublicCatalogProduct[];
   } catch (error) {
     if (isMissingProductsRelation(error)) {
       console.warn("[public-catalog] products table is unavailable; returning empty catalog.", error);

@@ -53,11 +53,11 @@ export async function GET(
     
     return NextResponse.json({ 
       tools: result.rows.map(row => {
-        const requiredClouds = row.required_clouds || [];
+        const requiredClouds = (row.required_clouds as string[]) || [];
         
         return {
           slug: row.slug,
-          title: row.title || row.slug.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+          title: row.title || (row.slug as string).replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
           description: row.description,
           featured: row.featured || false,
           segment: row.segment,

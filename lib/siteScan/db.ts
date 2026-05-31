@@ -30,7 +30,7 @@ export async function createScan(config: {
       config.soft404Patterns,
     ]
   );
-  return result.rows[0].id;
+  return result.rows[0].id as string;
 }
 
 export async function getScan(scanId: string): Promise<ScanProgress | null> {
@@ -42,7 +42,7 @@ export async function getScan(scanId: string): Promise<ScanProgress | null> {
   
   if (result.rows.length === 0) return null;
   
-  const row = result.rows[0];
+  const row = result.rows[0] as { id: string; status: "failed" | "done" | "queued" | "running"; started_at: Date | null; finished_at: Date | null; pages_crawled: number; links_checked: number; summary_json: object | null; error_text: string | null };
   return {
     id: row.id,
     status: row.status,
@@ -65,7 +65,7 @@ export async function getScanConfig(scanId: string): Promise<ScanConfig | null> 
   
   if (result.rows.length === 0) return null;
   
-  const row = result.rows[0];
+  const row = result.rows[0] as { id: string; start_url: string; domain: string; max_pages: number; max_depth: number; concurrency: number; include_external: boolean; strip_query_params: boolean; soft404_patterns: string[] | null };
   return {
     scanId: row.id,
     startUrl: row.start_url,
@@ -168,7 +168,7 @@ export async function getVisitedUrls(scanId: string): Promise<Set<string>> {
     `SELECT url FROM site_scan_pages WHERE scan_id = $1`,
     [scanId]
   );
-  return new Set(result.rows.map(r => r.url));
+  return new Set((result.rows as { url: string }[]).map(r => r.url));
 }
 
 export async function getQueuedUrls(scanId: string): Promise<{ url: string; depth: number }[]> {
@@ -206,13 +206,13 @@ export async function getBrokenTargets(scanId: string): Promise<BrokenTarget[]> 
     [scanId]
   );
 
-  return result.rows.map(row => ({
+  return (result.rows as { target_url: string; status_code: number; error_type: string; is_soft_404: boolean; times_found: string; sources: unknown[] }[]).map(row => ({
     targetUrl: row.target_url,
     statusCode: row.status_code,
     errorType: row.error_type,
     isSoft404: row.is_soft_404,
     timesFound: parseInt(row.times_found),
-    sources: row.sources,
+    sources: row.sources as unknown as BrokenTarget['sources'],
   }));
 }
 
@@ -239,10 +239,10 @@ export async function getSourcePages(scanId: string): Promise<SourcePage[]> {
     [scanId]
   );
 
-  return result.rows.map(row => ({
+  return (result.rows as { source_url: string; broken_count: string; broken_links: unknown[] }[]).map(row => ({
     sourceUrl: row.source_url,
     brokenCount: parseInt(row.broken_count),
-    brokenLinks: row.broken_links,
+    brokenLinks: row.broken_links as unknown as SourcePage['brokenLinks'],
   }));
 }
 
@@ -264,7 +264,7 @@ export async function getAllLinks(scanId: string): Promise<{
      ORDER BY source_url, target_url`,
     [scanId]
   );
-  return result.rows.map(row => ({
+  return (result.rows as { source_url: string; target_url: string; status_code: number | null; error_type: string | null; is_soft_404: boolean; anchor_text: string | null; is_internal: boolean }[]).map(row => ({
     sourceUrl: row.source_url,
     targetUrl: row.target_url,
     statusCode: row.status_code,
@@ -281,5 +281,5 @@ export async function countUserScansLastHour(userId: string): Promise<number> {
      WHERE user_id = $1 AND created_at > NOW() - INTERVAL '1 hour'`,
     [userId]
   );
-  return parseInt(result.rows[0].count);
+  return parseInt(result.rows[0].count as string);
 }

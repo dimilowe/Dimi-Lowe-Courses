@@ -274,14 +274,14 @@ export async function classifyAllUrls(): Promise<Map<string, UrlClassification>>
 
   for (const row of urlsResult.rows) {
     const classification = await classifyUrl(
-      row.url,
-      row.actual_links ?? 0,
-      row.health_score ?? null,
-      row.manual_review_passed ?? false,
+      row.url as string,
+      (row.actual_links as number) ?? 0,
+      (row.health_score as number) ?? null,
+      (row.manual_review_passed as boolean) ?? false,
       cmsToolSlugs,
       cmsArticleSlugs
     );
-    classifications.set(row.url, classification);
+    classifications.set(row.url as string, classification);
   }
 
   return classifications;

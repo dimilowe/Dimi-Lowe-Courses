@@ -1,0 +1,1 @@
+- [QueryResultRow cast patterns](query-result-row-casts.md) — how to fix TypeScript errors from pg's QueryResultRow = Record<string, unknown> in this codebase

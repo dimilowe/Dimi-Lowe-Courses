@@ -140,12 +140,12 @@ async function getArticleStatuses(articleSlugs: string[]): Promise<ArticleStatus
     }>();
     
     for (const row of result.rows) {
-      articleMap.set(row.slug, { 
-        title: row.title || row.slug, 
+      articleMap.set(row.slug as string, { 
+        title: (row.title as string) || (row.slug as string), 
         // Articles in cms_objects are considered published (drafts not yet imported)
         isPublished: true,
         isIndexed: row.is_indexed === true,
-        contentLength: row.word_count || 0,
+        contentLength: (row.word_count as number) || 0,
       });
     }
     
@@ -209,14 +209,14 @@ export async function getAllClustersOverview(): Promise<ClusterOverview[]> {
       );
       
       for (const row of result.rows) {
-        articleStatusMap.set(row.slug, {
-          slug: row.slug,
-          title: row.title || row.slug,
+        articleStatusMap.set(row.slug as string, {
+          slug: row.slug as string,
+          title: (row.title as string) || (row.slug as string),
           exists: true,
           isDraft: false,
           isPublished: true,
           isIndexed: row.is_indexed === true,
-          contentLength: row.word_count || 0,
+          contentLength: (row.word_count as number) || 0,
         });
       }
     } catch (error) {

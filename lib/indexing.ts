@@ -18,8 +18,8 @@ export async function getIndexingStatus(url: string): Promise<IndexingStatus> {
     }
 
     return {
-      isIndexed: result.rows[0].is_indexed,
-      canonical: result.rows[0].canonical,
+      isIndexed: result.rows[0].is_indexed as boolean,
+      canonical: result.rows[0].canonical as string | undefined,
       exists: true,
     };
   } catch (error) {

@@ -28,8 +28,8 @@ export async function GET() {
     `);
 
     const predictions = result.rows.map(p => {
-      const yesCount = parseInt(p.yes_count) || 0;
-      const noCount = parseInt(p.no_count) || 0;
+      const yesCount = parseInt(p.yes_count as string) || 0;
+      const noCount = parseInt(p.no_count as string) || 0;
       const totalVotes = yesCount + noCount;
       const yesPercent = totalVotes > 0 ? Math.round((yesCount / totalVotes) * 100) : 50;
       const noPercent = totalVotes > 0 ? 100 - yesPercent : 50;

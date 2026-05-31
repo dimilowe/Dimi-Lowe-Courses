@@ -136,17 +136,17 @@ export async function GET(request: NextRequest) {
 
     const snapshotMap = new Map<string, { linksIn: number; linksOut: number; score: number }>();
     for (const row of snapshotsResult.rows) {
-      snapshotMap.set(row.slug, {
-        linksIn: row.internal_links_in_count || 0,
-        linksOut: row.internal_links_out_count || 0,
-        score: row.overall_score || 0
+      snapshotMap.set(row.slug as string, {
+        linksIn: (row.internal_links_in_count as number) || 0,
+        linksOut: (row.internal_links_out_count as number) || 0,
+        score: (row.overall_score as number) || 0
       });
     }
 
     const enrichedRows: EnrichedUrlRow[] = [];
 
     for (const row of urlsResult.rows) {
-      const url = row.url;
+      const url = row.url as string;
       const snapshot = snapshotMap.get(url);
       const linksInbound = snapshot?.linksIn || 0;
       const linksOutbound = snapshot?.linksOut || 0;
@@ -196,7 +196,7 @@ export async function GET(request: NextRequest) {
       }
 
       let cluster: TopicCluster | null = null;
-      let clusterId: string | null = row.cluster_slug || null;
+      let clusterId: string | null = (row.cluster_slug as string) || null;
       
       if (isPillar && isPillarResult) {
         cluster = isPillarResult.cluster;
@@ -238,20 +238,20 @@ export async function GET(request: NextRequest) {
       }
 
       enrichedRows.push({
-        id: row.id,
+        id: row.id as string,
         url,
         kind,
         status,
-        isIndexed: row.is_indexed,
-        cmsId: row.cms_id || null,
-        cmsType: row.cms_type || null,
+        isIndexed: row.is_indexed as boolean,
+        cmsId: (row.cms_id as string) || null,
+        cmsType: (row.cms_type as string) || null,
         clusterSlug: clusterId,
-        engine: row.engine || null,
+        engine: (row.engine as string) || null,
         linksInbound,
         linksOutbound,
         expectedLinks,
         seoScore,
-        cloudTags: row.cloud_tags || []
+        cloudTags: (row.cloud_tags as string[]) || []
       });
     }
 

@@ -283,7 +283,7 @@ export async function getArticleStatusesForCluster(clusterSlug: string): Promise
 
   const articleMap = new Map<string, typeof existingArticles.rows[0]>();
   for (const row of existingArticles.rows) {
-    articleMap.set(row.slug, row);
+    articleMap.set(row.slug as string, row);
   }
 
   return cluster.articleSlugs.map(slug => {
@@ -302,12 +302,12 @@ export async function getArticleStatusesForCluster(clusterSlug: string): Promise
 
     return {
       slug,
-      title: article.title || slugToTitle(slug),
+      title: (article.title as string) || slugToTitle(slug),
       exists: true,
       isDraft: !article.is_published,
       isPublished: article.is_published === true,
       isIndexed: article.is_indexed === true,
-      contentLength: article.content?.length || 0,
+      contentLength: (article.content as string)?.length || 0,
     };
   });
 }

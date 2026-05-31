@@ -16,7 +16,7 @@ export async function GET(
       [slug]
     );
 
-    const tools = result.rows.map((row: { slug: string; name: string; description: string | null }) => ({
+    const tools = (result.rows as { slug: string; name: string; description: string | null }[]).map((row) => ({
       slug: row.slug,
       name: row.name,
       description: row.description || "",

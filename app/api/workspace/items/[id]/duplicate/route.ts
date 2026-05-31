@@ -38,8 +38,8 @@ export async function POST(
       return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     }
 
-    const source = sourceResult.rows[0];
-    const versionGroupId = source.payload_json?.version_group_id || source.id;
+    const source = sourceResult.rows[0] as Record<string, unknown>;
+    const versionGroupId = (source.payload_json as Record<string, unknown>)?.version_group_id || source.id;
 
     const maxVersionResult = await query(
       `SELECT COALESCE(MAX(COALESCE(NULLIF(payload_json->>'version_number', '')::int, 1)), 1) AS max_version
@@ -49,7 +49,7 @@ export async function POST(
       [session.userId, versionGroupId]
     );
 
-    const nextVersion = (parseInt(maxVersionResult.rows[0]?.max_version || '1', 10) || 1) + 1;
+    const nextVersion = (parseInt((maxVersionResult.rows[0]?.max_version as string) || '1', 10) || 1) + 1;
     const nextPayload = {
       ...(source.payload_json || {}),
       version_group_id: versionGroupId,

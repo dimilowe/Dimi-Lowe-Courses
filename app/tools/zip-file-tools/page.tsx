@@ -91,12 +91,12 @@ const getLinkedToolsCached = unstable_cache(
     ]);
 
     const allTools = [
-      ...toolsResult.rows.map((row: { slug: string; name: string; description: string | null }) => ({
+      ...(toolsResult.rows as { slug: string; name: string; description: string | null }[]).map((row) => ({
         slug: row.slug,
         name: row.name,
         description: row.description || "",
       })),
-      ...cmsResult.rows.map((row: { slug: string; name: string; description: string | null }) => ({
+      ...(cmsResult.rows as { slug: string; name: string; description: string | null }[]).map((row) => ({
         slug: row.slug,
         name: row.name || row.slug,
         description: row.description || "",

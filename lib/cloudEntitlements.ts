@@ -53,7 +53,7 @@ export async function getCloudEntitlementsForUser(
     [userId]
   );
 
-  return rows as CloudEntitlement[];
+  return rows as unknown as CloudEntitlement[];
 }
 
 export async function grantCloudEntitlement(params: {
@@ -129,10 +129,11 @@ export async function getUserCloudEntitlement(
 
   if (!rows[0]) return null;
 
+  const r = rows[0] as { tier: EntitlementTier; status: EntitlementStatus; current_period_end: string | null; stripe_subscription_id: string | null };
   return {
-    tier: rows[0].tier as EntitlementTier,
-    status: rows[0].status as EntitlementStatus,
-    currentPeriodEnd: rows[0].current_period_end ? new Date(rows[0].current_period_end) : null,
-    stripeSubscriptionId: rows[0].stripe_subscription_id || null,
+    tier: r.tier,
+    status: r.status,
+    currentPeriodEnd: r.current_period_end ? new Date(r.current_period_end) : null,
+    stripeSubscriptionId: r.stripe_subscription_id || null,
   };
 }

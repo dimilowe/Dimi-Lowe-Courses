@@ -78,7 +78,7 @@ export async function PATCH(
       name: row.title,
       tool_id: row.tool_id,
       origin_cloud_id: row.origin_cloud_id,
-      preset_json: row.payload_json?.preset_json ?? {},
+      preset_json: (row.payload_json as Record<string, unknown>)?.preset_json ?? {},
       created_at: row.created_at,
       updated_at: row.updated_at,
     });

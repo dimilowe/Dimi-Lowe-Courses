@@ -132,7 +132,7 @@ export async function claimPendingPurchases(userId: string, email: string): Prom
 
   let claimed = 0;
   for (const purchase of pending.rows) {
-    const offerKey = purchase.metadata?.offerKey;
+    const offerKey = (purchase.metadata as Record<string, unknown>)?.offerKey;
     
     await query(
       `UPDATE purchases SET user_id = $1, status = 'completed' WHERE id = $2`,
@@ -148,13 +148,13 @@ export async function claimPendingPurchases(userId: string, email: string): Prom
 
     if (purchase.product_slug) {
       try {
-        await ensureCourseWorkspaceEntryBySlug(userId, purchase.product_slug);
+        await ensureCourseWorkspaceEntryBySlug(userId, purchase.product_slug as string);
       } catch (error) {
         console.error("[Offers] Failed to create course workspace entry on claim:", error);
       }
     }
 
-    const cloudEnts = CLOUD_OFFER_MAP[offerKey];
+    const cloudEnts = CLOUD_OFFER_MAP[offerKey as string];
     if (cloudEnts) {
       for (const { cloudId, tier } of cloudEnts) {
         await grantCloudEntitlement({

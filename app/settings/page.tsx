@@ -28,7 +28,7 @@ export default async function SettingsPage() {
     [session.userId]
   );
 
-  const user = userResult.rows[0];
+  const user = userResult.rows[0] as { email: string; created_at: Date };
 
   return (
     <div className="container mx-auto px-4 py-12">

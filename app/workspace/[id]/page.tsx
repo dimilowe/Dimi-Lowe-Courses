@@ -43,7 +43,7 @@ export default async function WorkspaceItemPage({ params }: Props) {
     notFound();
   }
 
-  const row = result.rows[0];
+  const row = result.rows[0] as Record<string, unknown>;
   const { tags_json, ...rest } = row;
-  return <WorkspaceItemClient item={{ ...rest, tags: Array.isArray(tags_json) ? tags_json : [] }} />;
+  return <WorkspaceItemClient item={{ ...rest, tags: Array.isArray(tags_json) ? tags_json : [] } as any} />;
 }

@@ -136,7 +136,7 @@ async function recomputeAllCloudsForUser(userId: number) {
   );
   
   for (const row of result.rows) {
-    await recomputeEffectiveEntitlement(userId, row.cloud_id);
+    await recomputeEffectiveEntitlement(userId, row.cloud_id as string);
   }
 }
 
@@ -168,11 +168,11 @@ async function updateGrantsAndRecompute(stripeSubscriptionId: string, status: st
   const affectedClouds = new Map<number, Set<string>>();
 
   for (const row of updateResult.rows) {
-    affectedUsers.add(row.user_id);
-    if (!affectedClouds.has(row.user_id)) {
-      affectedClouds.set(row.user_id, new Set());
+    affectedUsers.add(row.user_id as number);
+    if (!affectedClouds.has(row.user_id as number)) {
+      affectedClouds.set(row.user_id as number, new Set());
     }
-    affectedClouds.get(row.user_id)!.add(row.cloud_id);
+    affectedClouds.get(row.user_id as number)!.add(row.cloud_id as string);
   }
 
   for (const userId of affectedUsers) {
@@ -374,8 +374,8 @@ async function handleProductCheckoutCompleted(session: Stripe.Checkout.Session) 
     [paymentIntentId]
   );
   const existingProductIds = new Set(
-    existingRows.rows
-      .map((row: { product_id: unknown }) => Number.parseInt(String(row.product_id), 10))
+    (existingRows.rows as { product_id: unknown }[])
+      .map((row) => Number.parseInt(String(row.product_id), 10))
       .filter((id: number) => Number.isFinite(id))
   );
 

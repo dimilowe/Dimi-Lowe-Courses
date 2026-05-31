@@ -28,7 +28,7 @@ async function getRecommendations(currentProductId: string, productType: string)
      LIMIT 3`,
     [currentProductId, productType]
   );
-  return result.rows;
+  return result.rows as unknown as Product[];
 }
 
 export async function ProductRecommendations({ currentProductId, productType }: ProductRecommendationsProps) {

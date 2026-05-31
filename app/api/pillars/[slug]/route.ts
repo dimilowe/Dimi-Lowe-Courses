@@ -17,7 +17,7 @@ export async function GET(
       return NextResponse.json({ error: "Pillar not found" }, { status: 404 });
     }
 
-    const pillarRow = pillarResult.rows[0];
+    const pillarRow = pillarResult.rows[0] as { id: unknown; slug: unknown; data: Record<string, string> | null };
     const pillarData = pillarRow.data || {};
 
     const toolsResult = await query(
@@ -50,12 +50,12 @@ export async function GET(
       [slug]
     );
 
-    const tools = toolsResult.rows
-      .sort((a: { display_priority: number; name: string }, b: { display_priority: number; name: string }) => {
+    const tools = (toolsResult.rows as { slug: string; name: string; description: string | null; display_priority: number }[])
+      .sort((a, b) => {
         if (a.display_priority !== b.display_priority) return a.display_priority - b.display_priority;
         return a.name.localeCompare(b.name);
       })
-      .map((row: { slug: string; name: string; description: string | null }) => ({
+      .map((row) => ({
         slug: row.slug,
         name: row.name,
         description: row.description || "",

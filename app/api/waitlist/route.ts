@@ -51,7 +51,7 @@ export async function GET() {
     );
     
     return NextResponse.json({
-      count: parseInt(result.rows[0].count, 10)
+      count: parseInt(result.rows[0].count as string, 10)
     });
   } catch (error) {
     console.error("Waitlist count error:", error);

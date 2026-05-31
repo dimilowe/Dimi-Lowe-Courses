@@ -33,7 +33,7 @@ async function getBox(slug: string): Promise<{ box: BoxData; items: BoxItem[] } 
 
     if (boxResult.rows.length === 0) return null;
 
-    const box = boxResult.rows[0];
+    const box = boxResult.rows[0] as unknown as BoxData;
 
     const itemsResult = await query(
       `SELECT 
@@ -47,7 +47,7 @@ async function getBox(slug: string): Promise<{ box: BoxData; items: BoxItem[] } 
       [box.id]
     );
 
-    return { box, items: itemsResult.rows };
+    return { box, items: itemsResult.rows as unknown as BoxItem[] };
   } catch {
     return null;
   }
