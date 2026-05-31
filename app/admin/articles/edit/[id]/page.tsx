@@ -33,7 +33,7 @@ async function getArticle(idOrSlug: string): Promise<ClusterArticle | null> {
     return null;
   }
   
-  return result.rows[0];
+  return result.rows[0] as ClusterArticle;
 }
 
 export default async function EditArticlePage({ params }: { params: Promise<{ id: string }> }) {
