@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
 
     const articles = result.rows.map(row => ({
       ...row,
-      cluster_title: row.cluster_slug ? CLUSTER_REGISTRY[row.cluster_slug]?.pillarTitle || row.cluster_slug : null
+      cluster_title: row.cluster_slug ? CLUSTER_REGISTRY[row.cluster_slug as string]?.pillarTitle || row.cluster_slug : null
     }));
 
     return NextResponse.json({ articles });
