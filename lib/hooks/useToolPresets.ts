@@ -58,7 +58,7 @@ export function useToolPresets<TPresetJson>({
           if (response.status === 401) {
             alert("Please sign in to save presets.");
           } else if (response.status === 403 || data.code === "SUBSCRIPTION_REQUIRED") {
-            alert("Preset saving is part of the $11/mo global subscription. Visit Pricing to unlock it.");
+            alert("Preset saving is part of the $49/mo All Access membership. Visit Pricing to unlock it.");
           } else {
             alert("Failed to save preset.");
           }

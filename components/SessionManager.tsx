@@ -72,8 +72,8 @@ export function SessionManager({ sessionId }: { sessionId?: string }) {
     return (
       <div className="space-y-4">
         <div className="text-center mb-6">
-          <p className="text-lg text-green-600 font-medium">✅ Purchase successful!</p>
-          <p className="text-muted-foreground">Login to access your product</p>
+          <p className="text-lg text-green-600 font-medium">Subscription successful.</p>
+          <p className="text-muted-foreground">Login to access your membership library.</p>
         </div>
         <LoginForm prefillEmail={email} />
       </div>

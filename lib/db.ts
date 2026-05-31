@@ -1,4 +1,5 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
+import { Pool as NeonPool, neonConfig } from '@neondatabase/serverless';
+import { Pool as NodePgPool } from "pg";
 import ws from "ws";
 import { recordDbQuery } from "@/lib/ops/metrics";
 
@@ -16,7 +17,20 @@ type RuntimeDbMeta = {
 };
 
 type PoolConnectClient = {
-  query: (text: string) => Promise<unknown>;
+  query: (text: string, params?: unknown[]) => Promise<unknown>;
+  release?: () => void;
+};
+
+type QueryResultRow = Record<string, unknown>;
+
+type DatabasePool = {
+  query: <T extends QueryResultRow = QueryResultRow>(text: string, params?: unknown[]) => Promise<{
+    rows: T[];
+    rowCount: number | null;
+  }>;
+  connect: () => Promise<PoolConnectClient>;
+  end: () => Promise<void>;
+  on: (event: "connect", listener: (client: PoolConnectClient) => void | Promise<void>) => void;
 };
 
 function parseRuntimeTarget(): RuntimeTarget {
@@ -56,6 +70,19 @@ function safeDbFingerprint(connectionString: string): { host: string; database: 
   }
 }
 
+function isLocalDatabaseUrl(connectionString: string): boolean {
+  try {
+    const parsed = new URL(connectionString);
+    return (
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "::1"
+    );
+  } catch {
+    return connectionString.includes("localhost") || connectionString.includes("127.0.0.1");
+  }
+}
+
 const runtimeDb = resolveRuntimeDatabaseUrl();
 
 if (!runtimeDb) {
@@ -78,16 +105,29 @@ const defaultPoolMax = isProductionBuild ? 2 : 10;
 const defaultConnectTimeoutMs = isProductionBuild ? 10000 : 30000;
 const defaultIdleTimeoutMs = 30000;
 
-export const pool = new Pool({
-  connectionString: runtimeDb.url,
-  max: readPositiveIntEnv("DB_POOL_MAX", defaultPoolMax),
-  idleTimeoutMillis: readPositiveIntEnv("DB_POOL_IDLE_TIMEOUT_MS", defaultIdleTimeoutMs),
-  connectionTimeoutMillis: readPositiveIntEnv(
-    "DB_POOL_CONNECT_TIMEOUT_MS",
-    defaultConnectTimeoutMs
-  ),
-  allowExitOnIdle: true,
-});
+function createRuntimePool(connectionString: string): DatabasePool {
+  const baseConfig = {
+    connectionString,
+    max: readPositiveIntEnv("DB_POOL_MAX", defaultPoolMax),
+    idleTimeoutMillis: readPositiveIntEnv("DB_POOL_IDLE_TIMEOUT_MS", defaultIdleTimeoutMs),
+    connectionTimeoutMillis: readPositiveIntEnv(
+      "DB_POOL_CONNECT_TIMEOUT_MS",
+      defaultConnectTimeoutMs
+    ),
+    allowExitOnIdle: true,
+  };
+
+  if (isLocalDatabaseUrl(connectionString)) {
+    return new NodePgPool({
+      ...baseConfig,
+      ssl: false,
+    }) as DatabasePool;
+  }
+
+  return new NeonPool(baseConfig) as DatabasePool;
+}
+
+export const pool = createRuntimePool(runtimeDb.url);
 
 pool.on("connect", async (client: PoolConnectClient) => {
   await client.query("SET search_path TO public");

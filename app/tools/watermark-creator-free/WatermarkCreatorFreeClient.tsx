@@ -641,7 +641,7 @@ export default function WatermarkCreatorFreeClient() {
             presets={presets}
             onApply={applyPreset}
             canSave={canSavePresets}
-            lockedMessage="Preset saving is part of the $11/mo global subscription."
+            lockedMessage="Preset saving is part of the $49/mo All Access membership."
           />
           {mode === "image" && (
             <p className="text-xs text-gray-500 -mt-2">

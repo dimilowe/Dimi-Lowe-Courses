@@ -74,9 +74,9 @@ export function SignupForm({ prefillEmail }: SignupFormProps) {
   return (
     <Card className="max-w-md mx-auto">
       <CardHeader>
-        <CardTitle>Complete Your Purchase</CardTitle>
+        <CardTitle>Activate Your Membership</CardTitle>
         <CardDescription>
-          Create your account to access your purchase
+          Create your account to access your membership library
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -121,7 +121,7 @@ export function SignupForm({ prefillEmail }: SignupFormProps) {
             className="w-full bg-orange-500 hover:bg-orange-600"
             disabled={loading}
           >
-            {loading ? 'Creating Account...' : 'Create Account & Access Purchase'}
+            {loading ? 'Creating Account...' : 'Create Account & Access Membership'}
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}

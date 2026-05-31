@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { hasGlobalSubscription } from "@/lib/subscription/capabilities";
 
 export interface EntitledProduct {
   product_id: string;
@@ -26,7 +27,9 @@ async function getEntitlementMode(): Promise<EntitlementMode> {
        AND column_name IN ('product_id', 'product_slug')`
   );
 
-  const cols = new Set(result.rows.map((row: { column_name: string }) => row.column_name));
+  const cols = new Set(
+    (result.rows as Array<{ column_name: string }>).map((row) => row.column_name)
+  );
   const hasProductId = cols.has("product_id");
   const hasProductSlug = cols.has("product_slug");
 
@@ -44,6 +47,27 @@ async function getEntitlementMode(): Promise<EntitlementMode> {
 }
 
 export async function getEntitledProductsForUser(userId: string): Promise<EntitledProduct[]> {
+  const numericUserId = Number.parseInt(userId, 10);
+  if (Number.isFinite(numericUserId) && await hasGlobalSubscription(numericUserId)) {
+    const result = await query(
+      `SELECT
+        p.id::text AS product_id,
+        p.name AS product_name,
+        p.slug AS product_slug,
+        p.type AS product_type,
+        p.thumbnail_url,
+        p.download_url,
+        p.external_url,
+        NOW() AS created_at
+       FROM products p
+       WHERE p.visibility = 'public'
+         AND p.type != 'invisible'
+         AND p.price_type IN ('membership', 'free')
+       ORDER BY p.created_at DESC`
+    );
+    return result.rows as unknown as EntitledProduct[];
+  }
+
   const mode = await getEntitlementMode();
 
   if (mode === "none") return [];
@@ -66,7 +90,7 @@ export async function getEntitledProductsForUser(userId: string): Promise<Entitl
        ORDER BY p.id, e.created_at DESC`,
       [userId]
     );
-    return result.rows;
+    return result.rows as unknown as EntitledProduct[];
   }
 
   if (mode === "product_id") {
@@ -86,7 +110,7 @@ export async function getEntitledProductsForUser(userId: string): Promise<Entitl
        ORDER BY e.created_at DESC`,
       [userId]
     );
-    return result.rows;
+    return result.rows as unknown as EntitledProduct[];
   }
 
   const result = await query(
@@ -105,7 +129,7 @@ export async function getEntitledProductsForUser(userId: string): Promise<Entitl
      ORDER BY e.created_at DESC`,
     [userId]
   );
-  return result.rows;
+  return result.rows as unknown as EntitledProduct[];
 }
 
 export async function userHasProductEntitlement(
@@ -113,6 +137,22 @@ export async function userHasProductEntitlement(
   productId: number,
   productSlug: string
 ): Promise<boolean> {
+  const numericUserId = Number.parseInt(userId, 10);
+  if (Number.isFinite(numericUserId) && await hasGlobalSubscription(numericUserId)) {
+    const result = await query(
+      `SELECT 1
+       FROM products
+       WHERE id = $1
+         AND slug = $2
+         AND visibility = 'public'
+         AND type != 'invisible'
+         AND price_type IN ('membership', 'free')
+       LIMIT 1`,
+      [productId, productSlug]
+    );
+    if (result.rows.length > 0) return true;
+  }
+
   const mode = await getEntitlementMode();
 
   if (mode === "none") return false;

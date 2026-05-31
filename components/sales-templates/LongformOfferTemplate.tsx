@@ -115,7 +115,7 @@ function defaultFaq(productName: string): SalesPageFaqItem[] {
   return [
     {
       question: "How fast can I start?",
-      answer: `Most customers can start using ${productName} right away after purchase.`,
+      answer: `Most members can start using ${productName} right away after joining.`,
     },
     {
       question: "Is this beginner-friendly?",
@@ -123,7 +123,7 @@ function defaultFaq(productName: string): SalesPageFaqItem[] {
     },
     {
       question: "How do I access what I purchased?",
-      answer: "Your Dashboard gives course/product access, and Workspace stores your files.",
+      answer: "Your Dashboard gives membership content access, and Workspace stores your files.",
     },
     {
       question: "Can I download resources?",
@@ -148,6 +148,7 @@ export function LongformOfferTemplate({
 }: LongformOfferTemplateProps) {
   const salesMeta = extractSalesPageMeta(product.meta);
   const isFree = product.price_type === "free";
+  const isMembership = product.price_type === "membership";
   const theme = {
     primary: salesMeta?.theme?.primary_color || "#f97316",
     accent: salesMeta?.theme?.accent_color || "#7c2d12",
@@ -256,8 +257,13 @@ export function LongformOfferTemplate({
           <Card className="sticky top-24 h-fit border-orange-200 shadow-sm">
             <div className="p-6">
               <p className="text-center text-4xl font-bold">
-                {isFree ? "Free" : `$${(product.price / 100).toFixed(2)}`}
+                {isFree ? "Free" : isMembership ? "Included with membership" : `$${(product.price / 100).toFixed(2)}`}
               </p>
+              {isMembership && (
+                <p className="mt-2 text-center text-sm" style={{ color: theme.mutedText }}>
+                  Join for $49/month to access this and every other course, download, and digital product.
+                </p>
+              )}
               <div className="mt-5 space-y-3">
                 <ClaimButton product={product} orderBump={orderBump} />
                 <AddToCartButton product={saveButtonProduct} />

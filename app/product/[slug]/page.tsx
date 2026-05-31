@@ -56,7 +56,7 @@ async function getProduct(slug: string): Promise<Product | null> {
     `SELECT * FROM products WHERE slug = $1 AND visibility = 'public'`,
     [slug]
   );
-  return result.rows[0] || null;
+  return (result.rows[0] as unknown as Product | undefined) || null;
 }
 
 async function getOrderBumpProduct(productId: number): Promise<OrderBumpProduct | null> {
@@ -67,7 +67,7 @@ async function getOrderBumpProduct(productId: number): Promise<OrderBumpProduct 
      LIMIT 1`,
     [productId]
   );
-  return result.rows[0] || null;
+  return (result.rows[0] as unknown as OrderBumpProduct | undefined) || null;
 }
 
 function formatDescription(text: string) {
@@ -121,6 +121,7 @@ function DefaultProductTemplate({
   includedBundleProducts: BundleIncludedProductSummary[];
 }) {
   const isFree = product.price_type === "free";
+  const isMembership = product.price_type === "membership";
   const featureList = extractMetaFeatures(product.meta);
   const saveButtonProduct = {
     id: product.id,
@@ -174,8 +175,13 @@ function DefaultProductTemplate({
           <Card className="mb-6 p-6">
             <div className="mb-6 text-center">
               <div className="text-3xl font-bold">
-                {isFree ? "Free" : `$${(product.price / 100).toFixed(2)}`}
+                {isFree ? "Free" : isMembership ? "Included with membership" : `$${(product.price / 100).toFixed(2)}`}
               </div>
+              {isMembership && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Join for $49/month to access this and every other course, download, and digital product.
+                </p>
+              )}
             </div>
 
             <div className="space-y-3">

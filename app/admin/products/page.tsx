@@ -138,6 +138,20 @@ function normalizeEditableProductType(type: string): string {
   return type;
 }
 
+function isMembershipPriceType(priceType: string): boolean {
+  return priceType === "membership";
+}
+
+function isZeroPriceType(priceType: string): boolean {
+  return priceType === "free" || isMembershipPriceType(priceType);
+}
+
+function formatProductAccessLabel(product: Pick<Product, "price_type" | "price">): string {
+  if (product.price_type === "free") return "Free";
+  if (isMembershipPriceType(product.price_type)) return "$49 Membership";
+  return `$${(Number(product.price || 0) / 100).toFixed(2)}`;
+}
+
 function inferResourceLabelFromUrl(url: string): string {
   if (!url) return "Download file";
   try {
@@ -249,7 +263,7 @@ export default function AdminProductsPage() {
     name: "",
     description: "",
     type: "app",
-    price_type: "free",
+    price_type: "membership",
     price: 0,
     thumbnail_url: "",
     download_url: "",
@@ -581,7 +595,7 @@ export default function AdminProductsPage() {
 
       const payload = {
         ...formData,
-        price: formData.price_type === "free" ? 0 : formData.price,
+        price: isZeroPriceType(formData.price_type) ? 0 : formData.price,
         download_url: primaryDownloadUrl || null,
         meta: Object.keys(nextMeta).length > 0 ? nextMeta : null,
       };
@@ -701,7 +715,7 @@ export default function AdminProductsPage() {
       name: "",
       description: "",
       type: "app",
-      price_type: "free",
+      price_type: "membership",
       price: 0,
       thumbnail_url: "",
       download_url: "",
@@ -927,8 +941,17 @@ export default function AdminProductsPage() {
                   <select
                     className="border rounded px-3 py-2"
                     value={formData.price_type}
-                    onChange={(e) => setFormData({ ...formData, price_type: e.target.value })}
+                    onChange={(e) => {
+                      const nextPriceType = e.target.value;
+                      if (isZeroPriceType(nextPriceType)) {
+                        setPriceInput("0.00");
+                        setFormData({ ...formData, price_type: nextPriceType, price: 0 });
+                        return;
+                      }
+                      setFormData({ ...formData, price_type: nextPriceType });
+                    }}
                   >
+                    <option value="membership">Included in $49 Membership</option>
                     <option value="free">Free</option>
                     <option value="one_time">One-time</option>
                   </select>
@@ -941,6 +964,7 @@ export default function AdminProductsPage() {
                       placeholder="10.00"
                       className="pl-8"
                       value={priceInput}
+                      disabled={isZeroPriceType(formData.price_type)}
                       onChange={(e) => {
                         const rawValue = e.target.value.replace(/[^0-9.]/g, "");
                         if (!/^\d*\.?\d{0,2}$/.test(rawValue)) return;
@@ -960,6 +984,9 @@ export default function AdminProductsPage() {
                     />
                   </div>
                 </div>
+                <p className="text-xs text-gray-600">
+                  Products marked "Included in $49 Membership" are available to active global subscribers when visibility is Public.
+                </p>
 
                 <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50/40 p-4">
                   <div>
@@ -1004,9 +1031,7 @@ export default function AdminProductsPage() {
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-gray-900">{option.name}</p>
                               <p className="text-xs text-gray-600">
-                                {option.type} · {option.slug} · {option.price_type === "free"
-                                  ? "Free"
-                                  : `$${(Number(option.price) / 100).toFixed(2)}`}
+                                {option.type} · {option.slug} · {formatProductAccessLabel(option)}
                               </p>
                             </div>
                           </label>
@@ -1345,7 +1370,7 @@ export default function AdminProductsPage() {
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Badge variant="outline">{product.type}</Badge>
                     <Badge variant="secondary">
-                      {product.price_type === "free" ? "Free" : `$${(product.price / 100).toFixed(2)}`}
+                      {formatProductAccessLabel(product)}
                     </Badge>
                     {bundleMeta && (
                       <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">

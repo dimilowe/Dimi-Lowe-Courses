@@ -17,12 +17,14 @@ type Plan = {
 
 const GLOBAL_PLAN: Plan = {
   id: "global",
-  name: "VCM Pro Save",
-  price: "$11 / mo",
+  name: "Dimi Lowe All Access",
+  price: "$49 / mo",
   badge: "Single plan",
-  description: "One subscription for your whole account across tools and workstations.",
+  description: "One subscription for every course, download, digital product, tool save feature, and workstation unlock.",
   gradient: "from-emerald-500 to-teal-600",
   features: [
+    "Access every course on the site",
+    "Access every paid digital product and download",
     "Open any tool output in Image, PDF, or Audio Workstations",
     "Build modular workstation layouts with drag-and-drop widgets",
     "Save presets for tools",
@@ -35,23 +37,25 @@ const GLOBAL_PLAN: Plan = {
 
 const VALUE_STACK = [
   {
-    title: "Create, then continue editing instantly",
+    title: "One payment unlocks the full library",
     detail:
-      "Move from any tool result into the right workstation (Image, PDF, Audio) without restarting your workflow.",
+      "Members can access every course, download, template, and digital product without buying each one separately.",
   },
   {
-    title: "Run modular workflows on one canvas",
+    title: "Keep learning without checkout friction",
     detail:
-      "Add the widgets you need and keep editing on the same file instead of bouncing between pages.",
+      "Open the next course or resource directly from your dashboard as new content gets added.",
   },
   {
-    title: "Turn free exports into a growth loop",
+    title: "Tools and workstations stay included",
     detail:
-      "Free users can export with VCM watermark; subscribers remove watermark for clean client-ready deliverables.",
+      "All-access also keeps the existing save features, clean exports, presets, and workspace storage.",
   },
 ];
 
 const COMPARISON_ROWS = [
+  { label: "Access all courses", free: "No", pro: "Yes" },
+  { label: "Access all paid downloads/products", free: "No", pro: "Yes" },
   { label: "Use all tools", free: "Yes", pro: "Yes" },
   { label: "Use Image/PDF/Audio Workstations", free: "Yes", pro: "Yes" },
   { label: "Modular widget editing", free: "Yes", pro: "Yes" },
@@ -60,44 +64,44 @@ const COMPARISON_ROWS = [
   { label: "Save tool presets", free: "No", pro: "Yes" },
   { label: "Save outputs to Workspace", free: "No", pro: "Yes" },
   { label: "Access from any device after login", free: "Limited", pro: "Yes" },
-  { label: "Monthly price", free: "$0", pro: "$11" },
+  { label: "Monthly price", free: "$0", pro: "$49" },
 ];
 
 const FAQS = [
   {
-    q: "Do I need this to use the tools?",
-    a: "No. Tools and workstations remain free to use. Subscription unlocks saved systems and clean exports.",
+    q: "What does the membership include?",
+    a: "All courses, paid downloads, digital products, clean exports, saved presets, and workspace saving are included while your subscription is active.",
   },
   {
     q: "What happens if I cancel?",
     a: "You can cancel anytime. Your plan will not renew, and free usage remains available.",
   },
   {
-    q: "What is the biggest subscriber unlock?",
-    a: "Removing watermarks on exports, plus saving presets and workspace outputs for repeatable production.",
+    q: "Do I still buy courses individually?",
+    a: "No. The membership is designed to replace individual course and digital product purchases.",
   },
 ];
 
 const PROOF_STATS = [
   { label: "Tools available today", value: "100+" },
   { label: "Workstation modes", value: "3" },
-  { label: "Cost per day", value: "~$0.37" },
+  { label: "Cost per day", value: "~$1.63" },
 ];
 
 const TESTIMONIALS = [
   {
     quote:
-      "I can start in a tool, open the result in a workstation, and keep editing in one flow.",
-    role: "Creator workflow user",
+      "It is easier to join once and use whatever course or resource I need that week.",
+    role: "Creator member",
   },
   {
     quote:
-      "Clean export without watermark is what made this subscription worth it for client work.",
+      "The membership makes the library feel like a working toolkit instead of a store checkout.",
     role: "Freelancer",
   },
   {
     quote:
-      "Free usage is great, but modular workstations plus saved presets made our process much faster.",
+      "New content showing up inside the same membership is what makes it worth keeping.",
     role: "Weekly power user",
   },
 ];
@@ -118,7 +122,7 @@ function PricingPageContent() {
     if (searchParams.get("success") === "1") {
       setMessage({
         type: "success",
-        text: "Subscription successful. Finish account setup to activate saving features.",
+        text: "Subscription successful. Finish account setup to activate all-access content and member features.",
       });
     } else if (searchParams.get("canceled") === "1") {
       setMessage({ type: "error", text: "Checkout was canceled. You can try again anytime." });
@@ -245,7 +249,7 @@ function PricingPageContent() {
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-zinc-900">Simple pricing. Clear value.</h1>
           <p className="mt-4 text-xl text-zinc-600 max-w-2xl mx-auto">
-            Free users can use tools, workstations, and watermarked exports. Subscribers unlock clean exports and saving.
+            One $49/month membership unlocks the full content library plus clean exports, saving, presets, and workspace features.
           </p>
         </div>
 
@@ -304,12 +308,12 @@ function PricingPageContent() {
         </section>
 
         <section className="mt-10">
-          <h3 className="text-2xl font-bold text-zinc-900 mb-4">Free vs Pro Save</h3>
+          <h3 className="text-2xl font-bold text-zinc-900 mb-4">Free vs All Access</h3>
           <div className="rounded-2xl bg-white border border-zinc-200 overflow-hidden">
             <div className="grid grid-cols-3 bg-zinc-100 text-sm font-semibold text-zinc-700">
               <div className="px-4 py-3">Feature</div>
               <div className="px-4 py-3 text-center">Free</div>
-              <div className="px-4 py-3 text-center">VCM Pro Save</div>
+              <div className="px-4 py-3 text-center">All Access</div>
             </div>
             {COMPARISON_ROWS.map((row) => (
               <div key={row.label} className="grid grid-cols-3 border-t border-zinc-100 text-sm">
@@ -326,15 +330,15 @@ function PricingPageContent() {
           <div className="grid md:grid-cols-3 gap-4">
             <div className="rounded-xl bg-white border border-zinc-200 p-4">
               <p className="font-semibold text-zinc-900">Weekly creators</p>
-              <p className="text-sm text-zinc-600 mt-2">You want to move from output to polished final file without switching platforms.</p>
+              <p className="text-sm text-zinc-600 mt-2">You want courses, resources, and tools available whenever the next project comes up.</p>
             </div>
             <div className="rounded-xl bg-white border border-zinc-200 p-4">
               <p className="font-semibold text-zinc-900">Freelancers & agencies</p>
-              <p className="text-sm text-zinc-600 mt-2">You need clean, non-watermarked exports and reusable setup for client delivery.</p>
+              <p className="text-sm text-zinc-600 mt-2">You want the full library plus clean, non-watermarked exports and reusable setup for client delivery.</p>
             </div>
             <div className="rounded-xl bg-white border border-zinc-200 p-4">
-              <p className="font-semibold text-zinc-900">System builders</p>
-              <p className="text-sm text-zinc-600 mt-2">You want modular workstations, widgets, and persistent workflows across teams.</p>
+              <p className="font-semibold text-zinc-900">Skill builders</p>
+              <p className="text-sm text-zinc-600 mt-2">You want to move through multiple courses and resources without separate purchases.</p>
             </div>
           </div>
         </section>
@@ -352,9 +356,9 @@ function PricingPageContent() {
         </section>
 
         <section className="mt-10 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
-          <h3 className="text-2xl font-bold text-zinc-900">If you use tools weekly, this pays for itself</h3>
+          <h3 className="text-2xl font-bold text-zinc-900">If you want more than one product, this pays for itself</h3>
           <p className="mt-2 text-zinc-700">
-            Free users get creation and watermarked sharing. Subscribers get clean exports, saved presets, and saved workspace outputs.
+            Instead of buying courses and downloads one by one, members get the full content library for one monthly price.
           </p>
           <button
             onClick={handleSubscribe}
@@ -365,7 +369,7 @@ function PricingPageContent() {
                 : "bg-zinc-200 text-zinc-400 cursor-not-allowed"
             }`}
           >
-            {isLoading ? "Redirecting..." : "Start Pro Save"}
+            {isLoading ? "Redirecting..." : "Start All Access"}
           </button>
         </section>
 
@@ -384,7 +388,7 @@ function PricingPageContent() {
         <section className="mt-10 pb-8 rounded-2xl bg-zinc-900 text-white p-6">
           <h3 className="text-2xl font-bold">Start with one plan. Cancel anytime.</h3>
           <p className="text-zinc-300 mt-2">
-            Keep tools free for usage, and only pay when you want saved systems and reusable workflows.
+            Get every current course and digital product, plus new eligible content added to the library while your membership is active.
           </p>
           <button
             onClick={handleSubscribe}
@@ -395,7 +399,7 @@ function PricingPageContent() {
                 : "bg-zinc-700 text-zinc-400 cursor-not-allowed"
             }`}
           >
-            {isLoading ? "Redirecting..." : "Subscribe to VCM Pro Save"}
+            {isLoading ? "Redirecting..." : "Subscribe to All Access"}
           </button>
         </section>
       </div>

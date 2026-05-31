@@ -6,13 +6,13 @@ import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Courses | VCM Suite",
-  description: "Explore VCM Suite courses, lessons, and training resources for creators.",
+  description: "Explore VCM Suite courses, lessons, and training resources included with membership.",
   alternates: {
     canonical: "/courses",
   },
   openGraph: {
     title: "Courses | VCM Suite",
-    description: "Courses, lessons, and training resources for creators.",
+    description: "Courses, lessons, and training resources for creators included with membership.",
     url: "/courses",
     type: "website",
   },
@@ -42,7 +42,7 @@ export default async function CoursesPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-neutral-900/50 to-neutral-900/70" />
         <div className="relative z-10 text-center text-white px-4">
           <h1 className="text-5xl md:text-6xl font-bold tracking-wider mb-4">COURSES</h1>
-          <p className="text-xl tracking-wide text-neutral-100">Video courses and training programs</p>
+          <p className="text-xl tracking-wide text-neutral-100">All video courses and training programs included for $49/month</p>
         </div>
       </div>
 

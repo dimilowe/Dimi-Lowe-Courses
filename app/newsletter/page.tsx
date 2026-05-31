@@ -1,4 +1,3 @@
-import { query } from "@/lib/db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -6,10 +5,9 @@ import { Metadata } from "next";
 import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { NewsletterSearchList } from "@/components/NewsletterSearchList";
+import { getBlogCategories, getPaginatedBlogPosts, type BlogCategory, type BlogPostListItem } from "@/lib/blog/repository";
 
 export const revalidate = 60;
-
-const POSTS_PER_PAGE = 10;
 
 export const metadata: Metadata = {
   title: "Blog & Newsletter | VCM Suite",
@@ -21,115 +19,19 @@ export const metadata: Metadata = {
   },
 };
 
-interface BlogPost {
-  id: number;
-  title: string;
-  slug: string;
-  excerpt: string;
-  featured_image_url: string | null;
-  published_at: Date;
-  view_count: number;
-  categories: { id: number; name: string; slug: string }[];
-}
-
-interface Category {
-  id: number;
-  name: string;
-  slug: string;
-  post_count: number;
-}
-
 interface PaginatedResult {
-  posts: BlogPost[];
+  posts: BlogPostListItem[];
   totalCount: number;
   totalPages: number;
   currentPage: number;
 }
 
 async function getBlogPosts(categorySlug?: string, page: number = 1): Promise<PaginatedResult> {
-  const offset = (page - 1) * POSTS_PER_PAGE;
-  
-  let countSql = `
-    SELECT COUNT(DISTINCT bp.id) as count
-    FROM blog_posts bp
-    LEFT JOIN blog_post_categories bpc ON bp.id = bpc.blog_post_id
-    WHERE bp.published_at IS NOT NULL AND bp.published_at <= NOW() AND (bp.unlisted IS NULL OR bp.unlisted = false)
-  `;
-  
-  let sql = `
-    SELECT 
-      bp.id, 
-      bp.title, 
-      bp.slug, 
-      bp.excerpt, 
-      bp.featured_image_url, 
-      bp.published_at, 
-      bp.view_count,
-      COALESCE(
-        json_agg(
-          json_build_object('id', c.id, 'name', c.name, 'slug', c.slug)
-        ) FILTER (WHERE c.id IS NOT NULL),
-        '[]'
-      ) as categories
-    FROM blog_posts bp
-    LEFT JOIN blog_post_categories bpc ON bp.id = bpc.blog_post_id
-    LEFT JOIN categories c ON bpc.category_id = c.id
-    WHERE bp.published_at IS NOT NULL AND bp.published_at <= NOW() AND (bp.unlisted IS NULL OR bp.unlisted = false)
-  `;
-
-  const params: (string | number)[] = [];
-  let paramIndex = 1;
-
-  if (categorySlug) {
-    const categoryFilter = ` AND bp.id IN (
-      SELECT blog_post_id FROM blog_post_categories 
-      WHERE category_id = (SELECT id FROM categories WHERE slug = $${paramIndex})
-    )`;
-    sql += categoryFilter;
-    countSql += categoryFilter;
-    params.push(categorySlug);
-    paramIndex++;
-  }
-
-  sql += `
-    GROUP BY bp.id
-    ORDER BY bp.published_at DESC
-    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-  `;
-  
-  const countResult = await query(countSql, categorySlug ? [categorySlug] : []);
-  const totalCount = parseInt(countResult.rows[0]?.count || '0');
-  const totalPages = Math.ceil(totalCount / POSTS_PER_PAGE);
-  
-  const result = await query(sql, [...params, POSTS_PER_PAGE, offset]);
-  
-  return {
-    posts: result.rows,
-    totalCount,
-    totalPages,
-    currentPage: page,
-  };
+  return getPaginatedBlogPosts(categorySlug, page);
 }
 
-async function getCategories(): Promise<Category[]> {
-  const result = await query(
-    `SELECT 
-      c.id, 
-      c.name, 
-      c.slug,
-      COUNT(bpc.blog_post_id) as post_count
-     FROM categories c
-     LEFT JOIN blog_post_categories bpc ON c.id = bpc.category_id
-     LEFT JOIN blog_posts bp ON bpc.blog_post_id = bp.id 
-       AND bp.published_at IS NOT NULL 
-       AND bp.published_at <= NOW()
-       AND (bp.unlisted IS NULL OR bp.unlisted = false)
-     GROUP BY c.id
-     HAVING COUNT(bpc.blog_post_id) > 0
-     ORDER BY c.name ASC`,
-    []
-  );
-  return result.rows;
+async function getCategories(): Promise<BlogCategory[]> {
+  return getBlogCategories();
 }
 
 export default async function NewsletterPage({

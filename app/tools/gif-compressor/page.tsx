@@ -162,7 +162,7 @@ export default function GifCompressorPage() {
         if (response.status === 401 || data.error === 'Unauthorized') {
           alert('Please sign in to save to your workspace');
         } else if (response.status === 403 || data.code === 'SUBSCRIPTION_REQUIRED') {
-          alert('Workspace saving is part of the $11/mo global subscription. Visit Pricing to unlock it.');
+          alert('Workspace saving is part of the $49/mo All Access membership. Visit Pricing to unlock it.');
         } else {
           alert('Failed to save. Please try again.');
         }

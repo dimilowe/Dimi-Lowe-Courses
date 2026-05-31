@@ -13,6 +13,7 @@ export async function GET() {
         isLoggedIn: false,
         canSavePresets: false,
         canSaveWorkspace: false,
+        canAccessAllContent: false,
       });
     }
 
@@ -22,6 +23,7 @@ export async function GET() {
         isLoggedIn: false,
         canSavePresets: false,
         canSaveWorkspace: false,
+        canAccessAllContent: false,
       });
     }
 
@@ -37,6 +39,7 @@ export async function GET() {
       isLoggedIn: false,
       canSavePresets: false,
       canSaveWorkspace: false,
+      canAccessAllContent: false,
     });
   }
 }

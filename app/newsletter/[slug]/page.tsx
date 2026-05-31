@@ -1,4 +1,3 @@
-import { query } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import Link from "next/link";
@@ -6,23 +5,18 @@ import { NewsletterSignup } from "@/components/NewsletterSignup";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Calendar, Eye, GraduationCap } from "lucide-react";
 import { AudioPlayer } from "@/components/AudioPlayer";
+import {
+  getBlogPostBySlug,
+  getRelatedBlogPosts,
+  incrementBlogPostViewCount,
+  type BlogPostDetail,
+  type BlogPostListItem,
+} from "@/lib/blog/repository";
+import { query } from "@/lib/db";
 
 function formatContent(content: string): string {
   // Tiptap already outputs HTML, so just return it as-is
   return content;
-}
-
-interface BlogPost {
-  id: number;
-  title: string;
-  slug: string;
-  content: string;
-  excerpt: string | null;
-  meta_description: string | null;
-  featured_image_url: string | null;
-  published_at: Date;
-  view_count: number;
-  is_indexed: boolean;
 }
 
 interface RecommendedCourse {
@@ -34,39 +28,16 @@ interface RecommendedCourse {
   price: number | null;
 }
 
-async function getBlogPost(slug: string): Promise<BlogPost | null> {
-  const result = await query(
-    `SELECT id, title, slug, content, excerpt, meta_description, featured_image_url, published_at, view_count, is_indexed
-     FROM blog_posts 
-     WHERE slug = $1 AND published_at IS NOT NULL AND published_at <= NOW()
-     LIMIT 1`,
-    [slug]
-  );
-  
-  if (result.rows.length === 0) {
-    return null;
-  }
-  
-  return result.rows[0];
+async function getBlogPost(slug: string): Promise<BlogPostDetail | null> {
+  return getBlogPostBySlug(slug);
 }
 
 async function incrementViewCount(postId: number): Promise<void> {
-  await query(
-    `UPDATE blog_posts SET view_count = view_count + 1 WHERE id = $1`,
-    [postId]
-  );
+  await incrementBlogPostViewCount(postId);
 }
 
-async function getRelatedPosts(currentPostId: number): Promise<BlogPost[]> {
-  const result = await query(
-    `SELECT id, title, slug, excerpt, featured_image_url, published_at
-     FROM blog_posts 
-     WHERE id != $1 AND published_at IS NOT NULL AND published_at <= NOW()
-     ORDER BY published_at DESC
-     LIMIT 3`,
-    [currentPostId]
-  );
-  return result.rows;
+async function getRelatedPosts(currentPostId: number): Promise<BlogPostListItem[]> {
+  return getRelatedBlogPosts(currentPostId);
 }
 
 async function getRecommendedCourses(): Promise<RecommendedCourse[]> {
