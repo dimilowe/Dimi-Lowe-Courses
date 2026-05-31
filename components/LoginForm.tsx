@@ -75,7 +75,7 @@ export function LoginForm({ prefillEmail }: LoginFormProps) {
       <CardHeader>
         <CardTitle>Welcome Back</CardTitle>
         <CardDescription>
-          Login to access your purchased products
+          Login to access your membership content and products
         </CardDescription>
       </CardHeader>
       <CardContent>

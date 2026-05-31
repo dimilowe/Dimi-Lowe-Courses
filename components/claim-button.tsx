@@ -46,11 +46,12 @@ export function ClaimButton({ product, orderBump = null }: ClaimButtonProps) {
   const router = useRouter();
 
   const isFree = product.price_type === "free";
+  const isMembership = product.price_type === "membership";
   const hasExternalUrl = product.external_url && product.external_url.trim() !== "";
   const canOpenExternalDirectly = product.type === "app" && hasExternalUrl;
   const productPriceCents = Number(product.price || 0);
   const orderBumpPriceCents = Number(orderBump?.price || 0);
-  const showOrderBump = Boolean(orderBump) && orderBumpPriceCents > 0 && !isFree && !canOpenExternalDirectly;
+  const showOrderBump = Boolean(orderBump) && orderBumpPriceCents > 0 && !isFree && !isMembership && !canOpenExternalDirectly;
   const totalCents = productPriceCents + (showOrderBump && includeOrderBump ? orderBumpPriceCents : 0);
 
   const handleClick = async () => {
@@ -62,6 +63,8 @@ export function ClaimButton({ product, orderBump = null }: ClaimButtonProps) {
     
     if (isFree) {
       setShowAuthModal(true);
+    } else if (isMembership) {
+      window.location.href = "/pricing";
     } else {
       setLoading(true);
       try {
@@ -144,9 +147,11 @@ export function ClaimButton({ product, orderBump = null }: ClaimButtonProps) {
         {loading
           ? "Processing..."
           : canOpenExternalDirectly
-            ? "Check It Out"
-            : isFree
-              ? "Get it Free"
+          ? "Check It Out"
+          : isFree
+            ? "Get it Free"
+            : isMembership
+              ? "Join for $49/mo"
               : showOrderBump && includeOrderBump
                 ? `Buy Now - $${(totalCents / 100).toFixed(2)}`
                 : "Buy Now"}

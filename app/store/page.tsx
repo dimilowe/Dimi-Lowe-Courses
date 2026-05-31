@@ -6,13 +6,13 @@ import type { Metadata } from "next";
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: "Dimi Lowe Courses",
-  description: "Shop Dimi Lowe courses, apps, downloads, templates, and creator resources.",
+  description: "Access Dimi Lowe courses, apps, downloads, templates, and creator resources with one monthly membership.",
   alternates: {
     canonical: "/store",
   },
   openGraph: {
     title: "Dimi Lowe Courses",
-    description: "Courses, apps, downloads, templates, and creator resources from Dimi Lowe.",
+    description: "Courses, apps, downloads, templates, and creator resources from Dimi Lowe in one monthly membership.",
     url: "/store",
     type: "website",
   },
@@ -46,7 +46,7 @@ export default async function StorePage() {
       <div className="mb-12">
         <h1 className="text-4xl font-bold mb-4">Store</h1>
         <p className="text-xl text-muted-foreground">
-          Browse all our apps, courses, downloads, and more
+          One $49/month membership unlocks all courses, downloads, and digital products.
         </p>
       </div>
 

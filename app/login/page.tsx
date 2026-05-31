@@ -24,7 +24,7 @@ export default async function LoginPage() {
       <div className="mb-8 text-center">
         <h1 className="text-4xl font-bold mb-2">Sign In</h1>
         <p className="text-xl text-muted-foreground">
-          Access your account and purchased products
+          Access your account, membership content, and products
         </p>
       </div>
       <LoginForm />

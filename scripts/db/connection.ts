@@ -13,6 +13,19 @@ function parseTarget(value: string | undefined): Target {
   return "dev";
 }
 
+function isLocalDatabaseUrl(connectionString: string): boolean {
+  try {
+    const parsed = new URL(connectionString);
+    return (
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "::1"
+    );
+  } catch {
+    return connectionString.includes("localhost") || connectionString.includes("127.0.0.1");
+  }
+}
+
 export function getDbTarget(): Target {
   return parseTarget(process.env.DB_TARGET);
 }
@@ -40,7 +53,7 @@ export function createDbPool(target = getDbTarget()): Pool {
   const pool = new Pool({
     connectionString,
     connectionTimeoutMillis: 30000,
-    ssl: connectionString.includes("localhost") ? false : { rejectUnauthorized: false },
+    ssl: isLocalDatabaseUrl(connectionString) ? false : { rejectUnauthorized: false },
   });
 
   pool.on("connect", async (client: PoolConnectClient) => {

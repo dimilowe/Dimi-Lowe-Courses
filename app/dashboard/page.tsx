@@ -79,7 +79,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold mb-2">My Dashboard</h1>
           <p className="text-xl text-muted-foreground">
-            Access your purchased products
+            Access your courses, products, and membership library
           </p>
         </div>
         {params.session_id ? (
@@ -102,7 +102,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <div>
           <h1 className="text-4xl font-bold mb-2">My Dashboard</h1>
           <p className="text-xl text-muted-foreground">
-            Access all your purchased products and courses
+            Access your courses, products, and membership library
           </p>
         </div>
         <Link
@@ -116,7 +116,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       {showSuccess && (
         <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
           <p className="text-green-800 font-medium">
-            ✅ Purchase successful! Your product is ready to download.
+            Purchase successful. Your content is ready.
           </p>
         </div>
       )}
@@ -125,7 +125,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-lg text-muted-foreground mb-4">
-              You don't have any products yet.
+              You don't have any products or membership content yet.
             </p>
             <Link
               href="/store"

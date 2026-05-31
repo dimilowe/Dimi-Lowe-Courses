@@ -34,17 +34,12 @@ export function ProductRenderer({ cmsObject }: ProductRendererProps) {
     );
   }
 
-  const handleCheckout = async (overridePriceId?: string, overrideMode?: string, overrideOfferKey?: string) => {
+  const handleCheckout = async () => {
     try {
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          slug: cmsObject.slug,
-          ...(overridePriceId && { priceId: overridePriceId }),
-          ...(overrideMode && { mode: overrideMode }),
-          ...(overrideOfferKey && { offerKey: overrideOfferKey }),
-        }),
+        body: JSON.stringify({ type: 'global' }),
       });
       const raw = await response.text();
       const result = parseCheckoutResponse(raw);
@@ -96,7 +91,7 @@ export function ProductRenderer({ cmsObject }: ProductRendererProps) {
                   onClick={() => handleCheckout()}
                   className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-6 text-lg"
                 >
-                  {productData.cta_primary_label}
+                  Join for $49/mo
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               ) : null}
@@ -114,26 +109,6 @@ export function ProductRenderer({ cmsObject }: ProductRendererProps) {
               )}
             </div>
 
-            {productData.additional_prices && productData.additional_prices.length > 0 && (
-              <div className="mt-6 flex flex-wrap gap-2 justify-center">
-                {productData.additional_prices.map((price) => (
-                  <Button
-                    key={price.id}
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCheckout(price.id, price.mode, price.offer_key)}
-                    className="text-gray-600 hover:text-orange-600"
-                  >
-                    {price.label}
-                    {price.badge && (
-                      <Badge className="ml-2 bg-green-100 text-green-700 text-xs">
-                        {price.badge}
-                      </Badge>
-                    )}
-                  </Button>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </section>
@@ -317,7 +292,7 @@ export function ProductRenderer({ cmsObject }: ProductRendererProps) {
               onClick={() => handleCheckout()}
               className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-6 text-lg"
             >
-              {productData.cta_primary_label}
+              Join for $49/mo
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           ) : productData.checkout_strategy === 'external' && productData.cta_primary_href ? (

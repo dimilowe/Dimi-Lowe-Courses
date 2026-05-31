@@ -4,6 +4,7 @@ import { PUBLIC_CLOUD_IDS } from "@/lib/types/cloudEntitlements";
 export type SubscriptionCapabilities = {
   canSavePresets: boolean;
   canSaveWorkspace: boolean;
+  canAccessAllContent: boolean;
 };
 
 export async function hasGlobalSubscription(userId: number): Promise<boolean> {
@@ -34,5 +35,6 @@ export async function getSubscriptionCapabilitiesForUser(
   return {
     canSavePresets: hasSubscription,
     canSaveWorkspace: hasSubscription,
+    canAccessAllContent: hasSubscription,
   };
 }
