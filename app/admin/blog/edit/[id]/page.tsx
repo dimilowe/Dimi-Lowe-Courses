@@ -33,7 +33,7 @@ async function getBlogPost(idOrSlug: string): Promise<BlogPost | null> {
     return null;
   }
   
-  return result.rows[0];
+  return result.rows[0] as unknown as BlogPost;
 }
 
 export default async function EditBlogPostPage({ params }: { params: Promise<{ id: string }> }) {
