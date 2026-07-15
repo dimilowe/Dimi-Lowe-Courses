@@ -46,7 +46,7 @@ export default async function StorePage() {
       <div className="mb-12">
         <h1 className="text-4xl font-bold mb-4">Store</h1>
         <p className="text-xl text-muted-foreground">
-          One $49/month membership unlocks all courses, downloads, and digital products.
+          One $49/month membership unlocks all courses available on the site.
         </p>
       </div>
 
