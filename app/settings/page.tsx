@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PasswordChangeForm } from "@/components/PasswordChangeForm";
 import { EmailChangeForm } from "@/components/EmailChangeForm";
 import { SubscriptionLinkForm } from "@/components/SubscriptionLinkForm";
+import { BillingPortalButton } from "@/components/BillingPortalButton";
 import { query } from "@/lib/db";
 import type { Metadata } from "next";
 
@@ -77,6 +78,19 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent>
             <PasswordChangeForm />
+          </CardContent>
+        </Card>
+
+        {/* Subscription Billing */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Subscription & Billing</CardTitle>
+            <CardDescription>
+              Manage your membership securely through Stripe.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BillingPortalButton />
           </CardContent>
         </Card>
 

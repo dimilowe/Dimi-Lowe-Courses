@@ -6,6 +6,15 @@ import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import Stripe from "stripe";
 
+const GLOBAL_SUBSCRIPTION = {
+  currency: "usd",
+  unitAmountCents: 4_900,
+  interval: "month",
+  productName: "Dimi Lowe All Access",
+  description:
+    "One subscription for every course, download, digital product, tool save feature, and workstation unlock.",
+} as const;
+
 function getStripeClient() {
   const apiKey = process.env.STRIPE_SECRET_KEY;
   if (!apiKey) {
@@ -245,18 +254,6 @@ async function handleGlobalProCheckout(request: NextRequest) {
   const userId = session.isLoggedIn && session.userId ? session.userId : null;
   const customerEmail = session.email || undefined;
 
-  const priceId =
-    process.env.STRIPE_PRICE_UNIVERSAL_SUBSCRIPTION || process.env.STRIPE_PRICE_GLOBAL_PRO;
-  if (!priceId) {
-    return NextResponse.json(
-      {
-        error:
-          "Stripe price not configured for global subscription. Set STRIPE_PRICE_UNIVERSAL_SUBSCRIPTION.",
-      },
-      { status: 500 }
-    );
-  }
-
   const stripe = getStripeClient();
   const baseUrl = getBaseUrl(request);
 
@@ -273,7 +270,17 @@ async function handleGlobalProCheckout(request: NextRequest) {
     mode: "subscription",
     line_items: [
       {
-        price: priceId,
+        price_data: {
+          currency: GLOBAL_SUBSCRIPTION.currency,
+          unit_amount: GLOBAL_SUBSCRIPTION.unitAmountCents,
+          recurring: {
+            interval: GLOBAL_SUBSCRIPTION.interval,
+          },
+          product_data: {
+            name: GLOBAL_SUBSCRIPTION.productName,
+            description: GLOBAL_SUBSCRIPTION.description,
+          },
+        },
         quantity: 1,
       },
     ],
