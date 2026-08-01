@@ -20,6 +20,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const isFree = product.price_type === "free";
+  const isApp = product.type === "app";
   const isMembership = product.price_type === "membership";
   
   return (
@@ -49,7 +50,7 @@ export function ProductCard({ product }: ProductCardProps) {
         </CardContent>
         <CardFooter className="p-6 pt-0 flex items-center justify-between">
           <div className="text-sm font-bold text-gray-900">
-            {isFree ? "Free" : isMembership ? "Included with membership" : `$${(product.price / 100).toFixed(2)}`}
+            {isFree ? (isApp ? "In App" : "Free") : isMembership ? "Included with membership" : `$${(product.price / 100).toFixed(2)}`}
           </div>
           <Button variant="ghost" size="sm" className="text-orange-500 hover:text-orange-600">
             View

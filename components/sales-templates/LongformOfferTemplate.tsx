@@ -148,6 +148,7 @@ export function LongformOfferTemplate({
 }: LongformOfferTemplateProps) {
   const salesMeta = extractSalesPageMeta(product.meta);
   const isFree = product.price_type === "free";
+  const isApp = product.type === "app";
   const isMembership = product.price_type === "membership";
   const theme = {
     primary: salesMeta?.theme?.primary_color || "#f97316",
@@ -257,7 +258,7 @@ export function LongformOfferTemplate({
           <Card className="sticky top-24 h-fit border-orange-200 shadow-sm">
             <div className="p-6">
               <p className="text-center text-4xl font-bold">
-                {isFree ? "Free" : isMembership ? "Included with membership" : `$${(product.price / 100).toFixed(2)}`}
+                {isFree ? (isApp ? "In App" : "Free") : isMembership ? "Included with membership" : `$${(product.price / 100).toFixed(2)}`}
               </p>
               {isMembership && (
                 <p className="mt-2 text-center text-sm" style={{ color: theme.mutedText }}>

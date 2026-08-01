@@ -121,7 +121,7 @@ export function LongformOfferLivePreview({
           </div>
 
           <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <p className="text-center text-3xl font-bold">{isFree ? "Free" : `$${(priceCents / 100).toFixed(2)}`}</p>
+            <p className="text-center text-3xl font-bold">{isFree ? (productType === "app" ? "In App" : "Free") : `$${(priceCents / 100).toFixed(2)}`}</p>
             <button className="mt-4 w-full rounded-md px-3 py-2 text-sm font-semibold text-white" style={{ backgroundColor: primaryColor }}>
               Buy Now
             </button>
