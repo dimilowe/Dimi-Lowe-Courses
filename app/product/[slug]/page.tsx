@@ -121,6 +121,7 @@ function DefaultProductTemplate({
   includedBundleProducts: BundleIncludedProductSummary[];
 }) {
   const isFree = product.price_type === "free";
+  const isApp = product.type === "app";
   const isMembership = product.price_type === "membership";
   const featureList = extractMetaFeatures(product.meta);
   const saveButtonProduct = {
@@ -175,7 +176,7 @@ function DefaultProductTemplate({
           <Card className="mb-6 p-6">
             <div className="mb-6 text-center">
               <div className="text-3xl font-bold">
-                {isFree ? "Free" : isMembership ? "Included with membership" : `$${(product.price / 100).toFixed(2)}`}
+                {isFree ? (isApp ? "In App" : "Free") : isMembership ? "Included with membership" : `$${(product.price / 100).toFixed(2)}`}
               </div>
               {isMembership && (
                 <p className="mt-2 text-sm text-muted-foreground">
