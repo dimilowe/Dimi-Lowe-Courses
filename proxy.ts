@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 import { normalizePathname } from "@/lib/seo/urlNormalization";
 import { recordApiInvocation } from "@/lib/ops/metrics";
 
@@ -150,9 +151,13 @@ function cleanupRateLimitState(): void {
   }
 }
 
-export default function proxy(request: NextRequest) {
+function handleAppProxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const method = request.method.toUpperCase();
+
+  if (pathname.startsWith("/api/__clerk")) {
+    return NextResponse.next();
+  }
 
   if (SUNSET_MODE && !SUNSET_ALLOWED_PATHS.has(pathname)) {
     const isApi = pathname.startsWith("/api/");
@@ -288,6 +293,16 @@ export default function proxy(request: NextRequest) {
 
   return response;
 }
+
+export default clerkMiddleware(
+  (_auth, request) => handleAppProxy(request),
+  {
+    frontendApiProxy: {
+      enabled: true,
+      path: "/api/__clerk",
+    },
+  }
+);
 
 export const config = {
   matcher: [

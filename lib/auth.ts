@@ -199,6 +199,7 @@ export async function findOrCreateUserByEmail(email: string): Promise<User> {
     'id',
     'email',
     'created_at',
+    ...(userSchema.hasIsAdmin ? ['is_admin'] : []),
     ...(userSchema.hasSubscriptionTier ? ['subscription_tier'] : []),
   ].join(', ');
 

@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Replit provisions Clerk's public key under CLERK_PUBLISHABLE_KEY.
+  // Next's Clerk SDK reads the conventional NEXT_PUBLIC name.
+  env: {
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY || '',
+    NEXT_PUBLIC_CLERK_PROXY_URL: process.env.CLERK_PROXY_URL || '',
+  },
   experimental: {
     proxyClientMaxBodySize: '250mb',
   },

@@ -2,16 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { resolveGrantedProductIdsForPurchaseProductId } from "@/lib/products/bundleAccess";
 import { ensureCourseWorkspaceEntryByProductId } from "@/lib/workspace/courseResources";
+import { getIronSession } from "iron-session";
+import { cookies } from "next/headers";
+import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 
 export async function POST(request: NextRequest) {
   try {
-    const { productId, userId } = await request.json();
+    const { productId } = await request.json();
+    const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);
+    const userId = session.isLoggedIn ? session.userId : null;
 
-    if (!productId || !userId) {
+    if (!productId) {
       return NextResponse.json(
-        { error: "Product ID and User ID are required" },
+        { error: "Product ID is required" },
         { status: 400 }
       );
+    }
+    if (!userId) {
+      return NextResponse.json({ error: "Sign in to claim this product." }, { status: 401 });
     }
 
     const productResult = await query(

@@ -6,6 +6,7 @@ import GoogleTranslate from "@/components/GoogleTranslate";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
+import { useClerk } from "@clerk/nextjs";
 
 interface DropdownItem {
   label: string;
@@ -129,6 +130,7 @@ export function Navbar() {
   const navRef = useRef<HTMLDivElement>(null);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { items, removeFromCart, itemCount, totalPrice } = useCart();
+  const { signOut } = useClerk();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -522,7 +524,7 @@ export function Navbar() {
                                 console.error('Logout error:', error);
                               }
                               setIsLoggedIn(false);
-                              window.location.href = '/';
+                              await signOut({ redirectUrl: "/" });
                             }}
                             disabled={isLoggingOut}
                             className="w-full"

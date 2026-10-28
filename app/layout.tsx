@@ -10,6 +10,7 @@ import FloatingToolsButton from "@/components/FloatingToolsButton";
 import SiteFooter from "@/components/SiteFooter";
 import { FeedbackLauncherButton } from "@/components/FeedbackLauncherButton";
 import { getSiteUrl } from "@/lib/site-url";
+import { ClerkAuthProvider } from "@/components/providers/clerk-auth-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 const SUNSET_MODE = false;
@@ -52,24 +53,29 @@ export default function RootLayout({
         </Script>
       </head>
       <body className={inter.className}>
-        {SUNSET_MODE ? (
-          <main className="min-h-screen">{children}</main>
-        ) : (
-          <CartProvider>
-            <AppProvider>
-              <div className="min-h-screen flex flex-col">
-                <Navbar />
-                <main className="flex-1">
-                  {children}
-                </main>
-                <SiteFooter />
-              </div>
-              <FeedbackLauncherButton />
-              <FeedbackDialog hideTrigger />
-              <FloatingToolsButton />
-            </AppProvider>
-          </CartProvider>
-        )}
+        <ClerkAuthProvider
+          publishableKey={process.env.CLERK_PUBLISHABLE_KEY || ""}
+          proxyUrl={process.env.CLERK_PROXY_URL}
+        >
+          {SUNSET_MODE ? (
+            <main className="min-h-screen">{children}</main>
+          ) : (
+            <CartProvider>
+              <AppProvider>
+                <div className="min-h-screen flex flex-col">
+                  <Navbar />
+                  <main className="flex-1">
+                    {children}
+                  </main>
+                  <SiteFooter />
+                </div>
+                <FeedbackLauncherButton />
+                <FeedbackDialog hideTrigger />
+                <FloatingToolsButton />
+              </AppProvider>
+            </CartProvider>
+          )}
+        </ClerkAuthProvider>
       </body>
     </html>
   );

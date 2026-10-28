@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { AuthModal } from "@/components/auth-modal";
 import { useRouter } from "next/navigation";
 
 interface Product {
@@ -40,7 +39,6 @@ function parseCheckoutResponse(raw: string): { error?: string; url?: string } {
 }
 
 export function ClaimButton({ product, orderBump = null }: ClaimButtonProps) {
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [includeOrderBump, setIncludeOrderBump] = useState(false);
   const router = useRouter();
@@ -62,7 +60,31 @@ export function ClaimButton({ product, orderBump = null }: ClaimButtonProps) {
     }
     
     if (isFree) {
-      setShowAuthModal(true);
+      setLoading(true);
+      try {
+        const response = await fetch("/api/claim-free", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ productId: product.id }),
+        });
+        const raw = await response.text();
+        const data = parseCheckoutResponse(raw);
+        if (response.status === 401) {
+          const next = encodeURIComponent("/dashboard");
+          window.location.href = `/sign-in?next=${next}&claimProductId=${encodeURIComponent(product.id)}`;
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(data.error || "Could not claim this product");
+        }
+        router.push("/dashboard");
+      } catch (error) {
+        console.error("Claim error:", error);
+        alert(error instanceof Error ? error.message : "Could not claim this product");
+      } finally {
+        setLoading(false);
+      }
     } else if (isMembership) {
       window.location.href = "/pricing";
     } else {
@@ -96,22 +118,6 @@ export function ClaimButton({ product, orderBump = null }: ClaimButtonProps) {
       } finally {
         setLoading(false);
       }
-    }
-  };
-
-  const handleAuthSuccess = async (userId: string) => {
-    try {
-      const response = await fetch("/api/claim-free", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: product.id, userId }),
-      });
-
-      if (response.ok) {
-        router.push("/dashboard");
-      }
-    } catch (error) {
-      console.error("Claim error:", error);
     }
   };
 
@@ -157,13 +163,6 @@ export function ClaimButton({ product, orderBump = null }: ClaimButtonProps) {
                 : "Buy Now"}
       </Button>
 
-      {showAuthModal && (
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-          onSuccess={handleAuthSuccess}
-        />
-      )}
     </>
   );
 }
