@@ -23,7 +23,7 @@ export default async function SignupPage() {
       <div className="mb-8 text-center">
         <h1 className="text-4xl font-bold mb-2">Create Account</h1>
         <p className="text-xl text-muted-foreground">
-          Sign up to save presets and workspace items with your subscription.
+          Sign up to access your products, courses, and subscription benefits.
         </p>
       </div>
       <SignupForm />

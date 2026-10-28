@@ -11,7 +11,6 @@ export async function GET() {
     if (!session.isLoggedIn || !session.userId) {
       return NextResponse.json({
         isLoggedIn: false,
-        canSavePresets: false,
         canSaveWorkspace: false,
         canAccessAllContent: false,
       });
@@ -21,7 +20,6 @@ export async function GET() {
     if (!Number.isFinite(userId)) {
       return NextResponse.json({
         isLoggedIn: false,
-        canSavePresets: false,
         canSaveWorkspace: false,
         canAccessAllContent: false,
       });
@@ -37,7 +35,6 @@ export async function GET() {
     console.error("[API] Error fetching subscription capabilities:", error);
     return NextResponse.json({
       isLoggedIn: false,
-      canSavePresets: false,
       canSaveWorkspace: false,
       canAccessAllContent: false,
     });

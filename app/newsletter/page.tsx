@@ -11,7 +11,7 @@ export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Blog & Newsletter | VCM Suite",
-  description: "Read the latest insights, tutorials, and tips for modern creators. Get exclusive tools, early access, and insider tips delivered weekly.",
+  description: "Read the latest insights, tutorials, and tips for modern creators. Get exclusive resources, early access, and insider tips delivered weekly.",
   openGraph: {
     title: "Blog & Newsletter | VCM Suite",
     description: "Read the latest insights, tutorials, and tips for modern creators.",
@@ -48,7 +48,7 @@ export default async function NewsletterPage({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <div 
+      <div
         className="relative h-[400px] flex items-center justify-center bg-cover bg-center"
         style={{
           backgroundImage: "url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=2070')",
@@ -72,13 +72,13 @@ export default async function NewsletterPage({
 
             <div>
               <h2 className="text-3xl font-bold mb-6">
-                {category 
+                {category
                   ? `${categories.find(c => c.slug === category)?.name || 'Category'} Articles`
                   : 'Latest Articles'
                 }
               </h2>
-              
-              <NewsletterSearchList 
+
+              <NewsletterSearchList
                 posts={posts}
                 totalCount={totalCount}
                 totalPages={totalPages}
@@ -95,7 +95,7 @@ export default async function NewsletterPage({
                 <CardHeader>
                   <CardTitle className="text-2xl">STAY IN THE LOOP</CardTitle>
                   <CardDescription>
-                    Get exclusive tools, early access, and insider tips delivered weekly.
+                    Get exclusive resources, early access, and insider tips delivered weekly.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -112,8 +112,8 @@ export default async function NewsletterPage({
                   <CardContent>
                     <div className="space-y-2">
                       {categories.map((cat) => (
-                        <Link 
-                          key={cat.id} 
+                        <Link
+                          key={cat.id}
                           href={`/newsletter?category=${cat.slug}`}
                           className={`block px-3 py-2 rounded hover:bg-gray-100 transition-colors ${
                             category === cat.slug ? 'bg-orange-100 text-orange-800 font-medium' : ''
@@ -126,7 +126,7 @@ export default async function NewsletterPage({
                         </Link>
                       ))}
                       {category && (
-                        <Link 
+                        <Link
                           href="/newsletter"
                           className="block px-3 py-2 text-sm text-orange-600 hover:text-orange-700 font-medium"
                         >
@@ -150,8 +150,8 @@ export default async function NewsletterPage({
                         .sort((a, b) => b.view_count - a.view_count)
                         .slice(0, 5)
                         .map((post) => (
-                          <Link 
-                            key={post.id} 
+                          <Link
+                            key={post.id}
                             href={`/newsletter/${post.slug}`}
                             className="block hover:text-orange-600 transition-colors"
                           >

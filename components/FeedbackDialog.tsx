@@ -13,7 +13,7 @@ const feedbackTypes = [
   { value: 'feature', label: 'Feature Request', icon: Sparkles, color: 'border-purple-200 hover:border-purple-400 hover:bg-purple-50' },
   { value: 'improvement', label: 'Improvement Suggestion', icon: Lightbulb, color: 'border-blue-200 hover:border-blue-400 hover:bg-blue-50' },
   { value: 'general', label: 'General Feedback', icon: MessageSquare, color: 'border-gray-200 hover:border-gray-400 hover:bg-gray-50' },
-  { value: 'tool_idea', label: 'Issues', icon: Wrench, color: 'border-orange-200 hover:border-orange-400 hover:bg-orange-50' },
+  { value: 'issue', label: 'Issues', icon: Wrench, color: 'border-orange-200 hover:border-orange-400 hover:bg-orange-50' },
   { value: 'article', label: 'Submit Blog Article', icon: FileText, color: 'border-green-200 hover:border-green-400 hover:bg-green-50' },
 ];
 
@@ -34,7 +34,7 @@ export function FeedbackDialog({ hideTrigger = false }: FeedbackDialogProps) {
   const [authorBio, setAuthorBio] = useState('');
 
   const isArticleSubmission = selectedType === 'article';
-  const isIssues = selectedType === 'tool_idea';
+  const isIssues = selectedType === 'issue';
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -111,8 +111,8 @@ export function FeedbackDialog({ hideTrigger = false }: FeedbackDialogProps) {
     <Dialog open={open} onOpenChange={setOpen}>
       {!hideTrigger && (
         <DialogTrigger asChild>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="border-gray-300 hover:border-orange-400 hover:bg-orange-50 transition-all"
           >
             <MessageSquare className="w-4 h-4 mr-2" />
@@ -140,7 +140,7 @@ export function FeedbackDialog({ hideTrigger = false }: FeedbackDialogProps) {
             </div>
             <h3 className="text-xl font-semibold mb-2">Thank you!</h3>
             <p className="text-gray-600">
-              {isArticleSubmission 
+              {isArticleSubmission
                 ? "Your article has been submitted for review. We'll be in touch soon!"
                 : isIssues
                 ? "Thanks for reporting this issue. We’ll review it and follow up if needed."
@@ -211,7 +211,7 @@ export function FeedbackDialog({ hideTrigger = false }: FeedbackDialogProps) {
               </label>
               <Textarea
                 id="message"
-                placeholder={isArticleSubmission 
+                placeholder={isArticleSubmission
                   ? "Paste your full article content here. You can include formatting instructions in plain text..."
                   : isIssues
                   ? "Describe the issue clearly, including order email, refund request details, or anything needed to resolve it quickly..."

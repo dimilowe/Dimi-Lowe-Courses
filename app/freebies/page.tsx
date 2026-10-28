@@ -6,13 +6,13 @@ import type { Metadata } from "next";
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: "Freebies | VCM Suite",
-  description: "Get free creator resources, templates, and starter tools from VCM Suite.",
+  description: "Get free creator resources, templates, and starter products from VCM Suite.",
   alternates: {
     canonical: "/freebies",
   },
   openGraph: {
     title: "Freebies | VCM Suite",
-    description: "Free creator resources, templates, and starter tools.",
+    description: "Free creator resources, templates, and starter products.",
     url: "/freebies",
     type: "website",
   },
@@ -20,8 +20,8 @@ export const metadata: Metadata = {
 
 async function getFreebies(): Promise<PublicCatalogProduct[]> {
   return queryPublicCatalogProducts(
-    `SELECT id, slug, name, description, thumbnail_url, type, price_type, price 
-     FROM products 
+    `SELECT id, slug, name, description, thumbnail_url, type, price_type, price
+     FROM products
      WHERE visibility = 'public' AND type = 'freebie'
      ORDER BY created_at DESC`
   );
@@ -32,7 +32,7 @@ export default async function FreebiesPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <div 
+      <div
         className="relative h-[40vh] flex items-center justify-center bg-cover bg-center"
         style={{
           backgroundImage: "url('https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1920&q=80')",
@@ -41,7 +41,7 @@ export default async function FreebiesPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-neutral-900/50 to-neutral-900/70" />
         <div className="relative z-10 text-center text-white px-4">
           <h1 className="text-5xl md:text-6xl font-bold tracking-wider mb-4">FREEBIES</h1>
-          <p className="text-xl tracking-wide text-neutral-100">Free tools and resources to get started</p>
+          <p className="text-xl tracking-wide text-neutral-100">Free products and resources to get started</p>
         </div>
       </div>
 

@@ -19,7 +19,7 @@ interface Props {
 
 export default async function WorkspaceItemPage({ params }: Props) {
   const session = await getIronSession<UserSessionData>(await cookies(), userSessionOptions);
-  
+
   if (!session.isLoggedIn || !session.userId) {
     redirect('/login?redirect=/workspace');
   }
@@ -27,10 +27,10 @@ export default async function WorkspaceItemPage({ params }: Props) {
   const { id } = await params;
 
   const result = await query(
-    `UPDATE workspace_items 
+    `UPDATE workspace_items
      SET last_opened_at = NOW()
      WHERE id = $1 AND user_id = $2
-     RETURNING id, title, type, origin_cloud_id, cloud_id, tool_id, workflow_id, is_starred,
+     RETURNING id, title, type, is_starred,
                preview_text, payload_json, thumbnail_url, file_url, created_at, updated_at, last_opened_at,
                COALESCE(payload_json->>'folder', NULL) AS folder,
                COALESCE(payload_json->'tags', '[]'::jsonb) AS tags_json,

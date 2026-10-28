@@ -3,13 +3,13 @@ import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "VCM Suite - Creator Store",
-  description: "Shop creator apps, downloads, templates, and resources.",
+  description: "Shop subscriptions, courses, apps, downloads, freebies, and more.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
     title: "VCM Suite - Creator Store",
-    description: "Shop creator apps, downloads, templates, and resources.",
+    description: "Shop subscriptions, courses, apps, downloads, freebies, and more.",
     url: "/",
     type: "website",
     siteName: "VCM Suite",

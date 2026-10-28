@@ -22,7 +22,8 @@ interface FeedbackItem {
 
 const TYPE_OPTIONS = [
   "all",
-  "tool_idea",
+  "issue",
+  "tool_idea", // Historical issue reports.
   "feature",
   "improvement",
   "bug",
@@ -31,7 +32,7 @@ const TYPE_OPTIONS = [
 ];
 
 function formatType(value: string) {
-  if (value === "tool_idea") return "Issues";
+  if (value === "tool_idea" || value === "issue") return "Issues";
   return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 

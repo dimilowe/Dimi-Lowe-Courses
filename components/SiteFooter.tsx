@@ -9,7 +9,7 @@ export default function SiteFooter() {
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-semibold text-gray-900">VCM Suite</p>
-            <p className="text-sm text-gray-600">Simple tools, courses, and resources for creators.</p>
+            <p className="text-sm text-gray-600">Subscriptions, courses, apps, downloads, freebies, and more.</p>
           </div>
 
           <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-gray-600">

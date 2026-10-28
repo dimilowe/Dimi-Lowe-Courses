@@ -3,7 +3,6 @@ import { query } from '@/lib/db';
 import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
 import { UserSessionData, userSessionOptions } from '@/lib/user-session';
-import { assertCanonicalCloudId } from '@/lib/cloud/normalizeCloudId';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { getReplitStorageClient } from '@/lib/objectStorage/replitClient';
@@ -40,7 +39,6 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const cloudId = formData.get('cloud_id') as string | null;
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -54,7 +52,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validCloudId = assertCanonicalCloudId(cloudId) ?? 'file-data';
 
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 8);
@@ -107,16 +104,15 @@ export async function POST(request: NextRequest) {
     const thumbnailUrl = contentType.startsWith('image/') ? publicUrl : null;
 
     const result = await query(
-      `INSERT INTO workspace_items 
-       (user_id, title, type, cloud_id, preview_text, file_url, thumbnail_url, payload_json)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, title, type, cloud_id, is_starred, preview_text, 
+      `INSERT INTO workspace_items
+       (user_id, title, type, preview_text, file_url, thumbnail_url, payload_json)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, title, type, is_starred, preview_text,
                  thumbnail_url, file_url, created_at, updated_at`,
       [
         userIdNum,
         file.name,
         type,
-        validCloudId,
         previewText,
         publicUrl,
         thumbnailUrl,

@@ -1,30 +1,8 @@
-/**
- * Workspace Items API
- * 
- * NEW RULES (Global Workspace):
- * - Workspace is global. Items are not "owned" by a cloud.
- * - origin_cloud_id = where the item was created/saved from (optional metadata)
- * - Cloud dashboards default to ALL workspace items
- * - Cloud dashboards optionally filter to "This cloud" via origin_cloud_id
- * - No more storing "where it belongs." Only "where it came from."
- * 
- * GET params:
- * - scope=all (default) - returns all workspace items for user
- * - origin_cloud_id=<id> - filter by origin cloud (optional)
- * - q - search query (title, preview, folder, tags)
- * - folder - folder filter
- * - tag - tag filter
- * - sort - recent|updated|name
- * - starred - true to filter starred items
- * - limit/offset - pagination
- */
-
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
 import { UserSessionData, userSessionOptions } from '@/lib/user-session';
-import { normalizeCloudId, CANONICAL_CLOUD_IDS } from '@/lib/cloud/normalizeCloudId';
 import { getSubscriptionCapabilitiesForUser } from '@/lib/subscription/capabilities';
 
 const VALID_SORT_COLUMNS = {
@@ -41,38 +19,17 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const originCloudId = searchParams.get('origin_cloud_id');
-    const cloudId = searchParams.get('cloud_id'); // Legacy param, treat as origin filter
     const q = searchParams.get('q');
     const folder = searchParams.get('folder');
     const tag = searchParams.get('tag');
     const sort = searchParams.get('sort') || 'recent';
     const starred = searchParams.get('starred');
-    const includePresets = searchParams.get('include_presets') === 'true';
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const offset = parseInt(searchParams.get('offset') || '0');
 
     const conditions: string[] = ['user_id = $1'];
     const params: any[] = [session.userId];
     let paramIndex = 2;
-
-    // Origin cloud filter (optional) - use origin_cloud_id or legacy cloud_id param
-    const originParam = originCloudId || cloudId;
-    if (originParam) {
-      const normalized = normalizeCloudId(originParam);
-      if (normalized) {
-        conditions.push(`origin_cloud_id = $${paramIndex}`);
-        params.push(normalized);
-        paramIndex++;
-      } else {
-        // Log warning but don't break - allow unknown clouds
-        console.warn(`Unknown origin_cloud_id: ${originParam}, filtering anyway`);
-        conditions.push(`origin_cloud_id = $${paramIndex}`);
-        params.push(originParam);
-        paramIndex++;
-      }
-    }
-    // If no origin filter, return ALL items (global workspace behavior)
 
     if (q && q.trim()) {
       conditions.push(`(
@@ -109,15 +66,14 @@ export async function GET(request: NextRequest) {
       conditions.push('is_starred = true');
     }
 
-    if (!includePresets) {
-      conditions.push(`type <> 'tool_preset'`);
-    }
+    // Historical presets are not learner files.
+    conditions.push(`type <> 'tool_preset'`);
 
     const sortColumn = VALID_SORT_COLUMNS[sort as keyof typeof VALID_SORT_COLUMNS] || VALID_SORT_COLUMNS.recent;
     const sortDirection = sort === 'name' ? 'ASC' : 'DESC';
 
     const sql = `
-      SELECT id, title, type, origin_cloud_id, cloud_id, tool_id, is_starred, preview_text,
+      SELECT id, title, type, is_starred, preview_text,
              thumbnail_url, file_url, created_at, updated_at, last_opened_at,
              COALESCE(payload_json->>'folder', NULL) AS folder,
              COALESCE(payload_json->'tags', '[]'::jsonb) AS tags_json,
@@ -206,10 +162,6 @@ export async function POST(request: NextRequest) {
     const {
       title,
       type,
-      origin_cloud_id,
-      cloud_id,
-      tool_id,
-      workflow_id,
       preview_text,
       payload_json,
       thumbnail_url,
@@ -238,23 +190,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Title and type are required' }, { status: 400 });
     }
 
-    // Normalize origin_cloud_id if provided, but don't require it
-    // Accept cloud_id for backward compatibility, treat as origin
-    // origin_cloud_id stores any value (graceful), cloud_id only stores canonical (for constraints)
-    const originParam = origin_cloud_id || cloud_id;
-    let originForStorage: string | null = null;
-    let legacyCloudId: string | null = null;
-    
-    if (originParam) {
-      const normalized = normalizeCloudId(originParam);
-      originForStorage = normalized || originParam; // Store any value in origin_cloud_id
-      legacyCloudId = CANONICAL_CLOUD_IDS.has(normalized || '') ? normalized : null; // Only canonical to cloud_id
-      
-      if (!normalized || !CANONICAL_CLOUD_IDS.has(normalized)) {
-        console.warn(`[workspace/items POST] Non-canonical origin: "${originParam}"`);
-      }
-    }
-
     const normalizedTags = Array.isArray(tags)
       ? tags
           .map((tag) => (typeof tag === 'string' ? tag.trim().toLowerCase() : ''))
@@ -269,19 +204,15 @@ export async function POST(request: NextRequest) {
     };
 
     const result = await query(
-      `INSERT INTO workspace_items 
-       (user_id, title, type, origin_cloud_id, cloud_id, tool_id, workflow_id, preview_text, payload_json, thumbnail_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING id, title, type, origin_cloud_id, cloud_id, tool_id, is_starred, preview_text, 
+      `INSERT INTO workspace_items
+       (user_id, title, type, preview_text, payload_json, thumbnail_url)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, title, type, is_starred, preview_text,
                  thumbnail_url, created_at, updated_at, last_opened_at`,
       [
         userIdNum,
         title,
         type,
-        originForStorage,
-        legacyCloudId, // Only canonical IDs to preserve constraint compatibility
-        tool_id || null,
-        workflow_id || null,
         preview_text || null,
         JSON.stringify(mergedPayload),
         thumbnail_url || null

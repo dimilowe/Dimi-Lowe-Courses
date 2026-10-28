@@ -2,7 +2,6 @@ import { query } from "@/lib/db";
 import { PUBLIC_CLOUD_IDS } from "@/lib/types/cloudEntitlements";
 
 export type SubscriptionCapabilities = {
-  canSavePresets: boolean;
   canSaveWorkspace: boolean;
   canAccessAllContent: boolean;
 };
@@ -33,7 +32,6 @@ export async function getSubscriptionCapabilitiesForUser(
   const hasSubscription = await hasGlobalSubscription(userId);
 
   return {
-    canSavePresets: hasSubscription,
     canSaveWorkspace: hasSubscription,
     canAccessAllContent: hasSubscription,
   };
