@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import type { NextRequest, NextFetchEvent } from "next/server";
 import { clerkMiddleware } from "@clerk/nextjs/server";
+import { publishableKeyFromHost } from "@clerk/shared/keys";
+import { enforceClerkBridgeSession } from "@/lib/auth/clerkBridgeSession";
+import { userSessionOptions } from "@/lib/user-session";
 import { normalizePathname } from "@/lib/seo/urlNormalization";
 import { recordApiInvocation } from "@/lib/ops/metrics";
 
@@ -155,6 +158,17 @@ function handleAppProxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const method = request.method.toUpperCase();
 
+  if (new Set([
+    "/api/auth/login", "/api/auth/signup", "/api/auth/forgot-password",
+    "/api/auth/forgot-username", "/api/auth/reset-password",
+    "/api/auth/change-email", "/api/auth/change-password",
+  ]).has(pathname)) {
+    return NextResponse.json(
+      { error: "Account sign-in and security are now managed by Clerk.", signInUrl: "/sign-in" },
+      { status: 410 }
+    );
+  }
+
   if (pathname.startsWith("/api/__clerk")) {
     return NextResponse.next();
   }
@@ -294,18 +308,52 @@ function handleAppProxy(request: NextRequest) {
   return response;
 }
 
-export default clerkMiddleware(
-  (_auth, request) => handleAppProxy(request),
-  {
+const clerkAppMiddleware = clerkMiddleware(
+  async (authenticate, request) => {
+    const response = handleAppProxy(request);
+    if (!request.cookies.has(userSessionOptions.cookieName as string)) return response;
+    const identity = await authenticate();
+    return enforceClerkBridgeSession(request, response, identity);
+  },
+  (request) => ({
+    publishableKey: publishableKeyFromHost(
+      (request.headers.get("x-forwarded-host") || request.headers.get("host") || request.nextUrl.hostname)
+        .split(",")[0].trim(),
+      process.env.CLERK_PUBLISHABLE_KEY
+    ),
+    signInUrl: "/sign-in",
+    signUpUrl: "/sign-up",
     frontendApiProxy: {
-      enabled: true,
+      enabled: process.env.NODE_ENV === "production",
       path: "/api/__clerk",
     },
-  }
+  })
 );
+
+export default async function proxy(request: NextRequest, event: NextFetchEvent) {
+  const response = await clerkAppMiddleware(request, event);
+  if (
+    process.env.NODE_ENV !== "production" ||
+    !request.nextUrl.pathname.startsWith("/api/__clerk") ||
+    !response ||
+    request.method === "HEAD" ||
+    response.status < 200 ||
+    response.status === 204 ||
+    response.status === 304
+  ) return response;
+
+  // Replit's deployment edge needs a Content-Length on proxied Clerk responses.
+  // The native Clerk proxy already removes upstream compression headers.
+  const body = await response.arrayBuffer();
+  const responseHeaders = new Headers(response.headers);
+  responseHeaders.delete("transfer-encoding");
+  responseHeaders.delete("connection");
+  responseHeaders.set("content-length", String(body.byteLength));
+  return new NextResponse(body, { status: response.status, headers: responseHeaders });
+}
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/producer-tag|api/vocal-melody-extractor|api/audio-to-midi|api/audio-key-detector|api/chord-progression-finder|api/workspace/upload|api/upload|api/admin/upload|api/pdf/merge|api/pdf/split).*)",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

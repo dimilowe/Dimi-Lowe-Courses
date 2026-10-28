@@ -2,6 +2,10 @@ import { SignUp } from "@clerk/nextjs";
 import { buildAuthCompletionUrl, buildAuthFlowUrl, safeAuthReturnPath, safeClaimProductId } from "@/lib/auth/clerkRedirect";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  title: "Create Account | Dimi Lowe Courses",
+  robots: { index: false, follow: false },
+};
 
 export default async function SignUpPage({
   searchParams,

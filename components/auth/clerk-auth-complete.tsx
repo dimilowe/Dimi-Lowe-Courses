@@ -41,10 +41,13 @@ export function ClerkAuthComplete({
         }
 
         // Claim any anonymous purchases associated with the signed-in email.
-        await fetch("/api/auth/claim-purchases", {
+        const purchasesResponse = await fetch("/api/auth/claim-purchases", {
           method: "POST",
           credentials: "include",
         });
+        if (!purchasesResponse.ok) {
+          throw new Error("Signed in, but we couldn't link your purchases. Please retry.");
+        }
 
         if (!cancelled) router.replace(next);
       } catch (cause) {

@@ -5,6 +5,8 @@ export interface UserSessionData {
   email: string;
   isLoggedIn: boolean;
   isAdmin?: boolean;
+  clerkUserId?: string;
+  clerkSessionId?: string;
 }
 
 export const userSessionOptions: SessionOptions = {

@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
 import { sealData } from "iron-session";
-import { findOrCreateUserByEmail } from "@/lib/auth";
+import { findOrCreateUserByEmail, findUserById } from "@/lib/auth";
 import { userSessionOptions } from "@/lib/user-session";
+import { query } from "@/lib/db";
+import { claimPendingGlobalSubscriptions } from "@/lib/subscription/pending";
 
 export async function POST() {
   try {
-    const { userId: clerkUserId } = await auth();
-    if (!clerkUserId) {
+    const { userId: clerkUserId, sessionId: clerkSessionId } = await auth();
+    if (!clerkUserId || !clerkSessionId) {
       return NextResponse.json({ error: "Not authenticated with Clerk" }, { status: 401 });
     }
 
@@ -28,13 +30,39 @@ export async function POST() {
 
     // Link verified Clerk identities to existing local records by email. This
     // preserves purchases, entitlements, workspace data, and admin permissions.
-    const user = await findOrCreateUserByEmail(primaryEmail.emailAddress);
+    const linkedId = clerkUser.privateMetadata.vcmStoreUserId;
+    if (linkedId !== undefined && (typeof linkedId !== "string" || !/^\d+$/.test(linkedId))) {
+      return NextResponse.json({ error: "The store account link is invalid." }, { status: 409 });
+    }
+    const user = typeof linkedId === "string" && /^\d+$/.test(linkedId)
+      ? await findUserById(linkedId)
+      : await findOrCreateUserByEmail(primaryEmail.emailAddress);
+    if (!user) {
+      return NextResponse.json({ error: "The linked store account could not be found." }, { status: 409 });
+    }
+
+    // Private metadata keeps the local ID stable when the verified email changes.
+    if (typeof linkedId !== "string") {
+      const client = await clerkClient();
+      await client.users.updateUserMetadata(clerkUserId, {
+        privateMetadata: { vcmStoreUserId: user.id },
+      });
+    }
+    const verifiedEmail = primaryEmail.emailAddress.trim().toLowerCase();
+    if (user.email.toLowerCase() !== verifiedEmail) {
+      await query("UPDATE users SET email = $1 WHERE id = $2", [verifiedEmail, user.id]);
+      user.email = verifiedEmail;
+    }
+
+    await claimPendingGlobalSubscriptions({ userId: user.id, email: user.email });
     const sealed = await sealData(
       {
         userId: user.id,
         email: user.email,
         isLoggedIn: true,
         isAdmin: user.is_admin || false,
+        clerkUserId,
+        clerkSessionId,
       },
       { password: userSessionOptions.password as string }
     );

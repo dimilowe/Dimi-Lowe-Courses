@@ -11,6 +11,8 @@ import SiteFooter from "@/components/SiteFooter";
 import { FeedbackLauncherButton } from "@/components/FeedbackLauncherButton";
 import { getSiteUrl } from "@/lib/site-url";
 import { ClerkAuthProvider } from "@/components/providers/clerk-auth-provider";
+import { headers } from "next/headers";
+import { publishableKeyFromHost } from "@clerk/shared/keys";
 
 const inter = Inter({ subsets: ["latin"] });
 const SUNSET_MODE = false;
@@ -31,11 +33,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const requestHeaders = await headers();
+  const host = (requestHeaders.get("x-forwarded-host") || requestHeaders.get("host") || "")
+    .split(",")[0].trim();
+  const clerkPubKey = publishableKeyFromHost(host, process.env.CLERK_PUBLISHABLE_KEY);
+
   return (
     <html lang="en">
       <head>
@@ -54,7 +61,7 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <ClerkAuthProvider
-          publishableKey={process.env.CLERK_PUBLISHABLE_KEY || ""}
+          publishableKey={clerkPubKey}
           proxyUrl={process.env.CLERK_PROXY_URL}
         >
           {SUNSET_MODE ? (

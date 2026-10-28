@@ -212,16 +212,20 @@ export async function findOrCreateUserByEmail(email: string): Promise<User> {
     return mapUserRow(result.rows[0], userSchema);
   }
 
-  const returningColumns = userSchema.hasSubscriptionTier
-    ? 'id, email, created_at, subscription_tier'
-    : 'id, email, created_at';
-
   const newUserResult = await query(
-    `INSERT INTO users (email) VALUES ($1) RETURNING ${returningColumns}`,
+    `INSERT INTO users (email) VALUES ($1)
+     ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
+     RETURNING ${selectedColumns}`,
     [normalizedEmail]
   );
 
   const mapped = mapUserRow(newUserResult.rows[0], userSchema);
   await ensureProfileRow(mapped.id, normalizedEmail);
   return mapped;
+}
+
+export async function findUserById(userId: string): Promise<User | null> {
+  const schema = await getUsersSchemaSupport();
+  const result = await query("SELECT * FROM users WHERE id = $1", [userId]);
+  return result.rows[0] ? mapUserRow(result.rows[0], schema) : null;
 }

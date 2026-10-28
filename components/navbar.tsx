@@ -524,7 +524,13 @@ export function Navbar() {
                                 console.error('Logout error:', error);
                               }
                               setIsLoggedIn(false);
-                              await signOut({ redirectUrl: "/" });
+                              try {
+                                await signOut({ redirectUrl: "/" });
+                              } catch (error) {
+                                console.error("Clerk sign-out failed:", error);
+                                setIsLoggingOut(false);
+                                alert("We couldn't finish signing out. Please try again.");
+                              }
                             }}
                             disabled={isLoggingOut}
                             className="w-full"

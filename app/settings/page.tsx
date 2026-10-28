@@ -3,8 +3,7 @@ import { cookies } from "next/headers";
 import { UserSessionData, userSessionOptions } from "@/lib/user-session";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PasswordChangeForm } from "@/components/PasswordChangeForm";
-import { EmailChangeForm } from "@/components/EmailChangeForm";
+import { ClerkAccountSecurity } from "@/components/auth/clerk-account-security";
 import { SubscriptionLinkForm } from "@/components/SubscriptionLinkForm";
 import { BillingPortalButton } from "@/components/BillingPortalButton";
 import { query } from "@/lib/db";
@@ -59,25 +58,13 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Email Update */}
         <Card>
           <CardHeader>
-            <CardTitle>Change Email Address</CardTitle>
-            <CardDescription>Update the email address associated with your account</CardDescription>
+            <CardTitle>Sign-in & Security</CardTitle>
+            <CardDescription>Manage your email, password, and sign-in methods securely with Clerk.</CardDescription>
           </CardHeader>
           <CardContent>
-            <EmailChangeForm currentEmail={user.email} />
-          </CardContent>
-        </Card>
-
-        {/* Password Change */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Change Password</CardTitle>
-            <CardDescription>Update your password to keep your account secure</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PasswordChangeForm />
+            <ClerkAccountSecurity />
           </CardContent>
         </Card>
 

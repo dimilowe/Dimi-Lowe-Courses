@@ -3,6 +3,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import { shadcn } from "@clerk/themes";
 import type { ReactNode } from "react";
+import { publishableKeyFromHost } from "@clerk/shared/keys";
 
 const appearance = {
   baseTheme: shadcn,
@@ -20,6 +21,7 @@ const appearance = {
   },
   elements: {
     cardBox: {
+      backgroundColor: "#ffffff",
       width: "100%",
       maxWidth: "440px",
       borderRadius: "16px",
@@ -74,11 +76,20 @@ export function ClerkAuthProvider({
   publishableKey: string;
   proxyUrl?: string;
 }) {
+  const clerkPubKey = typeof window === "undefined"
+    ? publishableKey
+    : publishableKeyFromHost(window.location.hostname, publishableKey);
+  const logoImageUrl = typeof window === "undefined"
+    ? undefined
+    : `${window.location.origin}/logo.svg`;
   return (
     <ClerkProvider
-      publishableKey={publishableKey}
+      publishableKey={clerkPubKey}
       proxyUrl={proxyUrl}
-      appearance={appearance}
+      appearance={{
+        ...appearance,
+        options: { logoImageUrl, logoLinkUrl: "/", logoPlacement: "inside" },
+      }}
       signInUrl="/sign-in"
       signUpUrl="/sign-up"
     >

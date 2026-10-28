@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
-import { UserSessionData, userSessionOptions } from "@/lib/user-session";
+import { userSessionOptions } from "@/lib/user-session";
 
 export async function POST() {
   try {

@@ -27,6 +27,9 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      { source: '/forgot-password', destination: '/sign-in', permanent: false },
+      { source: '/forgot-username', destination: '/sign-in', permanent: false },
+      { source: '/reset-password', destination: '/sign-in', permanent: false },
       {
         source: '/tools',
         destination: '/store',
