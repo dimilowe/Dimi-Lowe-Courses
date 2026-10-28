@@ -9,12 +9,12 @@ coverage
 
 # next.js
 .next/
-out/
-build
-dist/
+/out/
+/build/
+/dist/
 
 # production
-build
+/build/
 
 # misc
 .DS_Store
@@ -47,5 +47,5 @@ next-env.d.ts
 Thumbs.db
 
 # Uploaded files
-uploads/
+/uploads/
 .pythonlibs/

@@ -1,2 +1,3 @@
 - [QueryResultRow cast patterns](query-result-row-casts.md) — how to fix TypeScript errors from pg's QueryResultRow = Record<string, unknown> in this codebase
 - [Clerk account transition](clerk-account-transition.md) — preserve historic purchase ownership; customers establish Clerk access using their original purchase email.
+- [Ignored application source](ignored-application-source.md) — Git-ignored route files still execute in Next.js; audit ignored sources when merging feature removals.

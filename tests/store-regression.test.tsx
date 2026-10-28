@@ -85,9 +85,26 @@ describe("store commerce after retiring the tool platform", () => {
     mocks.query.mockResolvedValueOnce({ rows: [{ price_type: "free" }] }).mockResolvedValue({ rows: [] });
     const response = await claimFree(request({ productId: 12, userId: 7 }));
     expect(response.status).toBe(200);
-    expect(mocks.query).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO entitlements"), [7, 12, "free_claim"]);
-    expect(mocks.courseResource).toHaveBeenCalledWith(7, 12);
+    expect(mocks.query).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO entitlements"), ["7", 12, "free_claim"]);
+    expect(mocks.courseResource).toHaveBeenCalledWith("7", 12);
     expect(mocks.checkout).not.toHaveBeenCalled();
+  });
+
+  it("uses the signed-in customer rather than a user ID supplied in the request", async () => {
+    mocks.query.mockResolvedValueOnce({ rows: [{ price_type: "free" }] }).mockResolvedValue({ rows: [] });
+    const response = await claimFree(request({ productId: 12, userId: 999 }));
+    expect(response.status).toBe(200);
+    expect(mocks.query).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO entitlements"), ["7", 12, "free_claim"]
+    );
+    expect(mocks.courseResource).toHaveBeenCalledWith("7", 12);
+  });
+
+  it("does not allow a signed-out request to claim a product for another customer", async () => {
+    mocks.session.mockResolvedValue({ isLoggedIn: false });
+    expect((await claimFree(request({ productId: 12, userId: 7 }))).status).toBe(401);
+    expect(mocks.query).not.toHaveBeenCalled();
+    expect(mocks.courseResource).not.toHaveBeenCalled();
   });
 
   it("does not send free products through paid checkout", async () => {
