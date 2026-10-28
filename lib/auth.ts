@@ -1,6 +1,6 @@
 import { query } from './db';
 import bcrypt from 'bcryptjs';
-import type { SubscriptionTier } from './pricing/types';
+import type { EntitlementTier as SubscriptionTier } from './entitlements/tiers';
 
 export interface User {
   id: string;

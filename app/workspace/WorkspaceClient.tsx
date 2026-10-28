@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { 
-  Search, Star, Clock, Grid, List, 
-  FileText, Image, Video, File, Sparkles, 
+import {
+  Search, Star, Clock, Grid, List,
+  FileText, Image, Video, File, Sparkles,
   Loader2, Trash2, AlertCircle,
   Upload, CheckCircle, ChevronLeft, ChevronRight, Copy, Folder
 } from 'lucide-react';
@@ -16,9 +16,6 @@ interface WorkspaceItem {
   id: string;
   title: string;
   type: string;
-  origin_cloud_id: string | null;
-  cloud_id: string | null;
-  tool_id: string | null;
   is_starred: boolean;
   preview_text: string | null;
   thumbnail_url: string | null;
@@ -33,34 +30,22 @@ interface WorkspaceItem {
 }
 
 const TYPE_ICONS: Record<string, typeof FileText> = {
-  copy_output: FileText,
-  prompt_output: Sparkles,
-  image_asset: Image,
-  ad_bundle: FileText,
-  workflow_run: File,
   uploaded_image: Image,
   uploaded_video: Video,
   uploaded_audio: File,
   uploaded_document: FileText,
   uploaded_file: File,
   course_resource: FileText,
-  file_output: File,
   generic: File,
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  copy_output: 'from-blue-400 to-blue-500',
-  prompt_output: 'from-purple-400 to-purple-500',
-  image_asset: 'from-pink-400 to-pink-500',
-  ad_bundle: 'from-orange-400 to-orange-500',
-  workflow_run: 'from-green-400 to-green-500',
   uploaded_image: 'from-pink-400 to-pink-500',
   uploaded_video: 'from-red-400 to-red-500',
   uploaded_audio: 'from-green-400 to-green-500',
   uploaded_document: 'from-blue-400 to-blue-500',
   uploaded_file: 'from-gray-400 to-gray-500',
   course_resource: 'from-orange-400 to-orange-500',
-  file_output: 'from-gray-400 to-gray-500',
   generic: 'from-zinc-400 to-zinc-500',
 };
 
@@ -95,16 +80,16 @@ export default function WorkspaceClient() {
       params.set('offset', String((page - 1) * ITEMS_PER_PAGE));
 
       const res = await fetch(`/api/workspace/items?${params}`, { cache: 'no-store' });
-      
+
       if (res.status === 401) {
         router.push('/login?redirect=/workspace');
         return;
       }
-      
+
       if (!res.ok) {
         throw new Error('Failed to fetch items');
       }
-      
+
       const data = await res.json();
       setItems(data.items || []);
       setTotal(data.total || 0);
@@ -154,7 +139,7 @@ export default function WorkspaceClient() {
 
   useEffect(() => {
     if (!initialFetchDone.current) return;
-    
+
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current);
     }
@@ -162,7 +147,7 @@ export default function WorkspaceClient() {
       setCurrentPage(1);
       fetchItems(1);
     }, 300);
-    
+
     return () => {
       if (searchDebounceRef.current) {
         clearTimeout(searchDebounceRef.current);
@@ -205,30 +190,30 @@ export default function WorkspaceClient() {
   };
 
   const toggleStar = async (id: string, currentStarred: boolean) => {
-    setItems(prev => 
-      prev.map(item => 
+    setItems(prev =>
+      prev.map(item =>
         item.id === id ? { ...item, is_starred: !currentStarred } : item
       )
     );
-    
+
     try {
       const res = await fetch(`/api/workspace/items/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_starred: !currentStarred }),
       });
-      
+
       if (!res.ok) {
-        setItems(prev => 
-          prev.map(item => 
+        setItems(prev =>
+          prev.map(item =>
             item.id === id ? { ...item, is_starred: currentStarred } : item
           )
         );
       }
     } catch (error) {
       console.error('Failed to toggle star:', error);
-      setItems(prev => 
-        prev.map(item => 
+      setItems(prev =>
+        prev.map(item =>
           item.id === id ? { ...item, is_starred: currentStarred } : item
         )
       );
@@ -237,14 +222,14 @@ export default function WorkspaceClient() {
 
   const deleteItem = async (id: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return;
-    
+
     const itemToDelete = items.find(item => item.id === id);
     setItems(prev => prev.filter(item => item.id !== id));
     setTotal(prev => prev - 1);
-    
+
     try {
       const res = await fetch(`/api/workspace/items/${id}`, { method: 'DELETE' });
-      
+
       if (!res.ok) {
         if (itemToDelete) {
           setItems(prev => [...prev, itemToDelete]);
@@ -276,47 +261,46 @@ export default function WorkspaceClient() {
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    
+
     setUploading(true);
     let uploadedAny = false;
     const newProgress = Array.from(files).map(f => ({ fileName: f.name, status: 'uploading' as const }));
     setUploadProgress(newProgress);
-    
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       try {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('cloud_id', 'file-data');
-        
+
         const res = await fetch('/api/workspace/upload', {
           method: 'POST',
           body: formData,
         });
-        
+
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
           throw new Error(errorData.error || 'Failed to upload');
         }
-        
+
         uploadedAny = true;
-        setUploadProgress(prev => prev.map((p, idx) => 
+        setUploadProgress(prev => prev.map((p, idx) =>
           idx === i ? { ...p, status: 'success' } : p
         ));
       } catch (error) {
         console.error('Upload error:', error);
-        setUploadProgress(prev => prev.map((p, idx) => 
+        setUploadProgress(prev => prev.map((p, idx) =>
           idx === i ? { ...p, status: 'error' } : p
         ));
       }
     }
-    
+
     setUploading(false);
     fetchItems();
     if (uploadedAny && typeof window !== 'undefined') {
       window.dispatchEvent(new Event('workspace:items-updated'));
     }
-    
+
     setTimeout(() => {
       setUploadProgress([]);
     }, 3000);
@@ -351,7 +335,7 @@ export default function WorkspaceClient() {
   };
 
   return (
-    <div 
+    <div
       className="min-h-screen bg-zinc-50 relative"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -477,8 +461,8 @@ export default function WorkspaceClient() {
             <button
               onClick={() => setStarredOnly(!starredOnly)}
               className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${
-                starredOnly 
-                  ? 'bg-yellow-50 border-yellow-300 text-yellow-700' 
+                starredOnly
+                  ? 'bg-yellow-50 border-yellow-300 text-yellow-700'
                   : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'
               }`}
             >
@@ -538,13 +522,13 @@ export default function WorkspaceClient() {
             {items.map((item) => {
               const IconComponent = TYPE_ICONS[item.type] || TYPE_ICONS.generic;
               const colorGradient = TYPE_COLORS[item.type] || TYPE_COLORS.generic;
-              
+
               return (
                 <div key={item.id} className="group bg-white rounded-xl border border-zinc-200 overflow-hidden hover:shadow-md transition-shadow">
                   <Link href={`/workspace/${item.id}`}>
                     <div className="aspect-video relative">
                       {item.thumbnail_url ? (
-                        <img 
+                        <img
                           src={item.thumbnail_url}
                           alt={item.title}
                           className="w-full h-full object-cover"
@@ -618,12 +602,12 @@ export default function WorkspaceClient() {
             {items.map((item) => {
               const IconComponent = TYPE_ICONS[item.type] || TYPE_ICONS.generic;
               const colorGradient = TYPE_COLORS[item.type] || TYPE_COLORS.generic;
-              
+
               return (
                 <div key={item.id} className="group bg-white rounded-xl border border-zinc-200 p-4 hover:shadow-md transition-shadow flex items-center gap-4">
                   <Link href={`/workspace/${item.id}`} className="flex-shrink-0">
                     {item.thumbnail_url ? (
-                      <img 
+                      <img
                         src={item.thumbnail_url}
                         alt={item.title}
                         className="w-16 h-16 rounded-lg object-cover"
@@ -701,7 +685,7 @@ export default function WorkspaceClient() {
             >
               <ChevronLeft className="w-5 h-5 text-zinc-600" />
             </button>
-            
+
             {getPageNumbers().map((page, index) => (
               page === 'ellipsis' ? (
                 <span key={`ellipsis-${index}`} className="px-2 text-zinc-400">...</span>
@@ -719,7 +703,7 @@ export default function WorkspaceClient() {
                 </button>
               )
             ))}
-            
+
             <button
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}
@@ -727,7 +711,7 @@ export default function WorkspaceClient() {
             >
               <ChevronRight className="w-5 h-5 text-zinc-600" />
             </button>
-            
+
             <span className="ml-4 text-sm text-zinc-500">
               {total} items
             </span>

@@ -6,13 +6,13 @@ import type { Metadata } from "next";
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: "Dimi Lowe Courses",
-  description: "Access Dimi Lowe courses, apps, downloads, templates, and creator resources with one monthly membership.",
+  description: "Shop Dimi Lowe subscriptions, courses, apps, downloads, freebies, and more.",
   alternates: {
     canonical: "/store",
   },
   openGraph: {
     title: "Dimi Lowe Courses",
-    description: "Courses, apps, downloads, templates, and creator resources from Dimi Lowe in one monthly membership.",
+    description: "Subscriptions, courses, apps, downloads, freebies, and more from Dimi Lowe.",
     url: "/store",
     type: "website",
   },
@@ -20,8 +20,8 @@ export const metadata: Metadata = {
 
 async function getProducts(): Promise<PublicCatalogProduct[]> {
   return queryPublicCatalogProducts(
-    `SELECT id, slug, name, description, thumbnail_url, type, price_type, price 
-     FROM products 
+    `SELECT id, slug, name, description, thumbnail_url, type, price_type, price
+     FROM products
      WHERE visibility = 'public' AND type != 'invisible'
      ORDER BY created_at DESC`
   );
@@ -29,7 +29,7 @@ async function getProducts(): Promise<PublicCatalogProduct[]> {
 
 export default async function StorePage() {
   const products = await getProducts();
-  
+
   const productsByType = products.reduce((acc, product) => {
     if (!acc[product.type]) {
       acc[product.type] = [];
@@ -39,14 +39,17 @@ export default async function StorePage() {
   }, {} as Record<string, PublicCatalogProduct[]>);
 
   const typeOrder = ["app", "course", "funnel", "download", "freebie"];
-  const sortedTypes = typeOrder.filter(type => productsByType[type]);
+  const sortedTypes = [
+    ...typeOrder.filter(type => productsByType[type]),
+    ...Object.keys(productsByType).filter(type => !typeOrder.includes(type)).sort(),
+  ];
 
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="mb-12">
         <h1 className="text-4xl font-bold mb-4">Store</h1>
         <p className="text-xl text-muted-foreground">
-          One $49/month membership unlocks all courses available on the site.
+          Browse subscriptions, courses, apps, downloads, freebies, and more.
         </p>
       </div>
 

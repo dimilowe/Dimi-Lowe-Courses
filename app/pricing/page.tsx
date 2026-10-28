@@ -20,26 +20,22 @@ const GLOBAL_PLAN: Plan = {
   name: "Dimi Lowe All Access",
   price: "$49 / mo",
   badge: "Single plan",
-  description: "One subscription for every course, download, digital product, tool save feature, and workstation unlock.",
+  description: "One subscription for membership courses, apps, downloads, and resources.",
   gradient: "from-emerald-500 to-teal-600",
   features: [
-    "Access every course on the site",
-    "Access every paid digital product and download",
-    "Open any tool output in Image, PDF, or Audio Workstations",
-    "Build modular workstation layouts with drag-and-drop widgets",
-    "Save presets for tools",
-    "Save outputs to Workspace",
-    "Export clean files without VCM watermark",
-    "Works across all clouds and tools",
+    "Access membership courses and resources",
+    "Access apps and downloads included in the membership",
+    "Keep course resources and notes in Workspace",
+    "Find your included products in your dashboard",
     "Cancel anytime",
   ],
 };
 
 const VALUE_STACK = [
   {
-    title: "One payment unlocks the full library",
+    title: "One subscription opens the membership library",
     detail:
-      "Members can access every course, download, template, and digital product without buying each one separately.",
+      "Members can access the courses, apps, downloads, and resources included in their plan.",
   },
   {
     title: "Keep learning without checkout friction",
@@ -47,44 +43,38 @@ const VALUE_STACK = [
       "Open the next course or resource directly from your dashboard as new content gets added.",
   },
   {
-    title: "Tools and workstations stay included",
+    title: "Keep your learning organized",
     detail:
-      "All-access also keeps the existing save features, clean exports, presets, and workspace storage.",
+      "Use your dashboard and Workspace to keep course resources, notes, and homework together.",
   },
 ];
 
 const COMPARISON_ROWS = [
-  { label: "Access all courses", free: "No", pro: "Yes" },
-  { label: "Access all paid downloads/products", free: "No", pro: "Yes" },
-  { label: "Use all tools", free: "Yes", pro: "Yes" },
-  { label: "Use Image/PDF/Audio Workstations", free: "Yes", pro: "Yes" },
-  { label: "Modular widget editing", free: "Yes", pro: "Yes" },
-  { label: "Export with VCM watermark", free: "Yes", pro: "Yes" },
-  { label: "Export clean (no watermark)", free: "No", pro: "Yes" },
-  { label: "Save tool presets", free: "No", pro: "Yes" },
-  { label: "Save outputs to Workspace", free: "No", pro: "Yes" },
-  { label: "Access from any device after login", free: "Limited", pro: "Yes" },
-  { label: "Monthly price", free: "$0", pro: "$49" },
+  { label: "Browse the store and claim freebies", free: "Yes", pro: "Yes" },
+  { label: "Access products bought individually", free: "Yes", pro: "Yes" },
+  { label: "Access the membership library", free: "No", pro: "Yes" },
+  { label: "Save resources to Workspace", free: "No", pro: "Yes" },
+  { label: "Monthly membership price", free: "$0", pro: "$49" },
 ];
 
 const FAQS = [
   {
     q: "What does the membership include?",
-    a: "All courses, paid downloads, digital products, clean exports, saved presets, and workspace saving are included while your subscription is active.",
+    a: "Courses, apps, downloads, and other products marked as included in the membership are available while your subscription is active. Workspace saving is also included.",
   },
   {
     q: "What happens if I cancel?",
-    a: "You can cancel anytime. Your plan will not renew, and free usage remains available.",
+    a: "You can cancel anytime. Membership access lasts through the paid period. Products you purchased individually and freebies remain in your account.",
   },
   {
-    q: "Do I still buy courses individually?",
-    a: "No. The membership is designed to replace individual course and digital product purchases.",
+    q: "Can I buy products individually?",
+    a: "Yes. The store supports individual purchases, subscriptions, and freebies. Each product page shows its available purchase options.",
   },
 ];
 
 const PROOF_STATS = [
-  { label: "Tools available today", value: "100+" },
-  { label: "Workstation modes", value: "3" },
+  { label: "Membership plan", value: "All Access" },
+  { label: "Billing", value: "Monthly" },
   { label: "Cost per day", value: "~$1.63" },
 ];
 
@@ -96,7 +86,7 @@ const TESTIMONIALS = [
   },
   {
     quote:
-      "The membership makes the library feel like a working toolkit instead of a store checkout.",
+      "The membership makes the library feel like a resource library instead of a store checkout.",
     role: "Freelancer",
   },
   {
@@ -249,7 +239,7 @@ function PricingPageContent() {
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-zinc-900">Simple pricing. Clear value.</h1>
           <p className="mt-4 text-xl text-zinc-600 max-w-2xl mx-auto">
-            One $49/month membership unlocks the full content library plus clean exports, saving, presets, and workspace features.
+            One $49/month membership gives you access to included courses, apps, downloads, and resources, plus Workspace saving.
           </p>
         </div>
 
@@ -330,11 +320,11 @@ function PricingPageContent() {
           <div className="grid md:grid-cols-3 gap-4">
             <div className="rounded-xl bg-white border border-zinc-200 p-4">
               <p className="font-semibold text-zinc-900">Weekly creators</p>
-              <p className="text-sm text-zinc-600 mt-2">You want courses, resources, and tools available whenever the next project comes up.</p>
+              <p className="text-sm text-zinc-600 mt-2">You want membership courses, apps, and resources available as you learn.</p>
             </div>
             <div className="rounded-xl bg-white border border-zinc-200 p-4">
               <p className="font-semibold text-zinc-900">Freelancers & agencies</p>
-              <p className="text-sm text-zinc-600 mt-2">You want the full library plus clean, non-watermarked exports and reusable setup for client delivery.</p>
+              <p className="text-sm text-zinc-600 mt-2">You want included products and resources organized in one account.</p>
             </div>
             <div className="rounded-xl bg-white border border-zinc-200 p-4">
               <p className="font-semibold text-zinc-900">Skill builders</p>
@@ -358,7 +348,7 @@ function PricingPageContent() {
         <section className="mt-10 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
           <h3 className="text-2xl font-bold text-zinc-900">If you want more than one product, this pays for itself</h3>
           <p className="mt-2 text-zinc-700">
-            Instead of buying courses and downloads one by one, members get the full content library for one monthly price.
+            Explore the included courses, apps, downloads, and resources with one monthly membership.
           </p>
           <button
             onClick={handleSubscribe}
@@ -388,7 +378,7 @@ function PricingPageContent() {
         <section className="mt-10 pb-8 rounded-2xl bg-zinc-900 text-white p-6">
           <h3 className="text-2xl font-bold">Start with one plan. Cancel anytime.</h3>
           <p className="text-zinc-300 mt-2">
-            Get every current course and digital product, plus new eligible content added to the library while your membership is active.
+            Get access to the membership library and new eligible products added while your membership is active.
           </p>
           <button
             onClick={handleSubscribe}

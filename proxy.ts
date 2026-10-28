@@ -7,64 +7,19 @@ import { userSessionOptions } from "@/lib/user-session";
 import { normalizePathname } from "@/lib/seo/urlNormalization";
 import { recordApiInvocation } from "@/lib/ops/metrics";
 
-const SUNSET_MODE = false;
-const SUNSET_MESSAGE = "VCM Suite is now closed. Thank you for your support over the years.";
-const TOOLS_PUBLIC_DISABLED = true;
-const TOOLS_API_DISABLED = true;
-
 const API_RATE_WINDOW_MS = 10 * 60 * 1000;
 const API_DEFAULT_LIMIT = 120;
-const API_HEAVY_LIMIT = 30;
 
 const ACTION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const API_PROTECTION_EXCEPTIONS = [
   "/api/admin/",
   "/api/auth/",
   "/api/webhooks/",
-  "/api/tools/gate/",
   "/api/user/entitlements",
   "/api/user/subscription-capabilities",
 ];
-const HEAVY_ACTION_PREFIXES = [
-  "/api/tools/",
-  "/api/logo-generate",
-  "/api/image-compress",
-  "/api/gif-compress",
-  "/api/image-to-prompt",
-  "/api/keyword-finder",
-  "/api/summarizer",
-  "/api/reach-grabber",
-  "/api/chord-progression-finder",
-  "/api/audio-to-midi",
-  "/api/audio-key-detector",
-  "/api/vocal-melody-extractor",
-  "/api/ad-copy-analyzer",
-  "/api/ai-humanizer/",
-  "/api/buylens/run",
-];
-const UPLOAD_API_BYPASS_PREFIXES = [
-  "/api/producer-tag",
-  "/api/vocal-melody-extractor",
-  "/api/audio-to-midi",
-  "/api/audio-key-detector",
-  "/api/chord-progression-finder",
-  "/api/workspace/upload",
-  "/api/upload",
-  "/api/admin/upload",
-  "/api/pdf/merge",
-  "/api/pdf/split",
-];
 
-const RETIRED_PUBLIC_PATHS = new Set([
-  "/tools/vocal-melody-extractor",
-  "/tools/vocal-melody-extractor/",
-]);
-
-const SUNSET_ALLOWED_PATHS = new Set([
-  "/",
-  "/robots.txt",
-  "/sitemap.xml",
-]);
+const UPLOAD_API_BYPASS_PREFIXES = ["/api/workspace/upload", "/api/upload", "/api/admin/upload"];
 
 type RateLimitEntry = {
   count: number;
@@ -112,14 +67,6 @@ function shouldProtectApiAction(pathname: string, method: string): boolean {
   if (!pathname.startsWith("/api/")) return false;
   if (!ACTION_METHODS.has(method.toUpperCase())) return false;
   return !API_PROTECTION_EXCEPTIONS.some((prefix) => pathname.startsWith(prefix));
-}
-
-function isHeavyAction(pathname: string): boolean {
-  if (pathname.startsWith("/api/tools/gate/")) return false;
-  if (pathname.startsWith("/api/tools/search")) return false;
-  if (pathname.endsWith("/status")) return false;
-  if (pathname.endsWith("/download")) return false;
-  return HEAVY_ACTION_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
 function checkActionRateLimit(ip: string, pathname: string, limit: number): { allowed: boolean; retryAfterSeconds: number } {
@@ -173,75 +120,6 @@ function handleAppProxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (SUNSET_MODE && !SUNSET_ALLOWED_PATHS.has(pathname)) {
-    const isApi = pathname.startsWith("/api/");
-    if (isApi) {
-      return NextResponse.json(
-        { error: "VCM Suite is now closed." },
-        {
-          status: 410,
-          headers: {
-            "Cache-Control": "public, max-age=300",
-            "X-Robots-Tag": "noindex, nofollow, noarchive",
-          },
-        }
-      );
-    }
-
-    return new NextResponse(
-      `<!doctype html><html><head><title>410 Gone</title></head><body><h1>410 Gone</h1><p>${SUNSET_MESSAGE}</p></body></html>`,
-      {
-        status: 410,
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-          "Cache-Control": "public, max-age=300",
-          "X-Robots-Tag": "noindex, nofollow, noarchive",
-        },
-      }
-    );
-  }
-
-  if (RETIRED_PUBLIC_PATHS.has(pathname)) {
-    return new NextResponse(
-      "<!doctype html><html><head><title>410 Gone</title></head><body><h1>410 Gone</h1><p>This tool has been discontinued.</p></body></html>",
-      {
-        status: 410,
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-          "Cache-Control": "public, max-age=300",
-          "X-Robots-Tag": "noindex, nofollow, noarchive",
-        },
-      }
-    );
-  }
-
-  if (TOOLS_API_DISABLED && pathname.startsWith("/api/tools/")) {
-    return NextResponse.json(
-      { error: "Tool APIs have been retired." },
-      {
-        status: 410,
-        headers: {
-          "Cache-Control": "private, no-store, max-age=0",
-          "X-Robots-Tag": "noindex, nofollow, noarchive",
-        },
-      }
-    );
-  }
-
-  if (TOOLS_PUBLIC_DISABLED && (pathname === "/tools" || pathname.startsWith("/tools/"))) {
-    return new NextResponse(
-      "<!doctype html><html><head><title>410 Gone</title></head><body><h1>410 Gone</h1><p>VCM tools have been retired.</p></body></html>",
-      {
-        status: 410,
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-          "Cache-Control": "public, max-age=300",
-          "X-Robots-Tag": "noindex, nofollow, noarchive",
-        },
-      }
-    );
-  }
-
   if (UPLOAD_API_BYPASS_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return NextResponse.next();
   }
@@ -264,7 +142,7 @@ function handleAppProxy(request: NextRequest) {
       }
 
       const ip = getClientIp(request);
-      const limit = isHeavyAction(pathname) ? API_HEAVY_LIMIT : API_DEFAULT_LIMIT;
+      const limit = API_DEFAULT_LIMIT;
       const decision = checkActionRateLimit(ip, pathname, limit);
       cleanupRateLimitState();
 

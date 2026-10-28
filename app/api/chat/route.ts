@@ -5,11 +5,11 @@ import { query } from "@/lib/db";
 function getOpenAIClient() {
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-  
+
   if (!apiKey || !baseURL) {
     throw new Error("AI Integrations not configured");
   }
-  
+
   return new OpenAI({
     baseURL,
     apiKey,
@@ -19,7 +19,7 @@ function getOpenAIClient() {
 export async function POST(request: NextRequest) {
   try {
     const { message, messages } = await request.json();
-    
+
     const openai = getOpenAIClient();
 
     // Fetch all available products from the store
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }));
 
     // Create the AI prompt
-    const systemPrompt = `You are a helpful AI assistant for VCM Suite, a premium creator campus. Your role is to help visitors discover the perfect digital products, apps, tools, and resources for their creative business.
+    const systemPrompt = `You are a helpful AI assistant for VCM Suite, a product store. Your role is to help visitors discover the perfect subscriptions, courses, apps, downloads, freebies, and other products for their creative business.
 
 AVAILABLE PRODUCTS IN THE STORE:
 ${productsContext}
@@ -81,7 +81,7 @@ Be conversational and strategic - you're a business consultant, not just a produ
 
     // Extract product recommendations from the AI response
     const recommendedProducts: any[] = [];
-    
+
     // Find product names mentioned in the response
     products.forEach((product: any) => {
       const regex = new RegExp(product.name, "gi");

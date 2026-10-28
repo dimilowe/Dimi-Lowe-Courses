@@ -12,7 +12,7 @@ const GLOBAL_SUBSCRIPTION = {
   interval: "month",
   productName: "Dimi Lowe All Access",
   description:
-    "One subscription for every course, download, digital product, tool save feature, and workstation unlock.",
+    "One subscription for membership courses, apps, downloads, and resources.",
 } as const;
 
 function getStripeClient() {

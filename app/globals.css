@@ -4,28 +4,12 @@
   * {
     border-color: hsl(var(--border, 220 13% 91%));
   }
-  
+
   body {
     background-color: hsl(var(--background, 0 0% 100%));
     color: hsl(var(--foreground, 240 10% 3.9%));
     font-feature-settings: "rlig" 1, "calt" 1;
   }
-}
-
-html.audio-workstation-immersive [data-global-navbar="true"],
-body.audio-workstation-immersive [data-global-navbar="true"],
-html.audio-workstation-immersive [data-floating-tools-trigger="true"],
-body.audio-workstation-immersive [data-floating-tools-trigger="true"],
-html.audio-workstation-immersive [data-floating-tools-backdrop="true"],
-body.audio-workstation-immersive [data-floating-tools-backdrop="true"],
-html.audio-workstation-immersive [data-floating-tools-panel="true"],
-body.audio-workstation-immersive [data-floating-tools-panel="true"] {
-  display: none !important;
-}
-
-html.audio-workstation-immersive [data-feedback-trigger="true"],
-body.audio-workstation-immersive [data-feedback-trigger="true"] {
-  display: none !important;
 }
 
 @layer base {
@@ -82,12 +66,12 @@ body.audio-workstation-immersive [data-feedback-trigger="true"] {
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  
+
   .gradient-border {
     position: relative;
     background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(249, 115, 22, 0.1) 100%);
   }
-  
+
   .gradient-border::before {
     content: '';
     position: absolute;
@@ -104,23 +88,23 @@ body.audio-workstation-immersive [data-feedback-trigger="true"] {
   .app-card-pink {
     background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%);
   }
-  
+
   .app-card-blue {
     background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
   }
-  
+
   .app-card-yellow {
     background: linear-gradient(135deg, #eab308 0%, #facc15 100%);
   }
-  
+
   .app-card-teal {
     background: linear-gradient(135deg, #14b8a6 0%, #2dd4bf 100%);
   }
-  
+
   .app-card-orange {
     background: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
   }
-  
+
   .app-card-purple {
     background: linear-gradient(135deg, #a855f7 0%, #c084fc 100%);
   }
@@ -174,7 +158,7 @@ body.audio-workstation-immersive [data-feedback-trigger="true"] {
   border-radius: 0.5rem;
 }
 
-/* Styled Article Content - matching tool page design */
+/* Styled Article Content */
 .styled-article-content {
   font-size: 1.125rem;
   line-height: 1.75;
@@ -233,7 +217,7 @@ body.audio-workstation-immersive [data-feedback-trigger="true"] {
   text-decoration: underline;
 }
 
-/* Steps section - matching tool page "How it Works" design */
+/* Steps section */
 .styled-article-content .article-steps {
   background: #f9fafb;
   border-radius: 1rem;
@@ -284,7 +268,7 @@ body.audio-workstation-immersive [data-feedback-trigger="true"] {
   color: #6b7280;
 }
 
-/* FAQ section - matching tool page FAQ cards */
+/* FAQ section */
 .styled-article-content .article-faq {
   margin: 2.5rem 0;
 }
@@ -333,37 +317,6 @@ body.audio-workstation-immersive [data-feedback-trigger="true"] {
   margin-bottom: 1rem;
 }
 
-.styled-article-content .article-cta .tool-links {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: center;
-}
-
-.styled-article-content .article-cta .tool-links li {
-  margin: 0;
-}
-
-.styled-article-content .article-cta .tool-links a {
-  display: inline-block;
-  background: white;
-  border: 1px solid #ea580c;
-  color: #ea580c;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  font-size: 0.9375rem;
-  transition: all 0.2s;
-}
-
-.styled-article-content .article-cta .tool-links a:hover {
-  background: #ea580c;
-  color: white;
-  text-decoration: none;
-}
-
 /* Responsive adjustments */
 @media (min-width: 768px) {
   .styled-article-content .article-steps {
@@ -372,17 +325,17 @@ body.audio-workstation-immersive [data-feedback-trigger="true"] {
     gap: 1rem;
     padding: 2rem;
   }
-  
+
   .styled-article-content .article-steps h2 {
     grid-column: 1 / -1;
   }
-  
+
   .styled-article-content .article-steps .step {
     padding: 1.5rem;
     padding-top: 4rem;
     text-align: center;
   }
-  
+
   .styled-article-content .article-steps .step::before {
     left: 50%;
     transform: translateX(-50%);

@@ -1,5 +1,4 @@
 // canonical - Single source of truth for entitlement tiers
-// Run `npx tsx scripts/check-tier-duplicates.ts` to verify no duplicates exist
 export const ENTITLEMENT_TIERS = ['free', 'starter', 'basic', 'pro'] as const;
 export type EntitlementTier = (typeof ENTITLEMENT_TIERS)[number];
 

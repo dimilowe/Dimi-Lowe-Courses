@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { 
-  ArrowLeft, Star, Copy, Check, Clock, Calendar, 
+import {
+  ArrowLeft, Star, Copy, Check, Clock, Calendar,
   FileText, Image, Sparkles, File, Trash2, Download, Folder, Tag, Save, GitBranch
 } from 'lucide-react';
 
@@ -12,10 +12,6 @@ interface WorkspaceItemData {
   id: string;
   title: string;
   type: string;
-  origin_cloud_id: string | null;
-  cloud_id: string | null;
-  tool_id: string | null;
-  workflow_id: string | null;
   is_starred: boolean;
   preview_text: string | null;
   payload_json: Record<string, any>;
@@ -35,11 +31,6 @@ interface Props {
 }
 
 const TYPE_ICONS: Record<string, typeof FileText> = {
-  copy_output: FileText,
-  prompt_output: Sparkles,
-  image_asset: Image,
-  ad_bundle: FileText,
-  workflow_run: File,
   course_resource: FileText,
   generic: File,
 };
@@ -267,7 +258,7 @@ export default function WorkspaceItemClient({ item }: Props) {
           </div>
         );
       }
-      
+
       if (Array.isArray(value)) {
         return (
           <div key={key} className="mb-6">
@@ -314,7 +305,7 @@ export default function WorkspaceItemClient({ item }: Props) {
     <div className="min-h-screen bg-zinc-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <Link 
+          <Link
             href="/workspace"
             className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-700 transition-colors"
           >
@@ -326,7 +317,7 @@ export default function WorkspaceItemClient({ item }: Props) {
         <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
           {item.thumbnail_url ? (
             <div className="w-full aspect-video bg-zinc-100">
-              <img 
+              <img
                 src={item.thumbnail_url}
                 alt={item.title}
                 className="w-full h-full object-contain"
@@ -337,7 +328,7 @@ export default function WorkspaceItemClient({ item }: Props) {
               <IconComponent className="w-12 h-12 text-zinc-400" />
             </div>
           )}
-          
+
           <div className="p-6">
             <div className="flex items-start justify-between gap-4 mb-6">
               <div className="flex-1">
@@ -354,7 +345,7 @@ export default function WorkspaceItemClient({ item }: Props) {
                   <p className="text-zinc-500 mt-2">{item.preview_text}</p>
                 )}
               </div>
-              
+
               <div className="flex items-center gap-2">
                 {item.file_url && (
                   <a
@@ -402,9 +393,6 @@ export default function WorkspaceItemClient({ item }: Props) {
                 <Clock className="w-4 h-4" />
                 Updated: {formatDate(item.updated_at)}
               </span>
-              {item.tool_id && (
-                <span className="text-zinc-400">Tool: {item.tool_id}</span>
-              )}
             </div>
 
             <div className="mb-8 p-4 rounded-xl border border-zinc-200 bg-zinc-50">

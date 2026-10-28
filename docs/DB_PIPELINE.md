@@ -1,60 +1,23 @@
-# Database Promotion Pipeline (Dev -> Prod)
+# Database promotion pipeline
 
-This project now supports target-aware DB commands with migration tracking.
+Set `DATABASE_URL_DEV` and `DATABASE_URL_PROD` in the environment. `DATABASE_URL` is a fallback when a target-specific value is absent.
 
-## Environment Variables
+Run migrations and verification against development first:
 
-Set these in Replit Secrets (or your shell):
+```sh
+npm run db:migrate:dev
+npm run db:verify:dev
+```
 
-- `DATABASE_URL_DEV`
-- `DATABASE_URL_PROD`
+Then apply the reviewed migrations and verification to production:
 
-Optional fallback:
+```sh
+npm run db:migrate:prod
+npm run db:verify:prod
+```
 
-- `DATABASE_URL` (used only if target-specific variable is missing)
+The migration runner reads `scripts/migrations/*.sql` and tracks checksums in `schema_migrations`. Do not edit or remove applied migrations; create a new migration for schema changes. Historical tool migrations remain for compatibility, but tool seeding and visibility scripts have been removed.
 
-## Commands
+Verification checks the store's users, products, entitlements, purchases, and learner workspace. Existing subscription grants remain in the legacy entitlement tables so active subscriptions and Stripe fulfillment continue to work.
 
-### Migrations
-
-- Dev: `npm run db:migrate:dev`
-- Prod: `npm run db:migrate:prod`
-
-Migrations are read from `scripts/migrations/*.sql` and tracked in `schema_migrations`.
-
-### Audio tool seed
-
-- Dev: `npm run db:seed:audio:dev`
-- Prod: `npm run db:seed:audio:prod`
-
-### Visibility sync (hidden legacy tools)
-
-- Dev: `npm run db:sync:visibility:dev`
-- Prod: `npm run db:sync:visibility:prod`
-
-### Verification
-
-- Dev: `npm run db:verify:dev`
-- Prod: `npm run db:verify:prod`
-
-## Recommended Promotion Flow
-
-0. Pull latest code first:
-   - `git pull origin main`
-1. Run on dev:
-   - `npm run db:migrate:dev`
-   - `npm run db:seed:audio:dev`
-   - `npm run db:sync:visibility:dev`
-   - `npm run db:verify:dev`
-2. Run on prod:
-   - `npm run db:migrate:prod`
-   - `npm run db:seed:audio:prod`
-   - `npm run db:sync:visibility:prod`
-   - `npm run db:verify:prod`
-3. Deploy app.
-
-## Notes
-
-- Do not copy the full dev DB to prod.
-- Only promote schema migrations + controlled seed scripts.
-- If a migration SQL file is edited after apply, checksum validation will fail. Create a new migration instead.
+Promote code and reviewed schema changes, rather than copying the development database over production customer data. See `local-postgres.md` for local setup.
